@@ -63,8 +63,9 @@ export default abstract class BaseFrame {
    */
   protected loadPage(): void {
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      // 开发模式：加载 URL
-      const url = new URL(this.routePath, process.env['ELECTRON_RENDERER_URL'])
+      // 开发模式：加载 URL，使用 hash 模式匹配 Vue Router
+      const url = new URL(process.env['ELECTRON_RENDERER_URL'])
+      url.hash = this.routePath
       this.window?.loadURL(url.href)
     } else {
       // 生产模式：加载本地文件

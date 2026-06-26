@@ -1,0 +1,4 @@
+provider: github
+owner: yt-xg
+repo: electron-vite-learn
+channel: latest

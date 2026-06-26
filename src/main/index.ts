@@ -1,11 +1,11 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
-import { UpdateService } from './updateService'
 import { TrayService } from './trayService'
+import AppUpdater from './updater/AppUpdater'
 
 /** 更新服务实例 */
-let updateService: UpdateService | null = null
+let appUpdater: AppUpdater | null = null
 
 /** 托盘服务实例 */
 let trayService: TrayService | null = null
@@ -26,15 +26,29 @@ app.whenReady().then(() => {
   const mainFrame = windowFactory.createMainFrame()
   const mainWindow = mainFrame.getWindow()!
 
-  // 初始化更新服务
-  updateService = new UpdateService(mainWindow)
+  // 初始化托盘服务（暂时传入 null，后面会设置 appUpdater）
+  trayService = new TrayService(mainWindow, null as any)
 
-  // 初始化托盘服务（传递 updateService 引用）
-  trayService = new TrayService(mainWindow, updateService)
-
-  // 应用启动 3 秒后检查更新（避免影响启动速度）
+  // 应用启动 3 秒后启动检查更新窗口
   setTimeout(() => {
-    updateService?.checkForUpdates()
+    // 创建检查更新窗口（TestFrame）
+    const testFrame = windowFactory.getTestFrame()
+    testFrame.create()
+    const testWindow = testFrame.getWindow()
+
+    if (testWindow) {
+      // 初始化自定义更新服务，绑定到检查更新窗口
+      appUpdater = new AppUpdater(testWindow)
+
+      // 设置托盘服务的更新服务引用
+      trayService?.setAppUpdater(appUpdater)
+
+      // 检查更新窗口准备好后，开始检查更新
+      testWindow.webContents.on('did-finish-load', () => {
+        console.log('检查更新窗口加载完成，开始检查更新...')
+        appUpdater?.checkForUpdates()
+      })
+    }
   }, 3000)
 
   // 应用激活时重新创建窗口（macOS）

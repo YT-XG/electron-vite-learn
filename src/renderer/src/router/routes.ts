@@ -15,5 +15,10 @@ export const AppRoutes = [
     path: '/update',
     name: '更新',
     component: () => import('@renderer/views/UpdateDialog.vue')
+  },
+  {
+    path: '/test',
+    name: '测试',
+    component: () => import('@renderer/views/Test.vue')
   }
 ]

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import { UpdateService } from './updateService'
+import AppUpdater from './updater/AppUpdater'
 
 /**
  * 系统托盘服务
@@ -14,7 +14,7 @@ export class TrayService {
   private mainWindow: BrowserWindow | null = null
 
   /** 更新服务引用 */
-  private updateService: UpdateService | null = null
+  private appUpdater: AppUpdater | null = null
 
   /** 托盘图标路径 */
   private readonly iconPath: string = icon
@@ -22,11 +22,11 @@ export class TrayService {
   /**
    * 构造函数
    * @param mainWindow - 主窗口实例
-   * @param updateService - 更新服务实例
+   * @param appUpdater - 更新服务实例
    */
-  constructor(mainWindow: BrowserWindow, updateService: UpdateService) {
+  constructor(mainWindow: BrowserWindow, appUpdater: AppUpdater) {
     this.mainWindow = mainWindow
-    this.updateService = updateService
+    this.appUpdater = appUpdater
     this.createTray()
   }
 
@@ -130,9 +130,9 @@ export class TrayService {
    * 检查更新
    */
   private checkForUpdates(): void {
-    // 直接调用更新服务检查更新
-    if (this.updateService) {
-      this.updateService.checkForUpdates()
+    // 调用更新服务检查更新
+    if (this.appUpdater) {
+      this.appUpdater.checkForUpdates()
     }
   }
 
@@ -165,6 +165,14 @@ export class TrayService {
    */
   getTray(): Tray | null {
     return this.tray
+  }
+
+  /**
+   * 设置更新服务实例
+   * @param appUpdater - 更新服务实例
+   */
+  setAppUpdater(appUpdater: AppUpdater): void {
+    this.appUpdater = appUpdater
   }
 }
 

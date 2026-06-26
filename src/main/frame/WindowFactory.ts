@@ -2,6 +2,7 @@ import MainFrame from './MainFrame'
 import NoticeFrame from './NoticeFrame'
 import UpdateFrame from './UpdateFrame'
 import MusicFrame from './MusicFrame'
+import TestFrame from './TestFrame'
 
 /**
  * 窗口工厂
@@ -19,6 +20,9 @@ export default class WindowFactory {
 
   /** 音乐窗口实例 */
   #musicFrame: MusicFrame | null = null
+
+  /** 测试窗口 */
+  #testFrame: TestFrame | null = null
 
   /**
    * 获取主窗口（悬浮球时钟）
@@ -62,6 +66,16 @@ export default class WindowFactory {
       this.#musicFrame = new MusicFrame()
     }
     return this.#musicFrame
+  }
+  /**
+   * 获取测试窗口
+   * @returns TestFrame 实例
+   */
+  getTestFrame(): TestFrame {
+    if (!this.#testFrame) {
+      this.#testFrame = new TestFrame()
+    }
+    return this.#testFrame
   }
 
   /**

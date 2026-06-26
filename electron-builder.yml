@@ -39,10 +39,9 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  # 替换为你的 Gitee 仓库地址（ Releases 页面的 raw 链接）
-  # 格式：https://gitee.com/{用户名}/{仓库名}/raw/{分支名}/releases
-  url: https://gitee.com/yt-xg/electron-vite-learn/raw/main/releases
+  provider: github
+  owner: yt-xg
+  repo: electron-vite-learn
   channel: latest
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
