@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserWindowConstructorOptions, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
@@ -85,11 +85,17 @@ export default abstract class BaseFrame {
   }
 
   /**
-   * 关闭窗口
+   * 关闭窗口（隐藏到托盘）
    */
   close(): void {
     if (this.window && !this.window.isDestroyed()) {
-      this.window.close()
+      // 如果正在退出应用，真正关闭窗口
+      if ((app as any).isQuitting) {
+        this.window.close()
+      } else {
+        // 否则隐藏窗口到托盘
+        this.window.hide()
+      }
     }
   }
 

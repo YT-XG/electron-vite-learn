@@ -8,6 +8,7 @@ electron-vite-learn/
 │   ├── main/                    # Electron 主进程
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
 │   │   ├── updateService.ts    # 自动更新服务
+│   │   ├── trayService.ts      # 系统托盘服务
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -72,7 +73,10 @@ electron-vite-learn/
 
 ### 主进程 (src/main/)
 - **职责**: 管理应用生命周期、创建窗口、处理系统级操作
-- **关键文件**: `index.ts` - 主进程入口，应用生命周期管理
+- **关键文件**:
+  - `index.ts` - 主进程入口，应用生命周期管理
+  - `updateService.ts` - 自动更新服务
+  - `trayService.ts` - 系统托盘服务
 - **依赖**: electron, @electron-toolkit/utils
 
 ### 窗口框架 (src/main/frame/)
@@ -100,6 +104,25 @@ electron-vite-learn/
 
   // 显示音乐窗口
   windowFactory.showMusic()
+  ```
+
+### 系统托盘 (src/main/trayService.ts)
+- **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
+- **功能**:
+  - 创建系统托盘图标
+  - 右键菜单：显示窗口、隐藏窗口、检查更新、退出
+  - 双击托盘图标：显示/隐藏窗口
+  - 关闭窗口时隐藏到托盘（不退出应用）
+  - 点击"退出"菜单才真正退出应用
+- **使用方式**:
+  ```typescript
+  import { TrayService } from './trayService'
+
+  // 在主进程启动时初始化
+  const trayService = new TrayService(mainWindow)
+
+  // 退出时销毁
+  trayService.destroy()
   ```
 
 ### 预加载脚本 (src/preload/)

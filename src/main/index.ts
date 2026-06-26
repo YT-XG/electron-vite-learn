@@ -2,9 +2,16 @@ import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
 import { UpdateService } from './updateService'
+import { TrayService } from './trayService'
 
 /** 更新服务实例 */
 let updateService: UpdateService | null = null
+
+/** 托盘服务实例 */
+let trayService: TrayService | null = null
+
+// 设置退出标志
+;(app as any).isQuitting = false
 
 app.whenReady().then(() => {
   // 设置应用用户模型 ID
@@ -17,9 +24,13 @@ app.whenReady().then(() => {
 
   // 创建主窗口（悬浮球时钟）
   const mainFrame = windowFactory.createMainFrame()
+  const mainWindow = mainFrame.getWindow()!
 
   // 初始化更新服务
-  updateService = new UpdateService(mainFrame.getWindow()!)
+  updateService = new UpdateService(mainWindow)
+
+  // 初始化托盘服务
+  trayService = new TrayService(mainWindow)
 
   // 应用启动 3 秒后检查更新（避免影响启动速度）
   setTimeout(() => {
@@ -36,8 +47,21 @@ app.whenReady().then(() => {
 
 // 所有窗口关闭时退出应用（非 macOS）
 app.on('window-all-closed', () => {
-  windowFactory.closeAll()
+  // 注意：有托盘时，关闭窗口不会退出应用
+  // 只有点击托盘菜单的"退出"才会真正退出
   if (process.platform !== 'darwin') {
-    app.quit()
+    // 如果不是从托盘退出，不关闭所有窗口
+    if (!(app as any).isQuitting) {
+      return
+    }
   }
+  windowFactory.closeAll()
+  trayService?.destroy()
+  app.quit()
+})
+
+// 应用退出前的清理
+app.on('before-quit', () => {
+  ;(app as any).isQuitting = true
+  trayService?.destroy()
 })
