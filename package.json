@@ -24,6 +24,8 @@
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
     "axios": "^1.18.1",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.9",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "vue-router": "^4.6.4"

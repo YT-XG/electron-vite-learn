@@ -6,7 +6,15 @@
 electron-vite-learn/
 ├── src/
 │   ├── main/                    # Electron 主进程
-│   │   └── index.ts            # 主进程入口，窗口创建，IPC 处理
+│   │   ├── index.ts            # 主进程入口，应用生命周期管理
+│   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
+│   │       ├── index.ts        # 统一导出
+│   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
+│   │       ├── MainFrame.ts    # 主窗口（悬浮球时钟）
+│   │       ├── NoticeFrame.ts  # 通知窗口
+│   │       ├── UpdateFrame.ts  # 更新窗口
+│   │       ├── MusicFrame.ts   # 音乐窗口
+│   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
 │   │   └── index.d.ts          # 类型定义
@@ -62,8 +70,35 @@ electron-vite-learn/
 
 ### 主进程 (src/main/)
 - **职责**: 管理应用生命周期、创建窗口、处理系统级操作
-- **关键文件**: `index.ts` - 主进程入口，包含窗口创建和 IPC 通信
+- **关键文件**: `index.ts` - 主进程入口，应用生命周期管理
 - **依赖**: electron, @electron-toolkit/utils
+
+### 窗口框架 (src/main/frame/)
+- **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
+- **关键文件**:
+  - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
+  - `MainFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
+  - `NoticeFrame.ts` - 通知窗口，从右下角弹出显示通知
+  - `UpdateFrame.ts` - 更新窗口，显示软件更新对话框
+  - `MusicFrame.ts` - 音乐窗口，显示音乐播放对话框
+  - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
+- **设计模式**: 工厂模式 + 模板方法模式
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 创建主窗口
+  windowFactory.createMainFrame()
+
+  // 显示通知
+  windowFactory.showNotice('剪贴板内容已更新')
+
+  // 显示更新窗口
+  windowFactory.showUpdate('1.0.1', '修复了一些 bug')
+
+  // 显示音乐窗口
+  windowFactory.showMusic()
+  ```
 
 ### 预加载脚本 (src/preload/)
 - **职责**: 在主进程和渲染进程之间建立安全的桥梁
