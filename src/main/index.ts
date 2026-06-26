@@ -1,6 +1,10 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
+import { UpdateService } from './updateService'
+
+/** 更新服务实例 */
+let updateService: UpdateService | null = null
 
 app.whenReady().then(() => {
   // 设置应用用户模型 ID
@@ -12,7 +16,15 @@ app.whenReady().then(() => {
   })
 
   // 创建主窗口（悬浮球时钟）
-  windowFactory.createMainFrame()
+  const mainFrame = windowFactory.createMainFrame()
+
+  // 初始化更新服务
+  updateService = new UpdateService(mainFrame.getWindow()!)
+
+  // 应用启动 3 秒后检查更新（避免影响启动速度）
+  setTimeout(() => {
+    updateService?.checkForUpdates()
+  }, 3000)
 
   // 应用激活时重新创建窗口（macOS）
   app.on('activate', () => {

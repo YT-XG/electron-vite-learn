@@ -12,7 +12,7 @@ export const AppRoutes = [
     component: () => import('@renderer/views/Notice.vue')
   },
   {
-    path: '/UpdateDialog',
+    path: '/update',
     name: '更新',
     component: () => import('@renderer/views/UpdateDialog.vue')
   }

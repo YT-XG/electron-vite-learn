@@ -85,12 +85,11 @@ export default class WindowFactory {
 
   /**
    * 显示更新窗口
-   * @param version - 新版本号
-   * @param releaseNotes - 更新说明
+   * @param data - 更新信息
    */
-  showUpdate(version: string, releaseNotes?: string): void {
+  showUpdate(data: { version: string; releaseNotes?: string; releaseName?: string }): void {
     const frame = this.getUpdateFrame()
-    frame.showUpdate(version, releaseNotes)
+    frame.showUpdate(data)
   }
 
   /**

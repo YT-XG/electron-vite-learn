@@ -7,6 +7,7 @@ electron-vite-learn/
 ├── src/
 │   ├── main/                    # Electron 主进程
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
+│   │   ├── updateService.ts    # 自动更新服务
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -36,7 +37,8 @@ electron-vite-learn/
 │           │   ├── Home.vue   # 悬浮球时钟（可拖拽、显示当前时间）
 │           │   ├── About.vue  # 关于页
 │           │   ├── Notice.vue # 通知窗口（剪贴板通知）
-│           │   └── MusicDialog.vue # 音乐对话框
+│           │   ├── MusicDialog.vue # 音乐对话框
+│           │   └── UpdateDialog.vue # 更新对话框
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
 │           ├── utils/          # 工具函数

@@ -8,8 +8,8 @@ import BaseFrame from './BaseFrame'
 export default class UpdateFrame extends BaseFrame {
   /** 窗口配置 */
   protected readonly options: BrowserWindowConstructorOptions = {
-    width: 400,
-    height: 300,
+    width: 420,
+    height: 320,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -23,19 +23,50 @@ export default class UpdateFrame extends BaseFrame {
 
   /**
    * 显示更新窗口
-   * @param version - 新版本号
-   * @param releaseNotes - 更新说明
+   * @param data - 更新信息
    */
-  showUpdate(version: string, releaseNotes?: string): void {
+  showUpdate(data: {
+    version: string
+    releaseNotes?: string
+    releaseName?: string
+  }): void {
     if (!this.isAlive()) {
       this.create()
     }
 
     // 发送更新信息到渲染进程
-    this.send('update-available', { version, releaseNotes })
+    this.send('update-available', data)
 
     // 居中显示
     this.window?.center()
     this.window?.show()
+  }
+
+  /**
+   * 发送下载进度
+   * @param progress - 下载进度
+   */
+  sendProgress(progress: {
+    percent: number
+    transferred: number
+    total: number
+    bytesPerSecond: number
+  }): void {
+    this.send('update-progress', progress)
+  }
+
+  /**
+   * 发送下载完成通知
+   */
+  sendDownloadComplete(): void {
+    this.send('update-downloaded')
+  }
+
+  /**
+   * 发送错误通知
+   * @param error - 错误信息
+   */
+  sendError(error: { message: string; code?: string }): void {
+    this.send('update-error', error)
   }
 }
