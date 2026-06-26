@@ -1,0 +1,8 @@
+version: 1.0.2-beta.3
+files:
+  - url: electron-app-1.0.2-beta.3-setup.exe
+    sha512: 5d1f8ec2f802de0dd566451909494343822fc3693b73a47bad4a79b60a2f150ebe1645894d91db0e497e9a03fb4712610d9d975b938bb6edf486e5455de32a8d
+    size: 83886080
+path: electron-app-1.0.2-beta.3-setup.exe
+sha512: 5d1f8ec2f802de0dd566451909494343822fc3693b73a47bad4a79b60a2f150ebe1645894d91db0e497e9a03fb4712610d9d975b938bb6edf486e5455de32a8d
+releaseDate: '2026-06-26T00:00:00.000Z'

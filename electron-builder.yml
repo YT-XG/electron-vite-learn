@@ -39,9 +39,8 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: github
-  owner: yt-xg
-  repo: electron-vite-learn
+  provider: generic
+  url: https://gitee.com/yt-xg/electron-vite-learn/raw/main/releases
   channel: latest
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
