@@ -29,8 +29,8 @@ app.whenReady().then(() => {
   // 初始化更新服务
   updateService = new UpdateService(mainWindow)
 
-  // 初始化托盘服务
-  trayService = new TrayService(mainWindow)
+  // 初始化托盘服务（传递 updateService 引用）
+  trayService = new TrayService(mainWindow, updateService)
 
   // 应用启动 3 秒后检查更新（避免影响启动速度）
   setTimeout(() => {

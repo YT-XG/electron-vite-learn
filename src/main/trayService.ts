@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../resources/icon.png?asset'
+import { UpdateService } from './updateService'
 
 /**
  * 系统托盘服务
@@ -12,15 +13,20 @@ export class TrayService {
   /** 主窗口引用 */
   private mainWindow: BrowserWindow | null = null
 
+  /** 更新服务引用 */
+  private updateService: UpdateService | null = null
+
   /** 托盘图标路径 */
   private readonly iconPath: string = icon
 
   /**
    * 构造函数
    * @param mainWindow - 主窗口实例
+   * @param updateService - 更新服务实例
    */
-  constructor(mainWindow: BrowserWindow) {
+  constructor(mainWindow: BrowserWindow, updateService: UpdateService) {
     this.mainWindow = mainWindow
+    this.updateService = updateService
     this.createTray()
   }
 
@@ -124,8 +130,10 @@ export class TrayService {
    * 检查更新
    */
   private checkForUpdates(): void {
-    // 发送事件到主窗口，触发更新检查
-    this.mainWindow?.webContents.send('check-for-updates')
+    // 直接调用更新服务检查更新
+    if (this.updateService) {
+      this.updateService.checkForUpdates()
+    }
   }
 
   /**
