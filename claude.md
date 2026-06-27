@@ -7,8 +7,12 @@ electron-vite-learn/
 ├── src/
 │   ├── main/                    # Electron 主进程
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
-│   │   ├── updateService.ts    # 自动更新服务
+│   │   ├── updateService.ts    # 自动更新服务（旧版，未使用）
 │   │   ├── trayService.ts      # 系统托盘服务
+│   │   ├── updater/            # 局域网更新服务
+│   │   │   ├── index.ts        # 更新服务模块导出
+│   │   │   ├── LanUpdateService.ts # 局域网更新服务（核心）
+│   │   │   └── config.ts       # 更新配置
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -16,6 +20,7 @@ electron-vite-learn/
 │   │       ├── NoticeFrame.ts  # 通知窗口
 │   │       ├── UpdateFrame.ts  # 更新窗口
 │   │       ├── MusicFrame.ts   # 音乐窗口
+│   │       ├── TestFrame.ts    # 测试窗口
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
@@ -49,6 +54,8 @@ electron-vite-learn/
 │               ├── main.css
 │               ├── electron.svg
 │               └── wavy-lines.svg
+├── types/                      # 类型声明
+│   └── tailwindcss.d.ts        # TailwindCSS 类型声明
 ├── build/                      # 构建配置
 ├── resources/                  # 应用资源（图标等）
 ├── electron.vite.config.ts     # Electron-Vite 配置
@@ -62,6 +69,7 @@ electron-vite-learn/
 
 - **框架**: Electron 28 + Vue 3.4 + TypeScript 5.3
 - **构建工具**: Vite 5 + electron-vite 2
+- **CSS 框架**: TailwindCSS 4
 - **路由**: Vue Router 4
 - **状态管理**: Pinia
 - **HTTP 请求**: Axios
@@ -75,9 +83,44 @@ electron-vite-learn/
 - **职责**: 管理应用生命周期、创建窗口、处理系统级操作
 - **关键文件**:
   - `index.ts` - 主进程入口，应用生命周期管理
-  - `updateService.ts` - 自动更新服务
+  - `updateService.ts` - 自动更新服务（旧版，未使用）
   - `trayService.ts` - 系统托盘服务
 - **依赖**: electron, @electron-toolkit/utils
+
+### 局域网更新服务 (src/main/updater/)
+- **职责**: 通过 SMB 共享文件夹检查和下载应用更新
+- **关键文件**:
+  - `LanUpdateService.ts` - 局域网更新服务核心类
+  - `config.ts` - 更新配置（服务器地址、缓存目录等）
+  - `index.ts` - 模块导出
+- **功能**:
+  - 读取局域网共享文件夹的 `latest.yml` 版本信息
+  - 比较本地版本与远程版本（使用 semver）
+  - 下载更新包到本地缓存目录
+  - 提供 IPC 接口供渲染进程调用
+- **IPC 接口**:
+  - `lan-update:check` - 检查更新
+  - `lan-update:download` - 下载更新
+  - `lan-update:install` - 安装更新
+  - `lan-update:cancel` - 取消下载
+- **配置方式**:
+  - 环境变量: `UPDATE_SERVER_URL=\\电脑名\共享名`
+  - 代码配置: 构造函数传入配置对象
+- **使用方式**:
+  ```typescript
+  import { LanUpdateService } from './updater'
+
+  // 初始化局域网更新服务
+  const lanUpdateService = new LanUpdateService(mainWindow, {
+    serverUrl: '\\\\DESKTOP-PC\\releases'
+  })
+
+  // 检查更新
+  await lanUpdateService.checkForUpdates()
+
+  // 退出时销毁
+  lanUpdateService.destroy()
+  ```
 
 ### 窗口框架 (src/main/frame/)
 - **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口

@@ -1,4 +1,4 @@
-import { BrowserWindowConstructorOptions, clipboard, ipcMain, screen } from 'electron'
+import { BrowserWindow, BrowserWindowConstructorOptions, clipboard, ipcMain, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 
 /**
@@ -19,6 +19,7 @@ export default class MainFrame extends BaseFrame {
     transparent: true,
     frame: false,
     alwaysOnTop: true,
+    skipTaskbar: true,
     resizable: false
   }
 
@@ -41,11 +42,13 @@ export default class MainFrame extends BaseFrame {
   protected registerIPC(): void {
     super.registerIPC()
 
-    // 窗口拖拽定位（处理 DPI 缩放问题）
+    // 窗口拖拽定位（处理 DPI 缩放问题，移动发送事件的窗口而非固定窗口）
     ipcMain.handle(
       'custom-adsorption',
-      (_event, { mouseX, mouseY, offsetLeft, offsetTop, windowWidth, windowHeight }) => {
-        if (!this.isAlive()) return
+      (event, { mouseX, mouseY, offsetLeft, offsetTop, windowWidth, windowHeight }) => {
+        // 获取发送事件的窗口，避免多窗口共用频道时互相干扰
+        const senderWindow = BrowserWindow.fromWebContents(event.sender)
+        if (!senderWindow || senderWindow.isDestroyed()) return
 
         // 获取鼠标所在屏幕的显示信息
         const display = screen.getDisplayNearestPoint({ x: mouseX, y: mouseY })
@@ -61,7 +64,7 @@ export default class MainFrame extends BaseFrame {
         targetX = Math.max(workArea.x, Math.min(targetX, maxX))
         targetY = Math.max(workArea.y, Math.min(targetY, maxY))
 
-        this.window!.setPosition(targetX, targetY)
+        senderWindow.setPosition(targetX, targetY)
       }
     )
 
@@ -94,6 +97,30 @@ export default class MainFrame extends BaseFrame {
         this.window!.setResizable(false)
       }
     )
+
+    // 从通知窗口恢复为悬浮球：隐藏 → 缩小 → 定位（显示由 Home.vue 挂载后触发）
+    ipcMain.handle('restore-ball', (_event, { x, y }: { x: number; y: number }) => {
+      if (!this.isAlive()) return
+
+      this.window!.hide()
+      this.window!.setResizable(true)
+      this.window!.setSize(90, 90)
+
+      const display = screen.getDisplayNearestPoint({ x, y })
+      const { workArea } = display
+      const safeX = Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - 90))
+      const safeY = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - 90))
+      this.window!.setPosition(safeX, safeY)
+
+      this.window!.setResizable(false)
+    })
+
+    // 显示窗口（由渲染进程组件挂载后调用）
+    ipcMain.on('window:show', () => {
+      if (this.isAlive()) {
+        this.window!.show()
+      }
+    })
   }
 
   /**

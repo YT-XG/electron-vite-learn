@@ -2,10 +2,10 @@ import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
 import { TrayService } from './trayService'
-import AppUpdater from './updater/AppUpdater'
+import { LanUpdateService } from './updater'
 
-/** 更新服务实例 */
-let appUpdater: AppUpdater | null = null
+/** 局域网更新服务实例 */
+let lanUpdateService: LanUpdateService | null = null
 
 /** 托盘服务实例 */
 let trayService: TrayService | null = null
@@ -26,8 +26,8 @@ app.whenReady().then(() => {
   const mainFrame = windowFactory.createMainFrame()
   const mainWindow = mainFrame.getWindow()!
 
-  // 初始化托盘服务（暂时传入 null，后面会设置 appUpdater）
-  trayService = new TrayService(mainWindow, null as any)
+  // 初始化托盘服务（暂时传入 null，后面会设置更新服务）
+  trayService = new TrayService(mainWindow, null)
 
   // 应用启动 3 秒后启动检查更新窗口
   setTimeout(() => {
@@ -37,17 +37,14 @@ app.whenReady().then(() => {
     const testWindow = testFrame.getWindow()
 
     if (testWindow) {
-      // 初始化自定义更新服务，绑定到检查更新窗口
-      appUpdater = new AppUpdater(testWindow)
-
-      // 设置托盘服务的更新服务引用
-      trayService?.setAppUpdater(appUpdater)
-
-      // 检查更新窗口准备好后，开始检查更新
-      testWindow.webContents.on('did-finish-load', () => {
-        console.log('检查更新窗口加载完成，开始检查更新...')
-        appUpdater?.checkForUpdates()
+      // 初始化局域网更新服务，绑定到检查更新窗口
+      lanUpdateService = new LanUpdateService(testWindow, {
+        // 默认 SMB 路径，可通过环境变量覆盖
+        serverUrl: process.env.UPDATE_SERVER_URL || '\\\\10.15.8.28\\releases'
       })
+      // 设置托盘服务的更新服务引用
+      trayService?.setLanUpdateService(lanUpdateService)
+      console.log('[App] 局域网更新服务已初始化')
     }
   }, 3000)
 
@@ -71,6 +68,7 @@ app.on('window-all-closed', () => {
   }
   windowFactory.closeAll()
   trayService?.destroy()
+  lanUpdateService?.destroy()
   app.quit()
 })
 
@@ -78,4 +76,5 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   ;(app as any).isQuitting = true
   trayService?.destroy()
+  lanUpdateService?.destroy()
 })

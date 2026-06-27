@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import AppUpdater from './updater/AppUpdater'
+import { LanUpdateService } from './updater'
 
 /**
  * 系统托盘服务
@@ -14,7 +14,7 @@ export class TrayService {
   private mainWindow: BrowserWindow | null = null
 
   /** 更新服务引用 */
-  private appUpdater: AppUpdater | null = null
+  private lanUpdateService: LanUpdateService | null = null
 
   /** 托盘图标路径 */
   private readonly iconPath: string = icon
@@ -22,11 +22,11 @@ export class TrayService {
   /**
    * 构造函数
    * @param mainWindow - 主窗口实例
-   * @param appUpdater - 更新服务实例
+   * @param lanUpdateService - 更新服务实例
    */
-  constructor(mainWindow: BrowserWindow, appUpdater: AppUpdater) {
+  constructor(mainWindow: BrowserWindow, lanUpdateService: LanUpdateService | null) {
     this.mainWindow = mainWindow
-    this.appUpdater = appUpdater
+    this.lanUpdateService = lanUpdateService
     this.createTray()
   }
 
@@ -130,9 +130,9 @@ export class TrayService {
    * 检查更新
    */
   private checkForUpdates(): void {
-    // 调用更新服务检查更新
-    if (this.appUpdater) {
-      this.appUpdater.checkForUpdates()
+    // 调用局域网更新服务检查更新
+    if (this.lanUpdateService) {
+      this.lanUpdateService.checkForUpdates()
     }
   }
 
@@ -169,10 +169,10 @@ export class TrayService {
 
   /**
    * 设置更新服务实例
-   * @param appUpdater - 更新服务实例
+   * @param lanUpdateService - 更新服务实例
    */
-  setAppUpdater(appUpdater: AppUpdater): void {
-    this.appUpdater = appUpdater
+  setLanUpdateService(lanUpdateService: LanUpdateService): void {
+    this.lanUpdateService = lanUpdateService
   }
 }
 

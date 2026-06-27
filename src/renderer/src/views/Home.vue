@@ -76,6 +76,16 @@ onMounted(() => {
   updateTime()
   timer = setInterval(updateTime, 1000)
   window.electron.ipcRenderer.on('clipboard-changed', handleClipboardChanged)
+
+  // 从通知窗口恢复：隐藏→缩小→定位→显示，全部在 DOM 就绪后执行
+  const [x, y] = noticeStore.savedPosition
+  if (x !== 0 || y !== 0) {
+    window.electron.ipcRenderer.invoke('restore-ball', { x, y }).then(() => {
+      window.electron.ipcRenderer.send('window:show')
+    })
+  } else {
+    window.electron.ipcRenderer.send('window:show')
+  }
 })
 
 onUnmounted(() => {
@@ -121,9 +131,6 @@ onUnmounted(() => {
   justify-content: center;
   position: relative;
   z-index: 2;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.08),
-    0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .time-main {
@@ -157,9 +164,9 @@ onUnmounted(() => {
   height: 70px;
   top: 0;
   left: 0;
-  border-top-color: rgba(120, 180, 255, 0.6);
-  border-right-color: rgba(120, 180, 255, 0.2);
-  animation: spin 3s linear infinite;
+  border-top-color: #78b4ff;
+  border-right-color: #3d8bff;
+  animation: home-spin 3s linear infinite;
 }
 
 .ring-2 {
@@ -167,12 +174,23 @@ onUnmounted(() => {
   height: 70px;
   top: 0;
   left: 0;
-  border-bottom-color: rgba(255, 150, 200, 0.5);
-  border-left-color: rgba(255, 150, 200, 0.15);
-  animation: spin-reverse 4s linear infinite;
+  border-bottom-color: #ff96c8;
+  border-left-color: #ff6ab0;
+  animation: home-spin-reverse 4s linear infinite;
 }
+</style>
 
-@keyframes spin {
+<!-- 全局样式：覆盖 main.css 的背景，确保悬浮球窗口完全透明 -->
+<style>
+html,
+body {
+  background: transparent !important;
+}
+</style>
+
+<!-- 全局 keyframes，避免 TailwindCSS v4 preflight 层干扰 scoped 动画 -->
+<style>
+@keyframes home-spin {
   from {
     transform: rotate(0deg);
   }
@@ -181,7 +199,7 @@ onUnmounted(() => {
   }
 }
 
-@keyframes spin-reverse {
+@keyframes home-spin-reverse {
   from {
     transform: rotate(360deg);
   }
