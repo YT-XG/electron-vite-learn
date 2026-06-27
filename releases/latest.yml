@@ -1,8 +1,0 @@
-version: 1.0.2-beta.4
-files:
-  - url: electron-app-1.0.2-beta.4-setup.exe
-    sha512: bpo9mOYt6OIp4HcOyiDUA6kmXP0hWuZZQ+JadVpQ56LprDWyNPQ+xjDgjjfwC4TrCDSjVGyo6xog4DDYkoHgPQ==
-    size: 83233076
-path: electron-app-1.0.2-beta.4-setup.exe
-sha512: bpo9mOYt6OIp4HcOyiDUA6kmXP0hWuZZQ+JadVpQ56LprDWyNPQ+xjDgjjfwC4TrCDSjVGyo6xog4DDYkoHgPQ==
-releaseDate: '2026-06-26T03:27:09.223Z'
