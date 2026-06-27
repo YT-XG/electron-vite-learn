@@ -79,9 +79,22 @@ export default abstract class BaseFrame {
    * 注册 IPC 监听器（子类可重写）
    */
   protected registerIPC(): void {
-    // 关闭窗口
-    ipcMain.on('close-window', () => {
-      this.close()
+    // 关闭窗口（只关闭发送事件的窗口，避免多窗口共用频道时互相干扰）
+    ipcMain.on('close-window', (event) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender)
+      if (senderWindow && !senderWindow.isDestroyed()) {
+        if ((app as any).isQuitting) {
+          senderWindow.close()
+        } else {
+          senderWindow.hide()
+        }
+      }
+    })
+
+    // 获取应用版本号（先移除旧的，避免多窗口重复注册）
+    ipcMain.removeHandler('get-app-version')
+    ipcMain.handle('get-app-version', () => {
+      return app.getVersion()
     })
   }
 

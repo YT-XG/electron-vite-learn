@@ -1,5 +1,6 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, clipboard, ipcMain, screen } from 'electron'
 import BaseFrame from './BaseFrame'
+import { windowFactory } from './index'
 
 /**
  * 主窗口 - 悬浮球时钟
@@ -31,6 +32,7 @@ export default class MainFrame extends BaseFrame {
    */
   create() {
     const window = super.create()
+    window.removeAllListeners('ready-to-show')
     this.startClipboardWatcher()
     return window
   }
@@ -65,6 +67,19 @@ export default class MainFrame extends BaseFrame {
         targetY = Math.max(workArea.y, Math.min(targetY, maxY))
 
         senderWindow.setPosition(targetX, targetY)
+
+        // 如果移动的是主窗口（悬浮球），同步更新弹窗位置
+        if (this.isAlive() && senderWindow === this.window!) {
+          const testFrame = windowFactory.getTestFrame()
+          if (testFrame.isAlive()) {
+            testFrame.positionAboveBall()
+          }
+          // 同步更新 OpenDialog 位置
+          const openDialogFrame = windowFactory.getOpenDialogFrame()
+          if (openDialogFrame.isAlive()) {
+            openDialogFrame.positionAboveBall()
+          }
+        }
       }
     )
 
@@ -74,6 +89,20 @@ export default class MainFrame extends BaseFrame {
         return this.window!.getPosition()
       }
       return [0, 0]
+    })
+
+    // 更新弹窗跟随位置（拖拽悬浮球时，通知弹窗同步移动）
+    ipcMain.on('update-popup:follow', () => {
+      // 直接通知 TestFrame 重新定位
+      const testFrame = windowFactory.getTestFrame()
+      if (testFrame.isAlive()) {
+        testFrame.positionAboveBall()
+      }
+      // 同步更新 OpenDialog 位置
+      const openDialogFrame = windowFactory.getOpenDialogFrame()
+      if (openDialogFrame.isAlive()) {
+        openDialogFrame.positionAboveBall()
+      }
     })
 
     // 调整窗口大小和位置
@@ -120,6 +149,20 @@ export default class MainFrame extends BaseFrame {
       if (this.isAlive()) {
         this.window!.show()
       }
+    })
+
+    // 显示 OpenDialog（鼠标悬停在悬浮球上）
+    ipcMain.on('open-dialog:show', () => {
+      const openDialogFrame = windowFactory.getOpenDialogFrame()
+      openDialogFrame.setMouseOnBall(true)
+      openDialogFrame.showPopup()
+    })
+
+    // 隐藏 OpenDialog（鼠标离开悬浮球，延迟隐藏）
+    ipcMain.on('open-dialog:hide', () => {
+      const openDialogFrame = windowFactory.getOpenDialogFrame()
+      openDialogFrame.setMouseOnBall(false)
+      openDialogFrame.hideWithDelay()
     })
   }
 

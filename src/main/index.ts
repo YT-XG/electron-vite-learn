@@ -1,8 +1,14 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
 import { TrayService } from './trayService'
 import { LanUpdateService } from './updater'
+import log from 'electron-log'
+
+// 配置 electron-log：日志写入文件
+log.transports.file.level = 'info'
+log.transports.console.level = 'info'
+log.info('[App] 应用启动，日志路径:', log.transports.file.getFile().path)
 
 /** 局域网更新服务实例 */
 let lanUpdateService: LanUpdateService | null = null
@@ -29,22 +35,59 @@ app.whenReady().then(() => {
   // 初始化托盘服务（暂时传入 null，后面会设置更新服务）
   trayService = new TrayService(mainWindow, null)
 
-  // 应用启动 3 秒后启动检查更新窗口
-  setTimeout(() => {
-    // 创建检查更新窗口（TestFrame）
-    const testFrame = windowFactory.getTestFrame()
-    testFrame.create()
-    const testWindow = testFrame.getWindow()
+  // 注册「点击更新按钮」的 IPC 处理
+  ipcMain.on('update:start-download', (_event, version: string) => {
+    log.info(`[App] 用户点击更新，版本: ${version}`)
+    // TODO: 调用 LanUpdateService 开始下载
+    if (lanUpdateService) {
+      lanUpdateService.checkForUpdates()
+    }
+  })
 
+  /**
+   * 初始化局域网更新服务
+   * @param testWindow - 弹窗窗口实例
+   */
+  const initLanUpdateService = (testWindow: BrowserWindow): void => {
+    if (lanUpdateService) return
+    lanUpdateService = new LanUpdateService(testWindow, {
+      serverUrl: process.env.UPDATE_SERVER_URL || '\\\\10.15.8.28\\releases'
+    })
+    // 注册回调：发现新版本时显示更新弹窗
+    lanUpdateService.onUpdateFound = (updateInfo) => {
+      log.info(`[App] 发现新版本: ${updateInfo.version}，显示更新弹窗`)
+      const testFrame = windowFactory.getTestFrame()
+      testFrame.showPopup({ state: 'available', version: updateInfo.version })
+    }
+    // 注册回调：已是最新版时显示提示
+    lanUpdateService.onUpdateLatest = () => {
+      log.info('[App] 已是最新版本')
+      const testFrame = windowFactory.getTestFrame()
+      if (testFrame.isAlive()) {
+        // 弹窗已在显示（checking 状态），更新为 latest 状态
+        testFrame.updatePopup({ state: 'latest' })
+      }
+    }
+    trayService?.setLanUpdateService(lanUpdateService)
+    console.log('[App] 局域网更新服务已初始化')
+  }
+
+  // 应用启动 3 秒后静默检查更新（不弹窗，有新版本才弹）
+  setTimeout(() => {
+    // 创建弹窗窗口并初始化更新服务
+    const testFrame = windowFactory.getTestFrame()
+    let testWindow = testFrame.getWindow()
+    if (!testWindow || testWindow.isDestroyed()) {
+      testFrame.create()
+      testWindow = testFrame.getWindow()
+    }
     if (testWindow) {
-      // 初始化局域网更新服务，绑定到检查更新窗口
-      lanUpdateService = new LanUpdateService(testWindow, {
-        // 默认 SMB 路径，可通过环境变量覆盖
-        serverUrl: process.env.UPDATE_SERVER_URL || '\\\\10.15.8.28\\releases'
-      })
-      // 设置托盘服务的更新服务引用
-      trayService?.setLanUpdateService(lanUpdateService)
-      console.log('[App] 局域网更新服务已初始化')
+      initLanUpdateService(testWindow)
+    }
+
+    // 静默检查更新：有新版本时由 onUpdateFound 回调触发弹窗
+    if (lanUpdateService) {
+      lanUpdateService.checkForUpdates()
     }
   }, 3000)
 

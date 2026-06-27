@@ -1,5 +1,5 @@
 <template>
-  <div class="floating-ball" @mousedown="dragMouseDown">
+  <div class="floating-ball" @mousedown="dragMouseDown" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <div class="ball-wrapper">
       <div class="ring ring-1"></div>
       <div class="ring ring-2"></div>
@@ -54,6 +54,16 @@ const dragMouseDown = (event: MouseEvent) => {
   document.onmouseup = () => {
     isKeyDown.value = false
   }
+}
+
+/** 鼠标进入悬浮球 */
+const handleMouseEnter = () => {
+  window.electron.ipcRenderer.send('open-dialog:show')
+}
+
+/** 鼠标离开悬浮球 */
+const handleMouseLeave = () => {
+  window.electron.ipcRenderer.send('open-dialog:hide')
 }
 
 // 监听剪贴板变化

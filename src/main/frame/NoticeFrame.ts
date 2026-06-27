@@ -9,7 +9,7 @@ export default class NoticeFrame extends BaseFrame {
   /** 窗口配置 */
   protected readonly options: BrowserWindowConstructorOptions = {
     width: 300,
-    height: 200,
+    height: 110,
     transparent: true,
     frame: false,
     alwaysOnTop: true,

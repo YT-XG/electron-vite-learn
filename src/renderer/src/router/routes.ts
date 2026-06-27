@@ -17,6 +17,11 @@ export const AppRoutes = [
     component: () => import('@renderer/views/UpdateDialog.vue')
   },
   {
+    path: '/openDialog',
+    name: '展开窗口',
+    component: () => import('@renderer/views/OpenDialog.vue')
+  },
+  {
     path: '/test',
     name: '测试',
     component: () => import('@renderer/views/Test.vue')

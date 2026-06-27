@@ -5,9 +5,9 @@
 
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, createWriteStream, mkdirSync, unlinkSync } from 'fs'
-import { createReadStream } from 'fs'
+import { existsSync, readFileSync, mkdirSync, unlinkSync, copyFileSync, statSync } from 'fs'
 import * as yaml from 'js-yaml'
+import log from 'electron-log'
 import semver from 'semver'
 import { getUpdateConfig, type UpdateConfig } from './config'
 
@@ -58,6 +58,12 @@ export class LanUpdateService {
 
   /** 当前下载的文件路径 */
   private currentDownloadPath: string | null = null
+
+  /** 发现新版本时的回调（由主进程注册，用于显示更新弹窗） */
+  onUpdateFound: ((updateInfo: UpdateInfo) => void) | null = null
+
+  /** 已是最新版时的回调（由主进程注册） */
+  onUpdateLatest: (() => void) | null = null
 
   /**
    * 构造函数
@@ -116,8 +122,11 @@ export class LanUpdateService {
 
       // 检查文件是否存在
       if (!existsSync(latestYmlPath)) {
-        console.log('[LanUpdate] latest.yml 文件不存在:', latestYmlPath)
+        log.info('[LanUpdate] latest.yml 文件不存在:', latestYmlPath)
         this.sendToRenderer('lan-update-not-available', { reason: '文件不存在' })
+        if (this.onUpdateLatest) {
+          this.onUpdateLatest()
+        }
         return null
       }
 
@@ -129,8 +138,8 @@ export class LanUpdateService {
       const remoteVersion = latestInfo.version as string
       const currentVersion = app.getVersion()
 
-      console.log('[LanUpdate] 当前版本:', currentVersion)
-      console.log('[LanUpdate] 远程版本:', remoteVersion)
+      log.info('[LanUpdate] 当前版本:', currentVersion)
+      log.info('[LanUpdate] 远程版本:', remoteVersion)
 
       // 比较版本号
       if (!semver.valid(remoteVersion)) {
@@ -138,31 +147,48 @@ export class LanUpdateService {
       }
 
       if (semver.lte(remoteVersion, currentVersion)) {
-        console.log('[LanUpdate] 已是最新版本')
+        log.info('[LanUpdate] 已是最新版本')
         this.sendToRenderer('lan-update-not-available', {
           currentVersion,
           remoteVersion
         })
+        // 通过回调通知主进程（已是最新版）
+        if (this.onUpdateLatest) {
+          this.onUpdateLatest()
+        }
         return null
       }
 
-      // 构建更新信息
+      // 构建更新信息（兼容 electron-builder 和自定义 latest.yml 格式）
+      const fileName = latestInfo.path as string
+        || (latestInfo.files as any)?.[0]?.url as string
+        || latestInfo.fileName as string
+        || ''
+
       const updateInfo: UpdateInfo = {
         version: remoteVersion,
-        file: latestInfo.path as string || latestInfo.fileName as string,
-        size: latestInfo.size as number || 0,
-        sha512: latestInfo.sha512 as string || '',
+        file: fileName,
+        size: latestInfo.size as number || (latestInfo.files as any)?.[0]?.size as number || 0,
+        sha512: latestInfo.sha512 as string || (latestInfo.files as any)?.[0]?.sha512 as string || '',
         releaseNotes: latestInfo.releaseNotes as string || '',
         releaseDate: latestInfo.releaseDate as string || new Date().toISOString()
       }
 
-      console.log('[LanUpdate] 发现新版本:', updateInfo)
+      log.info('[LanUpdate] latest.yml 原始内容:', latestInfo)
+      log.info('[LanUpdate] 解析出的文件名:', fileName)
+
+      log.info('[LanUpdate] 发现新版本:', updateInfo)
       this.sendToRenderer('lan-update-available', updateInfo)
+
+      // 通过回调通知主进程显示更新弹窗（比 ipcMain.emit 更可靠）
+      if (this.onUpdateFound) {
+        this.onUpdateFound(updateInfo)
+      }
 
       return updateInfo
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('[LanUpdate] 检查更新失败:', errorMessage)
+      log.error('[LanUpdate] 检查更新失败:', errorMessage)
       this.sendToRenderer('lan-update-error', { message: errorMessage })
       return null
     }
@@ -184,9 +210,14 @@ export class LanUpdateService {
     try {
       // 构建远程文件路径
       const remoteFilePath = join(this.config.serverUrl, info.file)
-      console.log('remoteFilePath:' + remoteFilePath)
+      log.info('[LanUpdate] 服务器地址:', this.config.serverUrl)
+      log.info('[LanUpdate] 文件名:', info.file)
+      log.info('[LanUpdate] 完整路径:', remoteFilePath)
       // 检查文件是否存在
-      if (!existsSync(remoteFilePath)) {
+      log.info('[LanUpdate] 检查源文件是否存在...')
+      const srcExists = existsSync(remoteFilePath)
+      log.info('[LanUpdate] 源文件存在:', srcExists)
+      if (!srcExists) {
         throw new Error(`更新文件不存在: ${remoteFilePath}`)
       }
 
@@ -195,64 +226,54 @@ export class LanUpdateService {
       const localFilePath = join(this.config.cacheDir, localFileName)
       this.currentDownloadPath = localFilePath
 
-      console.log('[LanUpdate] 开始下载:', remoteFilePath)
-      console.log('[LanUpdate] 保存到:', localFilePath)
+      log.info('[LanUpdate] 保存到:', localFilePath)
 
-      // 记录开始时间
-      const startTime = Date.now()
-      let lastBytes = 0
-      let lastTime = startTime
+      // 确保目标目录存在
+      log.info('[LanUpdate] 创建缓存目录...')
+      mkdirSync(this.config.cacheDir, { recursive: true })
+      log.info('[LanUpdate] 缓存目录就绪')
 
-      // 使用 stream pipeline 复制文件
-      await new Promise<void>((resolve, reject) => {
-        const readStream = createReadStream(remoteFilePath)
-        const writeStream = createWriteStream(localFilePath)
-
-        // 监听读取流的 data 事件来报告进度
-        readStream.on('data', () => {
-          const currentTime = Date.now()
-          const timeDiff = (currentTime - lastTime) / 1000
-
-          if (timeDiff >= 0.1) {
-            // 每 100ms 报告一次进度
-            const bytesPerSecond = (readStream.bytesRead - lastBytes) / timeDiff
-            lastBytes = readStream.bytesRead
-            lastTime = currentTime
-
-            const progress: DownloadProgress = {
-              transferred: readStream.bytesRead,
-              total: info.size,
-              bytesPerSecond: Math.round(bytesPerSecond),
-              percent: info.size > 0 ? (readStream.bytesRead / info.size) * 100 : 0
-            }
-
-            this.sendToRenderer('lan-update-progress', progress)
-          }
-        })
-
-        readStream.on('error', reject)
-        writeStream.on('error', reject)
-        writeStream.on('finish', resolve)
-
-        readStream.pipe(writeStream)
+      // 报告 0% 进度
+      this.sendToRenderer('lan-update-progress', {
+        transferred: 0,
+        total: info.size,
+        bytesPerSecond: 0,
+        percent: 0
       })
 
-      // 验证文件大小（可选）
-      const { statSync } = await import('fs')
-      const downloadedStat = statSync(localFilePath)
-      if (info.size > 0 && downloadedStat.size !== info.size) {
-        console.warn(
-          `[LanUpdate] 文件大小不匹配: 预期 ${info.size}, 实际 ${downloadedStat.size}`
+      // 使用 copyFileSync 复制文件（支持 UNC 网络路径）
+      log.info('[LanUpdate] 开始复制文件...')
+      const startTime = Date.now()
+      copyFileSync(remoteFilePath, localFilePath)
+      const elapsed = (Date.now() - startTime) / 1000
+
+      log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
+
+      // 报告 100% 进度
+      this.sendToRenderer('lan-update-progress', {
+        transferred: info.size,
+        total: info.size,
+        bytesPerSecond: 0,
+        percent: 100
+      })
+
+      // 验证文件大小
+      log.info('[LanUpdate] 验证下载文件...')
+      const downloadedSize = statSync(localFilePath).size
+      log.info(`[LanUpdate] 预期大小: ${info.size}, 实际大小: ${downloadedSize}`)
+      if (info.size > 0 && downloadedSize !== info.size) {
+        log.warn(
+          `[LanUpdate] 文件大小不匹配: 预期 ${info.size}, 实际 ${downloadedSize}`
         )
       }
 
-      console.log('[LanUpdate] 下载完成:', localFilePath)
+      log.info('[LanUpdate] 下载完成:', localFilePath)
       this.sendToRenderer('lan-update-downloaded', { path: localFilePath })
 
       return localFilePath
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('[LanUpdate] 下载失败:', errorMessage)
+      log.error('[LanUpdate] 下载失败:', errorMessage)
 
       // 清理失败的下载文件
       if (this.currentDownloadPath && existsSync(this.currentDownloadPath)) {
@@ -281,7 +302,7 @@ export class LanUpdateService {
       throw new Error(`安装包不存在: ${installerPath}`)
     }
 
-    console.log('[LanUpdate] 启动安装程序:', installerPath)
+    log.info('[LanUpdate] 启动安装程序:', installerPath)
 
     // 使用 spawn 以 detached 模式启动安装程序，使其独立于当前进程运行
     const { spawn } = require('child_process')

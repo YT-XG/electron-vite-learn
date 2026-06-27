@@ -21,6 +21,7 @@ electron-vite-learn/
 │   │       ├── UpdateFrame.ts  # 更新窗口
 │   │       ├── MusicFrame.ts   # 音乐窗口
 │   │       ├── TestFrame.ts    # 测试窗口
+│   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
@@ -44,7 +45,8 @@ electron-vite-learn/
 │           │   ├── About.vue  # 关于页
 │           │   ├── Notice.vue # 通知窗口（剪贴板通知）
 │           │   ├── MusicDialog.vue # 音乐对话框
-│           │   └── UpdateDialog.vue # 更新对话框
+│           │   ├── UpdateDialog.vue # 更新对话框
+│           │   └── OpenDialog.vue # 悬浮球展开对话框
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
 │           ├── utils/          # 工具函数
@@ -127,9 +129,11 @@ electron-vite-learn/
 - **关键文件**:
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
   - `MainFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
-  - `NoticeFrame.ts` - 通知窗口，从右下角弹出显示通知
+  - `NoticeFrame.ts` - 剪贴板通知窗口，从右下角弹出显示复制的文字
   - `UpdateFrame.ts` - 更新窗口，显示软件更新对话框
   - `MusicFrame.ts` - 音乐窗口，显示音乐播放对话框
+  - `TestFrame.ts` - 测试窗口
+  - `OpenDialogFrame.ts` - 悬浮球展开对话框窗口，鼠标悬停时向左/右侧展开
   - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
 - **设计模式**: 工厂模式 + 模板方法模式
 - **使用方式**:
@@ -147,6 +151,48 @@ electron-vite-learn/
 
   // 显示音乐窗口
   windowFactory.showMusic()
+
+  // 显示 OpenDialog（鼠标悬停时自动调用）
+  const openDialogFrame = windowFactory.getOpenDialogFrame()
+  openDialogFrame.showPopup()
+  ```
+
+### OpenDialog 展开对话框 (src/main/frame/OpenDialogFrame.ts)
+- **职责**: 悬浮球鼠标悬停时向左/右侧展开的对话框窗口
+- **功能**:
+  - 鼠标悬停在悬浮球时自动显示
+  - 根据屏幕空间自动选择向左或向右展开
+  - 带有平滑的展开/收缩动画
+  - 位置随悬浮球拖拽实时同步
+  - 鼠标移开悬浮球且不在对话框窗口时自动隐藏
+  - 鼠标在对话框内时保持显示状态
+  - 延迟隐藏时间：200ms（给用户移动鼠标的时间）
+  - 窗口大小：400x300（可配置）
+- **IPC 接口**:
+  - `open-dialog:show` - 显示对话框（由 Home.vue 鼠标悬停触发）
+  - `open-dialog:hide` - 延迟隐藏对话框（由 Home.vue 鼠标离开触发）
+  - `open-dialog:mouse-enter` - 鼠标进入对话框区域（渲染进程报告）
+  - `open-dialog:mouse-leave` - 鼠标离开对话框区域（渲染进程报告）
+  - `open-dialog:animate` - 播放展开动画（主进程发送）
+  - `open-dialog:close` - 播放关闭动画（主进程发送）
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 获取 OpenDialog 实例
+  const openDialogFrame = windowFactory.getOpenDialogFrame()
+
+  // 显示对话框
+  openDialogFrame.showPopup()
+
+  // 隐藏对话框
+  openDialogFrame.hide()
+
+  // 延迟隐藏（鼠标离开悬浮球时调用，如果鼠标在弹窗内则不隐藏）
+  openDialogFrame.hideWithDelay()
+
+  // 定位到悬浮球位置
+  openDialogFrame.positionAboveBall()
   ```
 
 ### 系统托盘 (src/main/trayService.ts)
@@ -211,7 +257,9 @@ electron-vite-learn/
 - **关键文件**:
   - `Home.vue` - 悬浮球时钟，显示当前时间（HH:MM:SS），支持窗口拖拽
   - `About.vue` - 关于页
+  - `Notice.vue` - 剪贴板通知窗口，显示复制的文字（最多两行，超出省略），支持拖拽、关闭按钮、10秒自动关闭
   - `MusicDialog.vue` - 音乐对话框
+  - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
 
 ## 开发命令
 

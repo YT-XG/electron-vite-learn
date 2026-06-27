@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../resources/icon.png?asset'
 import { LanUpdateService } from './updater'
+import { windowFactory } from './frame'
 
 /**
  * 系统托盘服务
@@ -128,11 +129,44 @@ export class TrayService {
 
   /**
    * 检查更新
+   * @description 显示更新弹窗并触发检查
    */
   private checkForUpdates(): void {
-    // 调用局域网更新服务检查更新
-    if (this.lanUpdateService) {
+    // 先显示「正在检查更新...」
+    const testFrame = windowFactory.getTestFrame()
+    testFrame.showPopup({ state: 'checking' })
+
+    // 如果更新服务尚未初始化，延迟初始化（等弹窗窗口创建后再绑定）
+    if (!this.lanUpdateService) {
+      setTimeout(() => {
+        let testWindow = testFrame.getWindow()
+        if (!testWindow || testWindow.isDestroyed()) {
+          testFrame.create()
+          testWindow = testFrame.getWindow()
+        }
+        if (testWindow) {
+          this.lanUpdateService = new LanUpdateService(testWindow, {
+            serverUrl: process.env.UPDATE_SERVER_URL || '\\\\10.15.8.28\\releases'
+          })
+          this.#registerCallbacks(testFrame)
+          this.lanUpdateService.checkForUpdates()
+        }
+      }, 500)
+    } else {
       this.lanUpdateService.checkForUpdates()
+    }
+  }
+
+  /**
+   * 注册更新服务回调
+   */
+  #registerCallbacks(testFrame: any): void {
+    if (!this.lanUpdateService) return
+    this.lanUpdateService.onUpdateFound = (updateInfo) => {
+      testFrame.updatePopup({ state: 'available', version: updateInfo.version })
+    }
+    this.lanUpdateService.onUpdateLatest = () => {
+      testFrame.updatePopup({ state: 'latest' })
     }
   }
 

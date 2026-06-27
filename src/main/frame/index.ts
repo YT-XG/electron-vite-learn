@@ -11,6 +11,8 @@ export { default as MainFrame } from './MainFrame'
 export { default as NoticeFrame } from './NoticeFrame'
 export { default as UpdateFrame } from './UpdateFrame'
 export { default as MusicFrame } from './MusicFrame'
+export { default as TestFrame } from './TestFrame'
+export { default as OpenDialogFrame } from './OpenDialogFrame'
 
 // 窗口工厂
 export { default as WindowFactory, windowFactory } from './WindowFactory'
