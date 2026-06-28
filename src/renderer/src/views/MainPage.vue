@@ -1,0 +1,352 @@
+<template>
+  <div class="main-page" :class="{ 'page-visible': isVisible }">
+    <!-- 顶部渐变色条 - 品牌标识 -->
+    <div class="gradient-bar"></div>
+
+    <!-- 自定义标题栏 -->
+    <div class="title-bar">
+      <div class="title-bar-drag">
+        <button class="sidebar-toggle" @click="toggleSidebar" :title="isSidebarCollapsed ? '展开菜单' : '收起菜单'">
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" stroke-width="1.5" />
+            <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" />
+            <line x1="2" y1="9" x2="10" y2="9" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </button>
+        <span class="app-name">妙妙屋</span>
+      </div>
+      <div class="window-controls">
+        <button class="control-btn minimize-btn" @click="minimize" title="最小化">
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </button>
+        <button class="control-btn close-btn" @click="close" title="关闭">
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5" />
+            <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 主体内容：侧边栏 + 内容区 -->
+    <div class="main-body">
+      <!-- 左侧菜单栏 -->
+      <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
+        <nav class="sidebar-nav">
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'home' }"
+            @click="currentPage = 'home'"
+          >
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">首页</span>
+          </button>
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'clipboard' }"
+            @click="currentPage = 'clipboard'"
+          >
+            <span class="nav-icon">📋</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">剪切板</span>
+          </button>
+        </nav>
+      </aside>
+
+      <!-- 右侧内容区 -->
+      <main class="content">
+        <!-- 首页 -->
+        <div v-if="currentPage === 'home'" class="home-page">
+          <div class="welcome-icon">✦</div>
+          <h2 class="welcome-title">妙妙屋</h2>
+          <p class="welcome-desc">你的桌面效率工具</p>
+        </div>
+
+        <!-- 剪贴板管理 -->
+        <ClipboardManager v-else-if="currentPage === 'clipboard'" />
+      </main>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import ClipboardManager from './ClipboardManager.vue'
+
+/** 当前页面 */
+const currentPage = ref<'home' | 'clipboard'>('clipboard')
+
+/** 页面是否可见（触发动画） */
+const isVisible = ref(false)
+
+/** 侧边栏是否收缩 */
+const isSidebarCollapsed = ref(false)
+
+/**
+ * 切换侧边栏收缩状态
+ */
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+}
+
+/**
+ * 最小化窗口
+ */
+const minimize = () => {
+  window.electron.ipcRenderer.send('main-page:minimize')
+}
+
+/**
+ * 关闭窗口（隐藏到托盘）
+ */
+const close = () => {
+  window.electron.ipcRenderer.send('close-window')
+}
+
+onMounted(() => {
+  requestAnimationFrame(() => {
+    isVisible.value = true
+  })
+})
+</script>
+
+<style scoped>
+.main-page {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 8px 40px rgba(61, 139, 255, 0.15),
+    0 4px 16px rgba(255, 106, 176, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+
+  /* 入场动画 */
+  transform: scale(0.85);
+  opacity: 0;
+  transform-origin: center center;
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.25s ease-out;
+}
+
+.main-page.page-visible {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* ========== 渐变色条 ========== */
+.gradient-bar {
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #3d8bff,
+    #78b4ff,
+    #a0d0ff,
+    #ff96c8,
+    #ff6ab0,
+    #ff3d8b,
+    #3d8bff
+  );
+  background-size: 200% 100%;
+  animation: gradient-flow 3s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes gradient-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* ========== 标题栏 ========== */
+.title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 12px 0 12px;
+  flex-shrink: 0;
+}
+
+.title-bar-drag {
+  -webkit-app-region: drag;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-toggle {
+  -webkit-app-region: no-drag;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: #f3f4f6;
+  color: #1a1a1a;
+}
+
+.app-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.window-controls {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.control-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: all 0.2s ease;
+}
+
+.control-btn:hover {
+  background: #f3f4f6;
+  color: #1a1a1a;
+}
+
+.close-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ========== 主体布局 ========== */
+.main-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ========== 侧边栏 ========== */
+.sidebar {
+  width: 140px;
+  border-right: 1px solid #f0f0f0;
+  padding: 8px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.25s ease;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 10px;
+}
+
+.nav-item:hover {
+  background: #f5f5f5;
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(61, 139, 255, 0.08), rgba(255, 106, 176, 0.08));
+  color: #3d8bff;
+}
+
+.nav-icon {
+  font-size: 16px;
+}
+
+.nav-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.nav-item.active .nav-label {
+  color: #3d8bff;
+  font-weight: 600;
+}
+
+/* ========== 内容区 ========== */
+.content {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ========== 首页 ========== */
+.home-page {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.welcome-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+  animation: icon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.welcome-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.welcome-desc {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+</style>

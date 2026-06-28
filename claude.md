@@ -8,6 +8,7 @@ electron-vite-learn/
 │   ├── main/                    # Electron 主进程
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
 │   │   ├── trayService.ts      # 系统托盘服务
+│   │   ├── clipboardService.ts # 剪贴板历史服务（sql.js SQLite）
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -17,6 +18,7 @@ electron-vite-learn/
 │   │       ├── TestFrame.ts    # 测试窗口
 │   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
+│   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
@@ -42,6 +44,8 @@ electron-vite-learn/
 │           │   ├── NoticeNew.vue   # 通知弹窗（蓝粉渐变胶囊样式）
 │           │   ├── UpdateNew.vue   # 更新窗口（底部居中弹出）
 │           │   ├── OpenDialog.vue # 悬浮球展开对话框
+│           │   ├── MainPage.vue  # 主页面（侧边栏布局，托盘左键打开）
+│           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 收藏）
 │           │   └── Test.vue   # 测试页面
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
@@ -85,7 +89,8 @@ electron-vite-learn/
 - **关键文件**:
   - `index.ts` - 主进程入口，应用生命周期管理
   - `trayService.ts` - 系统托盘服务
-- **依赖**: electron, @electron-toolkit/utils
+  - `clipboardService.ts` - 剪贴板历史服务（sql.js SQLite 持久化）
+- **依赖**: electron, @electron-toolkit/utils, sql.js
 
 ### 窗口框架 (src/main/frame/)
 - **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
@@ -97,6 +102,7 @@ electron-vite-learn/
   - `TestFrame.ts` - 测试窗口
   - `OpenDialogFrame.ts` - 悬浮球展开对话框窗口，鼠标悬停时向左/右侧展开
   - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
+  - `MainPageFrame.ts` - 主页面窗口，无边框，屏幕正中心显示，左键托盘打开
   - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
 - **设计模式**: 工厂模式 + 模板方法模式
 - **使用方式**:
@@ -115,6 +121,9 @@ electron-vite-learn/
   // 显示 OpenDialog（鼠标悬停时自动调用）
   const openDialogFrame = windowFactory.getOpenDialogFrame()
   openDialogFrame.showPopup()
+
+  // 显示/隐藏主页面（左键托盘自动调用）
+  windowFactory.getMainPageFrame().showCentered()
   ```
 
 ### OpenDialog 展开对话框 (src/main/frame/OpenDialogFrame.ts)
@@ -192,10 +201,85 @@ electron-vite-learn/
   windowFactory.getUpdateNewFrame().hide()
   ```
 
+### 主页面窗口 (src/main/frame/MainPageFrame.ts)
+- **职责**: 无边框主窗口，左键点击托盘图标打开，初始位置屏幕正中心
+- **功能**:
+  - 800x600 透明无边框窗口（最小尺寸 600x450）
+  - 始终悬浮屏幕最上方（alwaysOnTop: true）
+  - 支持拖拽缩放（resizable: true）
+  - 左键点击托盘图标切换显示/隐藏
+  - 初始位置在屏幕正中心
+  - 自定义标题栏：app 名称 + 最小化/关闭按钮
+  - 顶部渐变色条（蓝→粉，品牌标识）
+  - 入场动画：scale + opacity 弹性过渡
+  - 侧边栏布局：左侧菜单栏（支持收缩/展开） + 右侧内容区
+- **IPC 接口**:
+  - `main-page:minimize` - 最小化窗口
+  - `close-window` - 关闭/隐藏窗口（继承自 BaseFrame）
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 左键点击托盘自动调用
+  windowFactory.getMainPageFrame().showCentered()
+  ```
+
+### 剪贴板历史服务 (src/main/service/clipboardService.ts)
+- **职责**: 剪贴板历史记录的存储、查询、推送
+- **功能**:
+  - 使用 sql.js（纯 JS SQLite）持久化存储，数据文件位于 userData/clipboard.db
+  - 每秒监控剪贴板变化，新内容自动入库（自动去重）
+  - 支持分页查询、搜索、删除、清空
+  - 变化时通过 IPC 推送到可见窗口
+  - 自动清理 30 天前的过期数据，最多保留 1000 条
+  - **收藏独立存储**：支持手动添加、分类管理、编辑、删除
+- **数据库表结构**:
+  - **clipboard_history 表（历史记录）**:
+    - `id` INTEGER PRIMARY KEY AUTOINCREMENT
+    - `content` TEXT - 剪贴板内容
+    - `created_at` INTEGER - 创建时间戳
+  - **favorites 表（收藏）**:
+    - `id` INTEGER PRIMARY KEY AUTOINCREMENT
+    - `content` TEXT - 收藏内容
+    - `category` TEXT DEFAULT '' - 分类（如：Linux命令、常用代码）
+    - `description` TEXT DEFAULT '' - 描述/备注
+    - `created_at` INTEGER - 创建时间戳
+- **IPC 接口**:
+  - **历史记录**:
+    - `clipboard-history:get` - 获取历史记录（分页）
+    - `clipboard-history:search` - 搜索历史记录
+    - `clipboard-history:delete` - 删除一条记录
+    - `clipboard-history:clearAll` - 清空所有历史记录
+    - `clipboard-history:new` - 推送新记录到渲染进程
+  - **收藏**:
+    - `favorites:getAll` - 获取所有收藏列表
+    - `favorites:getByCategory` - 按分类获取收藏列表
+    - `favorites:getCategories` - 获取所有分类及其数量
+    - `favorites:add` - 手动添加收藏
+    - `favorites:update` - 更新收藏内容
+    - `favorites:delete` - 删除收藏
+    - `favorites:clearAll` - 清空所有收藏
+
+### 剪贴板管理页面 (src/renderer/src/views/ClipboardManager.vue)
+- **职责**: 剪贴板历史记录和收藏的展示与交互
+- **功能**:
+  - 历史记录 / 收藏双标签页导航
+  - 支持搜索过滤（前端过滤）
+  - 点击记录复制到剪贴板
+  - **历史记录一键清空**：点击"清空"按钮可清空所有历史记录（需确认）
+  - **收藏手动添加**：点击"添加"按钮，手动输入内容、分类、描述
+  - **收藏分类管理**：按分类筛选收藏，支持自定义分类（如：Linux命令）
+  - 编辑收藏内容
+  - 删除单条记录
+  - 空状态提示
+  - 监听主进程推送，实时更新列表
+  - 时间智能显示（刚刚、X分钟前、X小时前、具体日期）
+
 ### 系统托盘 (src/main/trayService.ts)
 - **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
 - **功能**:
   - 创建系统托盘图标
+  - 左键单击：切换主页面显示/隐藏
   - 右键菜单：检查更新、退出
   - 点击"检查更新"：打开更新窗口
   - 点击"退出"菜单才真正退出应用

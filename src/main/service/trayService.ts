@@ -13,6 +13,9 @@ export class TrayService {
   /** 托盘图标路径 */
   private readonly iconPath: string = icon
 
+  /** 右键上下文菜单 */
+  private contextMenu: Electron.Menu | null = null
+
   /**
    * 构造函数
    */
@@ -40,9 +43,10 @@ export class TrayService {
 
   /**
    * 构建右键菜单
+   * @description 不直接设置到托盘，由 right-click 事件手动弹出
    */
   private buildContextMenu(): void {
-    const contextMenu = Menu.buildFromTemplate([
+    this.contextMenu = Menu.buildFromTemplate([
       {
         label: '检查更新',
         click: () => {
@@ -57,14 +61,25 @@ export class TrayService {
         }
       }
     ])
-
-    this.tray?.setContextMenu(contextMenu)
   }
 
   /**
    * 设置事件监听器
+   * @description 左键单击打开/隐藏主页面，右键显示菜单
    */
-  private setupEventListeners(): void {}
+  private setupEventListeners(): void {
+    // Windows 上左键单击托盘图标 —— 切换主页面显示/隐藏
+    this.tray?.on('click', () => {
+      windowFactory.getMainPageFrame().showCentered()
+    })
+
+    // 右键单击显示上下文菜单
+    this.tray?.on('right-click', () => {
+      if (this.contextMenu) {
+        this.tray?.popUpContextMenu(this.contextMenu)
+      }
+    })
+  }
 
   /**
    * 检查更新
