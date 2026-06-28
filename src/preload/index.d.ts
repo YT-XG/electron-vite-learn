@@ -29,6 +29,14 @@ interface CategoryItem {
 }
 
 /**
+ * 应用设置类型
+ */
+interface AppSettings {
+  /** Electron accelerator 格式的全局快捷键 */
+  shortcut: string
+}
+
+/**
  * IPC 频道类型定义
  */
 interface IPCChannels {
@@ -38,6 +46,7 @@ interface IPCChannels {
   invoke(channel: 'clipboard-history:delete', id: number): Promise<void>
   invoke(channel: 'clipboard-history:clearAll'): Promise<void>
   invoke(channel: 'clipboard-write', content: string): Promise<void>
+  invoke(channel: 'clipboard:click-item', content: string): Promise<void>
 
   // 收藏
   invoke(channel: 'favorites:getAll'): Promise<FavoriteItem[]>
@@ -51,6 +60,10 @@ interface IPCChannels {
   // 窗口控制
   send(channel: 'main-page:minimize'): void
   send(channel: 'close-window'): void
+
+  // 设置
+  invoke(channel: 'settings:get'): Promise<AppSettings>
+  invoke(channel: 'settings:update', settings: Partial<AppSettings>): Promise<void>
 
   // 监听
   on(channel: 'clipboard-history:new', listener: (event: unknown, item: HistoryItem) => void): void

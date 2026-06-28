@@ -331,15 +331,20 @@ const switchTab = async (tab: 'history' | 'favorites'): Promise<void> => {
 }
 
 /**
- * 复制内容到剪贴板
- * @param content - 要复制的文本
+ * 复制内容并自动粘贴到上一个聚焦的窗口
+ *
+ * 流程：
+ *   1. 通知主进程处理完整操作（写入剪贴板 → 隐藏窗口 → 恢复焦点 → 粘贴）
+ *   2. 不再需要手动 setTimeout 或分步 IPC，全部由主进程协调
+ *
+ * @param content - 要复制并粘贴的文本
  */
 const copyItem = async (content: string): Promise<void> => {
   try {
-    await navigator.clipboard.writeText(content)
-  } catch {
-    // fallback: 通过主进程复制
-    window.electron.ipcRenderer.send('clipboard-write', content)
+    // 主进程处理：写入剪贴板 + 隐藏窗口 + 恢复焦点 + 粘贴
+    await window.electron.ipcRenderer.invoke('clipboard:click-item', content)
+  } catch (err) {
+    console.error('[ClipboardManager] 粘贴失败:', err)
   }
 }
 

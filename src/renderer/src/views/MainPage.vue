@@ -1,5 +1,9 @@
 <template>
-  <div class="main-page" :class="{ 'page-visible': isVisible }">
+  <div
+    class="main-page"
+    :class="{ 'page-visible': isVisible, 'page-hiding': isHiding }"
+    @animationend="onAnimationEnd"
+  >
     <!-- 顶部渐变色条 - 品牌标识 -->
     <div class="gradient-bar"></div>
 
@@ -51,6 +55,15 @@
             <span class="nav-icon">📋</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">剪切板</span>
           </button>
+          <!-- 设置 -->
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'settings' }"
+            @click="currentPage = 'settings'"
+          >
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
+          </button>
         </nav>
       </aside>
 
@@ -65,20 +78,26 @@
 
         <!-- 剪贴板管理 -->
         <ClipboardManager v-else-if="currentPage === 'clipboard'" />
+        <!-- 设置 -->
+        <Settings v-else-if="currentPage === 'settings'" />
       </main>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import ClipboardManager from './ClipboardManager.vue'
+import Settings from './Settings.vue'
 
 /** 当前页面 */
-const currentPage = ref<'home' | 'clipboard'>('clipboard')
+const currentPage = ref<'home' | 'clipboard' | 'settings'>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
+
+/** 页面是否正在隐藏（退场动画） */
+const isHiding = ref(false)
 
 /** 侧边栏是否收缩 */
 const isSidebarCollapsed = ref(false)
@@ -98,16 +117,60 @@ const minimize = () => {
 }
 
 /**
- * 关闭窗口（隐藏到托盘）
+ * 关闭窗口（播放退场动画后隐藏）
  */
 const close = () => {
-  window.electron.ipcRenderer.send('close-window')
+  isHiding.value = true
+}
+
+/**
+ * 退场动画播放完毕
+ */
+const onAnimationEnd = (): void => {
+  if (isHiding.value) {
+    window.electron.ipcRenderer.send('main-page:hide-after-animation')
+  }
+}
+
+/**
+ * 主进程请求播放退场动画
+ */
+const onStartHide = (): void => {
+  isHiding.value = true
+}
+
+/**
+ * 主进程请求重新显示（从隐藏状态恢复）
+ */
+const onReShow = (): void => {
+  isHiding.value = false
+  isVisible.value = false
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      isVisible.value = true
+    })
+  })
 }
 
 onMounted(() => {
+  // 通知主进程：渲染进程已准备好
+  window.electron.ipcRenderer.send('main-page:ready')
+
+  // 监听主进程事件
+  window.electron.ipcRenderer.on('main-page:start-hide', onStartHide)
+  window.electron.ipcRenderer.on('main-page:re-show', onReShow)
+
+  // 延迟两帧后触发动画，确保 CSS 初始状态已渲染
   requestAnimationFrame(() => {
-    isVisible.value = true
+    requestAnimationFrame(() => {
+      isVisible.value = true
+    })
   })
+})
+
+onUnmounted(() => {
+  window.electron.ipcRenderer.removeListener('main-page:start-hide', onStartHide)
+  window.electron.ipcRenderer.removeListener('main-page:re-show', onReShow)
 })
 </script>
 
@@ -115,7 +178,7 @@ onMounted(() => {
 .main-page {
   width: 100%;
   height: 100%;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 16px;
   overflow: hidden;
   display: flex;
@@ -124,19 +187,42 @@ onMounted(() => {
     0 8px 40px rgba(61, 139, 255, 0.15),
     0 4px 16px rgba(255, 106, 176, 0.1);
   border: 1px solid rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-app-region: no-drag;
 
-  /* 入场动画 */
-  transform: scale(0.85);
-  opacity: 0;
+  /* 初始状态：缩小 */
+  transform: scale(0.92);
   transform-origin: center center;
-  transition:
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.25s ease-out;
 }
 
-.main-page.page-visible {
-  transform: scale(1);
-  opacity: 1;
+/* ========== 入场动画 ========== */
+.main-page.page-visible:not(.page-hiding) {
+  animation: page-show 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes page-show {
+  from {
+    transform: scale(0.92);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* ========== 退场动画 ========== */
+.main-page.page-hiding {
+  animation: page-hide 0.3s ease-in forwards;
+}
+
+@keyframes page-hide {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.85);
+    opacity: 0;
+  }
 }
 
 /* ========== 渐变色条 ========== */

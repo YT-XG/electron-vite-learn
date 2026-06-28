@@ -482,6 +482,17 @@ class ClipboardService {
       this.db = null
     }
   }
+
+  /**
+   * 同步监控缓存
+   * @description 在主动写入剪贴板后调用，更新 lastText 为当前内容
+   * 避免剪贴板监控器将本次主动写入当作"新复制"处理，从而触发通知弹窗
+   *
+   * 参考 copy-creator 的 clipboard::sync_monitor_cache()
+   */
+  syncMonitorCache(): void {
+    this.lastText = clipboard.readText()
+  }
 }
 
 /** 剪贴板历史服务单例 */
