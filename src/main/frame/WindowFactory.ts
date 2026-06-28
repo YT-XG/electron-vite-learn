@@ -3,6 +3,7 @@ import NoticeNewFrame from './NoticeNewFrame'
 import UpdateNewFrame from './UpdateNewFrame'
 import TestFrame from './TestFrame'
 import OpenDialogFrame from './OpenDialogFrame'
+import MainPageFrame from './MainPageFrame'
 
 /**
  * 窗口工厂
@@ -23,6 +24,9 @@ export default class WindowFactory {
 
   /** OpenDialog 窗口 */
   #openDialogFrame: OpenDialogFrame | null = null
+
+  /** 主页面窗口 */
+  #mainPageFrame: MainPageFrame | null = null
 
   /**
    * 获取主窗口（悬浮球时钟）
@@ -85,6 +89,17 @@ export default class WindowFactory {
   }
 
   /**
+   * 获取主页面窗口
+   * @returns MainPageFrame 实例
+   */
+  getMainPageFrame(): MainPageFrame {
+    if (!this.#mainPageFrame) {
+      this.#mainPageFrame = new MainPageFrame()
+    }
+    return this.#mainPageFrame
+  }
+
+  /**
    * 创建悬浮球窗口
    * @returns 主窗口实例
    */
@@ -103,6 +118,7 @@ export default class WindowFactory {
     this.#updateNewFrame?.destroy()
     this.#testFrame?.destroy()
     this.#openDialogFrame?.destroy()
+    this.#mainPageFrame?.destroy()
   }
 
   /**
@@ -113,6 +129,7 @@ export default class WindowFactory {
     this.#noticeNewFrame?.destroy()
     this.#updateNewFrame?.hide()
     this.#openDialogFrame?.hide()
+    this.#mainPageFrame?.close()
   }
 }
 

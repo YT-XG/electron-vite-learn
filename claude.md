@@ -9,6 +9,7 @@ electron-vite-learn/
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
 │   │   ├── trayService.ts      # 系统托盘服务
 │   │   ├── clipboardService.ts # 剪贴板历史服务（sql.js SQLite）
+│   │   ├── inputService.ts    # 模拟输入服务（键盘模拟，跨平台粘贴）
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -90,7 +91,8 @@ electron-vite-learn/
   - `index.ts` - 主进程入口，应用生命周期管理
   - `trayService.ts` - 系统托盘服务
   - `clipboardService.ts` - 剪贴板历史服务（sql.js SQLite 持久化）
-- **依赖**: electron, @electron-toolkit/utils, sql.js
+  - `inputService.ts` - 模拟输入服务（跨平台键盘模拟，支持自动粘贴）
+- **依赖**: electron, @electron-toolkit/utils, sql.js, @nut-tree/nut-js
 
 ### 窗口框架 (src/main/frame/)
 - **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
@@ -260,12 +262,36 @@ electron-vite-learn/
     - `favorites:delete` - 删除收藏
     - `favorites:clearAll` - 清空所有收藏
 
+### 模拟输入服务 (src/main/service/inputService.ts)
+- **职责**: 封装键盘模拟功能，支持跨平台的自动粘贴和焦点窗口管理
+- **功能**:
+  - 使用 @nut-tree/nut-js 实现跨平台键盘模拟
+  - 自动识别操作系统：macOS 用 Cmd+V，Windows/Linux 用 Ctrl+V
+  - 支持剪贴板管理器点击记录后自动粘贴到上一个聚焦的窗口
+  - Windows 平台支持焦点窗口保存和恢复（通过 PowerShell 调用 user32.dll）
+- **IPC 接口**:
+  - `input:paste` - 仅模拟粘贴操作（Ctrl+V 或 Cmd+V）
+  - `input:paste-to-previous` - 恢复焦点到上一个窗口并粘贴
+  - `input:save-active-window` - 保存当前焦点窗口句柄
+- **依赖**: @nut-tree/nut-js
+- **使用方式**:
+  ```typescript
+  import { inputService } from './service/inputService'
+
+  // 在主进程启动时自动初始化
+  // 显示主页面前调用
+  inputService.saveActiveWindow()
+
+  // 点击记录后调用
+  inputService.pasteToPreviousWindow()
+  ```
+
 ### 剪贴板管理页面 (src/renderer/src/views/ClipboardManager.vue)
 - **职责**: 剪贴板历史记录和收藏的展示与交互
 - **功能**:
   - 历史记录 / 收藏双标签页导航
   - 支持搜索过滤（前端过滤）
-  - 点击记录复制到剪贴板
+  - 点击记录自动复制并粘贴到上一个聚焦的窗口
   - **历史记录一键清空**：点击"清空"按钮可清空所有历史记录（需确认）
   - **收藏手动添加**：点击"添加"按钮，手动输入内容、分类、描述
   - **收藏分类管理**：按分类筛选收藏，支持自定义分类（如：Linux命令）

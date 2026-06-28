@@ -1,18 +1,12 @@
-import { BrowserWindow, BrowserWindowConstructorOptions, clipboard, screen } from 'electron'
+import { BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './index'
 
 /**
  * 主窗口 - 悬浮球时钟
- * @description 负责显示悬浮球、剪贴板监控、窗口拖拽吸附
+ * @description 负责显示悬浮球、窗口拖拽吸附
  */
 export default class BallFrame extends BaseFrame {
-  /** 上次剪贴板文本 */
-  #lastClipboardText = ''
-
-  /** 剪贴板监控定时器 */
-  #clipboardTimer: ReturnType<typeof setInterval> | null = null
-
   /** 窗口配置 */
   protected readonly options: BrowserWindowConstructorOptions = {
     width: 90,
@@ -26,16 +20,6 @@ export default class BallFrame extends BaseFrame {
 
   /** 路由路径 */
   protected readonly routePath = '/'
-
-  /**
-   * 重写创建方法，添加剪贴板监控
-   * @param autoShow - 主窗口默认自动显示
-   */
-  create(autoShow = true) {
-    const window = super.create(autoShow)
-    this.startClipboardWatcher()
-    return window
-  }
 
   /**
    * 注册 IPC 监听器
@@ -181,37 +165,4 @@ export default class BallFrame extends BaseFrame {
     })
   }
 
-  /**
-   * 启动剪贴板监控
-   * @description 每秒检查一次剪贴板变化，有变化时通知渲染进程
-   */
-  startClipboardWatcher(): void {
-    this.#lastClipboardText = clipboard.readText()
-
-    this.#clipboardTimer = setInterval(() => {
-      const currentText = clipboard.readText()
-      if (currentText && currentText !== this.#lastClipboardText) {
-        this.#lastClipboardText = currentText
-        this.send('clipboard-changed', currentText)
-      }
-    }, 1000)
-  }
-
-  /**
-   * 停止剪贴板监控
-   */
-  stopClipboardWatcher(): void {
-    if (this.#clipboardTimer) {
-      clearInterval(this.#clipboardTimer)
-      this.#clipboardTimer = null
-    }
-  }
-
-  /**
-   * 销毁窗口前的清理
-   */
-  destroy(): void {
-    this.stopClipboardWatcher()
-    super.destroy()
-  }
 }

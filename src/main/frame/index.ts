@@ -12,6 +12,7 @@ export { default as NoticeNewFrame } from './NoticeNewFrame'
 export { default as TestFrame } from './TestFrame'
 export { default as OpenDialogFrame } from './OpenDialogFrame'
 export { default as UpdateNewFrame } from './UpdateNewFrame'
+export { default as MainPageFrame } from './MainPageFrame'
 
 // 窗口工厂
 export { default as WindowFactory, windowFactory } from './WindowFactory'

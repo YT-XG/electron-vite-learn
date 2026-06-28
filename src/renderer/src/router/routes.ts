@@ -20,5 +20,10 @@ export const AppRoutes = [
     path: '/test',
     name: '测试',
     component: () => import('@renderer/views/Test.vue')
+  },
+  {
+    path: '/mainPage',
+    name: '主页面',
+    component: () => import('@renderer/views/MainPage.vue')
   }
 ]

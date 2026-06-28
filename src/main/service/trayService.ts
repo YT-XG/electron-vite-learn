@@ -1,6 +1,6 @@
 import { app, Menu, Tray, nativeImage } from 'electron'
-import icon from '../../resources/icon.png?asset'
-import { windowFactory } from './frame'
+import icon from '../../../resources/icon.png?asset'
+import { windowFactory } from '../frame'
 
 /**
  * 系统托盘服务
