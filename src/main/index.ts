@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, clipboard } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
 import { TrayService } from './trayService'
@@ -12,8 +12,45 @@ log.info('[App] 应用启动，日志路径:', log.transports.file.getFile().pat
 /** 托盘服务实例 */
 let trayService: TrayService | null = null
 
+/** 剪贴板监控定时器 */
+let clipboardTimer: ReturnType<typeof setInterval> | null = null
+
+/** 上次剪贴板文本 */
+let lastClipboardText = ''
+
 // 设置退出标志
 ;(app as any).isQuitting = false
+
+/**
+ * 启动剪贴板监控
+ * @description 每秒检查剪贴板变化，有新文字时通过 NoticeNewFrame 弹窗显示
+ */
+function startClipboardWatcher(): void {
+  lastClipboardText = clipboard.readText()
+
+  clipboardTimer = setInterval(() => {
+    const currentText = clipboard.readText()
+    if (currentText && currentText !== lastClipboardText) {
+      lastClipboardText = currentText
+      log.info('[Clipboard] 检测到新复制内容:', currentText.substring(0, 50))
+
+      // 通过 NoticeNewFrame 弹窗显示
+      const noticeFrame = windowFactory.getNoticeNewFrame()
+      noticeFrame.setMsg(currentText)
+      noticeFrame.showAtBottomCenter()
+    }
+  }, 1000)
+}
+
+/**
+ * 停止剪贴板监控
+ */
+function stopClipboardWatcher(): void {
+  if (clipboardTimer) {
+    clearInterval(clipboardTimer)
+    clipboardTimer = null
+  }
+}
 
 app.whenReady().then(() => {
   // 设置应用用户模型 ID
@@ -28,11 +65,9 @@ app.whenReady().then(() => {
   trayService = new TrayService()
   // 创建新版更新窗口（未发现新版本自动销毁）
   windowFactory.getUpdateNewFrame().create()
-  // 创建通知窗口
-  windowFactory
-    .getNoticeNewFrame()
-    .setMsg('当前版本:' + app.getVersion())
-    .create()
+
+  // 启动剪贴板监控
+  startClipboardWatcher()
 
   // 应用激活时重新创建窗口（macOS）
   app.on('activate', () => {
@@ -60,5 +95,6 @@ app.on('window-all-closed', () => {
 // 应用退出前的清理
 app.on('before-quit', () => {
   ;(app as any).isQuitting = true
+  stopClipboardWatcher()
   trayService?.destroy()
 })

@@ -28,6 +28,9 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 动画帧 ID（仅用于收起动画） */
   #animationFrameId: ReturnType<typeof setTimeout> | null = null
 
+  /** 消息是否已发送给渲染进程（避免窗口未加载时 send 丢失） */
+  #msgSent = false
+
   /** 窗口配置 - 透明无边框轻量气泡 */
   protected readonly options: BrowserWindowConstructorOptions = {
     width: NoticeNewFrame.POPUP_WIDTH,
@@ -64,13 +67,17 @@ export default class NoticeNewFrame extends BaseFrame {
 
   /**
    * 注册 IPC 监听器
-   * @description 监听渲染进程就绪事件，就绪后显示窗口
+   * @description 监听渲染进程就绪事件，页面加载完成后发送缓存的消息并显示窗口
    */
   protected registerIPC(): void {
     super.registerIPC()
 
-    // 渲染进程已就绪，定位并显示弹窗
+    // 渲染进程已就绪，发送缓存的消息并显示弹窗
     this.registerIPCOn('notice-new:ready', async () => {
+      // 如果消息还没发过（窗口创建时 send 丢失的情况），现在补发
+      if (!this.#msgSent) {
+        this.send('notice-new:sendMsg', this.#msg)
+      }
       await this.showAtBottomCenter()
     })
   }
@@ -139,6 +146,7 @@ export default class NoticeNewFrame extends BaseFrame {
   /**
    * 在屏幕底部居中显示通知弹窗
    * @description 定位 → 发送消息 → 显示窗口（CSS 处理入场放大动画） → 5 秒后自动销毁
+   *              支持重复调用：窗口销毁后会自动重建
    */
   async showAtBottomCenter(): Promise<void> {
     // 清除之前的自动销毁定时器
@@ -147,7 +155,13 @@ export default class NoticeNewFrame extends BaseFrame {
     const pos = this.#calcBottomCenterPosition()
 
     if (!this.isAlive()) {
+      // 窗口不存在 → 创建新窗口（IPC handler 会在页面加载后补发消息）
+      this.#msgSent = false
       this.create()
+    } else {
+      // 窗口已存在 → 直接发送消息
+      this.send('notice-new:sendMsg', this.#msg)
+      this.#msgSent = true
     }
 
     // 定位到屏幕底部居中（全尺寸）
@@ -157,9 +171,6 @@ export default class NoticeNewFrame extends BaseFrame {
       width: NoticeNewFrame.POPUP_WIDTH,
       height: NoticeNewFrame.POPUP_HEIGHT
     })
-
-    // 发送消息给渲染进程（渲染进程收到后触发 CSS 缩放动画）
-    this.send('notice-new:sendMsg', this.#msg)
 
     // 显示窗口
     this.window!.show()
@@ -197,6 +208,9 @@ export default class NoticeNewFrame extends BaseFrame {
       clearTimeout(this.#animationFrameId)
       this.#animationFrameId = null
     }
+
+    // 重置消息发送状态，下次 showAtBottomCenter 时重新创建窗口并发送消息
+    this.#msgSent = false
 
     super.destroy()
   }

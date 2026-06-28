@@ -1,7 +1,15 @@
 import { BaseFrame } from './index'
 import { app, BrowserWindowConstructorOptions, screen } from 'electron'
 import { join } from 'path'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  unlinkSync
+} from 'fs'
 import log from 'electron-log'
 import * as yaml from 'js-yaml'
 import semver from 'semver'
@@ -63,11 +71,11 @@ export default class UpdateNewFrame extends BaseFrame {
   private isDownloading = false
   private config = {
     // 局域网更新服务器地址（可通过环境变量 OVERUPDATE_SERVER_URL 覆盖）
-    serverUrl: process.env.UPDATE_SERVER_URL || '\\\\192.168.31.203\\releases',
+    serverUrl: process.env.UPDATE_SERVER_URL || '\\\\192.168.31.203\\dist',
     // 本地缓存目录
     cacheDir: join(app.getPath('userData'), 'update-cache'),
     // 超时时间 30 秒
-    timeout: 30000,
+    timeout: 15000,
     // 最新版本文件名
     latestFileName: 'latest.yml'
   }
@@ -179,7 +187,7 @@ export default class UpdateNewFrame extends BaseFrame {
           sha512: '',
           size: 0,
           version: '',
-          msg: 'latest.yml 文件不存在'
+          msg: '请求超时，请检查网络连接'
         }
       }
 
@@ -206,7 +214,7 @@ export default class UpdateNewFrame extends BaseFrame {
       if (semver.lte(remoteVersion, currentVersion)) {
         log.info('[LanUpdate] 已是最新版本')
         await this.destroy()
-        return { file: '', sha512: '', size: 0, version: '', msg: '已是最新版本' }
+        return { file: '', sha512: '', size: 0, version: '', msg: '已是最新版本---' + remoteVersion }
       }
 
       // 构建更新信息（兼容 electron-builder 和自定义 latest.yml 格式）
@@ -440,7 +448,11 @@ export default class UpdateNewFrame extends BaseFrame {
    * @description 从屏幕底部居中弹出，带动画效果
    * @param data - 更新信息（版本号、更新说明、完整更新信息）
    */
-  async showUpdate(data?: { version?: string; description?: string; updateInfo?: UpdateInfo }): Promise<void> {
+  async showUpdate(data?: {
+    version?: string
+    description?: string
+    updateInfo?: UpdateInfo
+  }): Promise<void> {
     const pos = this.#calcBottomCenterPosition()
     const display = screen.getPrimaryDisplay()
     const screenHeight = display.workArea.height + display.workArea.y
