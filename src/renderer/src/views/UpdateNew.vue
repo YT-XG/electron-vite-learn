@@ -1,0 +1,488 @@
+<template>
+  <div class="update-container" :class="{ 'update-visible': isVisible }">
+    <div class="update-card">
+      <!-- 顶部渐变装饰条（蓝→粉，呼应悬浮球旋转环） -->
+      <div class="accent-bar" />
+
+      <!-- 关闭按钮 -->
+      <button class="close-btn" @click="handleClose">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path
+            d="M1 1L11 11M1 11L11 1"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+
+      <!-- 内容区 -->
+      <div class="update-body">
+        <!-- 图标：蓝粉渐变圆环 + 向上箭头 -->
+        <div class="update-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="url(#iconGrad)" stroke-width="1.5" />
+            <path
+              d="M14 8V18M10 14L14 10L18 14"
+              stroke="url(#iconGrad)"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <defs>
+              <linearGradient id="iconGrad" x1="0" y1="0" x2="28" y2="28">
+                <stop offset="0%" stop-color="#3d8bff" />
+                <stop offset="100%" stop-color="#ff6ab0" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <h2 class="update-title">发现新版本</h2>
+        <p class="update-version">v{{ version }}</p>
+
+        <!-- 下载进度条 -->
+        <div v-if="downloadStatus === 'downloading'" class="progress-wrap">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${progress}%` }" />
+          </div>
+          <span class="progress-text">{{ progress }}%</span>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="update-actions">
+          <button class="btn btn-secondary" @click="handleClose">
+            {{ downloadStatus === 'installing' ? '取消' : '稍后再说' }}
+          </button>
+
+          <!-- 空闲状态：显示立即更新按钮 -->
+          <button
+            v-if="downloadStatus === 'idle'"
+            class="btn btn-primary"
+            @click="handleDownload"
+          >
+            立即更新
+          </button>
+
+          <!-- 下载中：显示下载中按钮（禁用） -->
+          <button v-else-if="downloadStatus === 'downloading'" class="btn btn-primary" disabled>
+            下载中...
+          </button>
+
+          <!-- 下载完成：显示安装按钮 -->
+          <button
+            v-else-if="downloadStatus === 'downloaded'"
+            class="btn btn-install"
+            @click="handleInstall"
+          >
+            立即安装
+          </button>
+
+          <!-- 安装中：显示安装中按钮（禁用） -->
+          <button v-else-if="downloadStatus === 'installing'" class="btn btn-primary" disabled>
+            安装中...
+          </button>
+        </div>
+      </div>
+
+      <!-- 底部装饰环（呼应悬浮球的旋转环） -->
+      <div class="ring-deco ring-1" />
+      <div class="ring-deco ring-2" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+
+/** 当前版本号 */
+const version = ref('')
+
+/** 更新说明 */
+const description = ref('')
+
+/** 下载状态：idle-空闲, downloading-下载中, downloaded-下载完成, installing-安装中 */
+type DownloadStatus = 'idle' | 'downloading' | 'downloaded' | 'installing'
+const downloadStatus = ref<DownloadStatus>('idle')
+
+/** 下载进度 */
+const progress = ref(0)
+
+/** 页面入场动画状态 */
+const isVisible = ref(false)
+
+/**
+ * 处理下载按钮点击
+ * @description 通知主进程开始下载更新
+ */
+const handleDownload = (): void => {
+  if (downloadStatus.value !== 'idle') return
+  downloadStatus.value = 'downloading'
+  progress.value = 0
+  window.electron.ipcRenderer.send('update-new:download')
+}
+
+/**
+ * 处理安装按钮点击
+ * @description 通知主进程启动安装程序
+ */
+const handleInstall = (): void => {
+  if (downloadStatus.value !== 'downloaded') return
+  downloadStatus.value = 'installing'
+  window.electron.ipcRenderer.send('update-new:install')
+}
+
+/**
+ * 处理关闭按钮点击
+ * @description 播放关闭动画后通知主进程隐藏窗口
+ */
+const handleClose = (): void => {
+  isVisible.value = false
+  setTimeout(() => {
+    window.electron.ipcRenderer.send('update-new:destroy')
+  }, 300)
+}
+
+/**
+ * 监听主进程发送的更新信息
+ * @description 接收版本号和更新说明
+ */
+const handleUpdateInfo = (
+  _event: Electron.IpcRendererEvent,
+  data: { version: string; description: string }
+): void => {
+  version.value = data.version
+  description.value = data.description
+}
+
+/**
+ * 监听下载进度
+ */
+const handleProgress = (_event: Electron.IpcRendererEvent, data: { percent: number }): void => {
+  progress.value = Math.round(data.percent)
+}
+
+/**
+ * 监听下载完成
+ */
+const handleDownloaded = (
+  _event: Electron.IpcRendererEvent,
+  _data: { path: string }
+): void => {
+  console.log('下载完成，准备安装')
+  downloadStatus.value = 'downloaded'
+  progress.value = 100
+}
+
+/**
+ * 监听下载错误
+ */
+const handleError = (
+  _event: Electron.IpcRendererEvent,
+  data: { message: string }
+): void => {
+  console.error('下载失败:', data.message)
+  downloadStatus.value = 'idle'
+  progress.value = 0
+}
+
+/**
+ * 监听主进程的动画控制指令
+ * @description 控制入场/退场动画的显示状态
+ */
+const handleAnimate = (
+  _event: Electron.IpcRendererEvent,
+  data: { type: 'show' | 'hide' }
+): void => {
+  isVisible.value = data.type === 'show'
+}
+
+onMounted(() => {
+  // 入场动画：下一帧触发，确保初始 opacity:0 生效后再切换
+  requestAnimationFrame(() => {
+    isVisible.value = true
+  })
+
+  // 注册 IPC 监听器
+  window.electron.ipcRenderer.on('update-new:animate', handleAnimate)
+  window.electron.ipcRenderer.on('update-new:info', handleUpdateInfo)
+  window.electron.ipcRenderer.on('lan-update-progress', handleProgress)
+  window.electron.ipcRenderer.on('lan-update-downloaded', handleDownloaded)
+  window.electron.ipcRenderer.on('lan-update-error', handleError)
+
+  // 通知主进程：渲染进程已就绪，可以发送数据了
+  window.electron.ipcRenderer.send('update-new:ready')
+})
+
+onUnmounted(() => {
+  // 清理 IPC 监听器
+  window.electron.ipcRenderer.removeListener('update-new:animate', handleAnimate)
+  window.electron.ipcRenderer.removeListener('update-new:info', handleUpdateInfo)
+  window.electron.ipcRenderer.removeListener('lan-update-progress', handleProgress)
+  window.electron.ipcRenderer.removeListener('lan-update-downloaded', handleDownloaded)
+  window.electron.ipcRenderer.removeListener('lan-update-error', handleError)
+})
+</script>
+
+<style scoped>
+/* ─── 容器 ─── */
+.update-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.update-container.update-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ─── 卡片 ─── */
+.update-card {
+  position: relative;
+  width: 340px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 18px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+}
+
+/* ─── 顶部渐变装饰条 ─── */
+.accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, #78b4ff 0%, #3d8bff 40%, #ff6ab0 70%, #ff96c8 100%);
+}
+
+/* ─── 关闭按钮 ─── */
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #555;
+}
+
+/* ─── 内容区 ─── */
+.update-body {
+  padding: 24px 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ─── 图标 ─── */
+.update-icon {
+  margin-bottom: 12px;
+}
+
+/* ─── 标题 ─── */
+.update-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ─── 版本号 ─── */
+.update-version {
+  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+  color: #3d8bff;
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+
+/* ─── 说明 ─── */
+.update-desc {
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 20px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ─── 进度条 ─── */
+.progress-wrap {
+  width: 100%;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(61, 139, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+  font-size: 11px;
+  color: #888;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ─── 按钮 ─── */
+.update-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.btn {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-secondary {
+  background: rgba(0, 0, 0, 0.04);
+  color: #888;
+}
+
+.btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.07);
+  color: #555;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3d8bff 0%, #5a9dff 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.25);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(61, 139, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 安装按钮 - 渐变绿色，区分下载按钮 */
+.btn-install {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+}
+
+.btn-install:hover {
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-install:active {
+  transform: translateY(0);
+}
+
+/* ─── 装饰环（呼应悬浮球的旋转环） ─── */
+.ring-deco {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  pointer-events: none;
+}
+
+.ring-1 {
+  bottom: -15px;
+  right: -15px;
+  border-top-color: #78b4ff;
+  border-right-color: #3d8bff;
+  animation: update-spin 3s linear infinite;
+  opacity: 0.4;
+}
+
+.ring-2 {
+  bottom: -10px;
+  right: -10px;
+  width: 40px;
+  height: 40px;
+  border-bottom-color: #ff96c8;
+  border-left-color: #ff6ab0;
+  animation: update-spin-reverse 4s linear infinite;
+  opacity: 0.3;
+}
+
+/* ─── 全局样式覆盖 ─── */
+:global(html),
+:global(body) {
+  background: transparent !important;
+}
+
+@keyframes update-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes update-spin-reverse {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+</style>

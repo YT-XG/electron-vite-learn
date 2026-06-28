@@ -2,19 +2,14 @@ export const AppRoutes = [
   { path: '/', name: '首页', component: () => import('@renderer/views/Home.vue') },
   { path: '/about', name: '关于我们', component: () => import('@renderer/views/About.vue') },
   {
-    path: '/musicDialog',
-    name: '歌词窗口',
-    component: () => import('@renderer/views/MusicDialog.vue')
+    path: '/noticeNew',
+    name: '通知窗口',
+    component: () => import('@renderer/views/NoticeNew.vue')
   },
   {
-    path: '/notice',
-    name: '通知',
-    component: () => import('@renderer/views/Notice.vue')
-  },
-  {
-    path: '/update',
-    name: '更新',
-    component: () => import('@renderer/views/UpdateDialog.vue')
+    path: '/updateNew',
+    name: '更新窗口新',
+    component: () => import('@renderer/views/UpdateNew.vue')
   },
   {
     path: '/openDialog',

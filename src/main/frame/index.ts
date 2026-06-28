@@ -7,12 +7,11 @@
 export { default as BaseFrame } from './BaseFrame'
 
 // 具体实现
-export { default as MainFrame } from './MainFrame'
-export { default as NoticeFrame } from './NoticeFrame'
-export { default as UpdateFrame } from './UpdateFrame'
-export { default as MusicFrame } from './MusicFrame'
+export { default as BallFrame } from './BallFrame'
+export { default as NoticeNewFrame } from './NoticeNewFrame'
 export { default as TestFrame } from './TestFrame'
 export { default as OpenDialogFrame } from './OpenDialogFrame'
+export { default as UpdateNewFrame } from './UpdateNewFrame'
 
 // 窗口工厂
 export { default as WindowFactory, windowFactory } from './WindowFactory'

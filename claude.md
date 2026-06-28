@@ -7,21 +7,16 @@ electron-vite-learn/
 ├── src/
 │   ├── main/                    # Electron 主进程
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
-│   │   ├── updateService.ts    # 自动更新服务（旧版，未使用）
 │   │   ├── trayService.ts      # 系统托盘服务
-│   │   ├── updater/            # 局域网更新服务
-│   │   │   ├── index.ts        # 更新服务模块导出
-│   │   │   ├── LanUpdateService.ts # 局域网更新服务（核心）
-│   │   │   └── config.ts       # 更新配置
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
-│   │       ├── MainFrame.ts    # 主窗口（悬浮球时钟）
+│   │       ├── BallFrame.ts    # 主窗口（悬浮球时钟）
 │   │       ├── NoticeFrame.ts  # 通知窗口
-│   │       ├── UpdateFrame.ts  # 更新窗口
-│   │       ├── MusicFrame.ts   # 音乐窗口
+│   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，5秒自动销毁）
 │   │       ├── TestFrame.ts    # 测试窗口
 │   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
+│   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
@@ -44,9 +39,10 @@ electron-vite-learn/
 │           │   ├── Home.vue   # 悬浮球时钟（可拖拽、显示当前时间）
 │           │   ├── About.vue  # 关于页
 │           │   ├── Notice.vue # 通知窗口（剪贴板通知）
-│           │   ├── MusicDialog.vue # 音乐对话框
-│           │   ├── UpdateDialog.vue # 更新对话框
-│           │   └── OpenDialog.vue # 悬浮球展开对话框
+│           │   ├── NoticeNew.vue   # 通知弹窗（蓝粉渐变胶囊样式）
+│           │   ├── UpdateNew.vue   # 更新窗口（底部居中弹出）
+│           │   ├── OpenDialog.vue # 悬浮球展开对话框
+│           │   └── Test.vue   # 测试页面
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
 │           ├── utils/          # 工具函数
@@ -62,6 +58,9 @@ electron-vite-learn/
 ├── resources/                  # 应用资源（图标等）
 ├── electron.vite.config.ts     # Electron-Vite 配置
 ├── electron-builder.yml        # 打包配置
+├── .gitattributes              # Git 行尾符配置
+├── .prettierrc.yaml            # Prettier 格式化配置
+├── .editorconfig               # 编辑器配置
 ├── tsconfig.json               # TypeScript 基础配置
 ├── tsconfig.node.json          # Node.js TypeScript 配置
 └── tsconfig.web.json           # 浏览器 TypeScript 配置
@@ -85,55 +84,19 @@ electron-vite-learn/
 - **职责**: 管理应用生命周期、创建窗口、处理系统级操作
 - **关键文件**:
   - `index.ts` - 主进程入口，应用生命周期管理
-  - `updateService.ts` - 自动更新服务（旧版，未使用）
   - `trayService.ts` - 系统托盘服务
 - **依赖**: electron, @electron-toolkit/utils
-
-### 局域网更新服务 (src/main/updater/)
-- **职责**: 通过 SMB 共享文件夹检查和下载应用更新
-- **关键文件**:
-  - `LanUpdateService.ts` - 局域网更新服务核心类
-  - `config.ts` - 更新配置（服务器地址、缓存目录等）
-  - `index.ts` - 模块导出
-- **功能**:
-  - 读取局域网共享文件夹的 `latest.yml` 版本信息
-  - 比较本地版本与远程版本（使用 semver）
-  - 下载更新包到本地缓存目录
-  - 提供 IPC 接口供渲染进程调用
-- **IPC 接口**:
-  - `lan-update:check` - 检查更新
-  - `lan-update:download` - 下载更新
-  - `lan-update:install` - 安装更新
-  - `lan-update:cancel` - 取消下载
-- **配置方式**:
-  - 环境变量: `UPDATE_SERVER_URL=\\电脑名\共享名`
-  - 代码配置: 构造函数传入配置对象
-- **使用方式**:
-  ```typescript
-  import { LanUpdateService } from './updater'
-
-  // 初始化局域网更新服务
-  const lanUpdateService = new LanUpdateService(mainWindow, {
-    serverUrl: '\\\\DESKTOP-PC\\releases'
-  })
-
-  // 检查更新
-  await lanUpdateService.checkForUpdates()
-
-  // 退出时销毁
-  lanUpdateService.destroy()
-  ```
 
 ### 窗口框架 (src/main/frame/)
 - **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
 - **关键文件**:
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
-  - `MainFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
+  - `BallFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
   - `NoticeFrame.ts` - 剪贴板通知窗口，从右下角弹出显示复制的文字
-  - `UpdateFrame.ts` - 更新窗口，显示软件更新对话框
-  - `MusicFrame.ts` - 音乐窗口，显示音乐播放对话框
+  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，5 秒后自动销毁
   - `TestFrame.ts` - 测试窗口
   - `OpenDialogFrame.ts` - 悬浮球展开对话框窗口，鼠标悬停时向左/右侧展开
+  - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
   - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
 - **设计模式**: 工厂模式 + 模板方法模式
 - **使用方式**:
@@ -146,11 +109,8 @@ electron-vite-learn/
   // 显示通知
   windowFactory.showNotice('剪贴板内容已更新')
 
-  // 显示更新窗口
-  windowFactory.showUpdate('1.0.1', '修复了一些 bug')
-
-  // 显示音乐窗口
-  windowFactory.showMusic()
+  // 显示更新窗口（底部居中弹出）
+  windowFactory.showUpdateNew({ version: '1.0.1', description: '修复了一些 bug' })
 
   // 显示 OpenDialog（鼠标悬停时自动调用）
   const openDialogFrame = windowFactory.getOpenDialogFrame()
@@ -195,20 +155,56 @@ electron-vite-learn/
   openDialogFrame.positionAboveBall()
   ```
 
+### 更新窗口 (src/main/frame/UpdateNewFrame.ts)
+- **职责**: 底部居中弹出的更新提示窗口，包含完整的局域网更新逻辑
+- **功能**:
+  - 屏幕底部居中定位（距底部 60px）
+  - 按需创建，不自动启动
+  - 带有弹出/收起 CSS 动画
+  - 透明无边框窗口，玻璃拟态卡片风格
+  - 与悬浮球蓝粉配色一致（#3d8bff / #ff6ab0）
+  - 显示版本号、更新说明、下载进度条
+  - 底部装饰旋转环呼应悬浮球设计
+  - 局域网更新：读取 SMB 共享文件夹的 `latest.yml` 版本信息
+  - 本地缓存检查：优先检查本地是否已下载该版本
+  - 下载进度实时显示
+  - 下载完成后显示安装按钮
+- **IPC 接口**:
+  - `update-new:ready` - 渲染进程已就绪，触发检查更新
+  - `update-new:download` - 渲染进程请求下载更新
+  - `update-new:install` - 渲染进程请求安装更新
+  - `update-new:hide` - 渲染进程请求隐藏窗口
+  - `update-new:destroy` - 渲染进程请求销毁窗口
+  - `lan-update-progress` - 主进程发送下载进度
+  - `lan-update-downloaded` - 主进程发送下载完成通知
+  - `lan-update-error` - 主进程发送错误信息
+- **配置方式**:
+  - 环境变量: `UPDATE_SERVER_URL=\\电脑名\共享名`
+  - 代码配置: `config` 属性（第 57-66 行）
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 显示更新窗口（按需创建）
+  windowFactory.showUpdateNew({ version: '1.0.1', description: '修复了一些 bug' })
+
+  // 隐藏更新窗口
+  windowFactory.getUpdateNewFrame().hide()
+  ```
+
 ### 系统托盘 (src/main/trayService.ts)
 - **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
 - **功能**:
   - 创建系统托盘图标
-  - 右键菜单：显示窗口、隐藏窗口、检查更新、退出
-  - 双击托盘图标：显示/隐藏窗口
-  - 关闭窗口时隐藏到托盘（不退出应用）
+  - 右键菜单：检查更新、退出
+  - 点击"检查更新"：打开更新窗口
   - 点击"退出"菜单才真正退出应用
 - **使用方式**:
   ```typescript
   import { TrayService } from './trayService'
 
   // 在主进程启动时初始化
-  const trayService = new TrayService(mainWindow)
+  const trayService = new TrayService()
 
   // 退出时销毁
   trayService.destroy()
@@ -258,8 +254,10 @@ electron-vite-learn/
   - `Home.vue` - 悬浮球时钟，显示当前时间（HH:MM:SS），支持窗口拖拽
   - `About.vue` - 关于页
   - `Notice.vue` - 剪贴板通知窗口，显示复制的文字（最多两行，超出省略），支持拖拽、关闭按钮、10秒自动关闭
-  - `MusicDialog.vue` - 音乐对话框
+  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示
+  - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
   - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
+  - `Test.vue` - 测试页面
 
 ## 开发命令
 

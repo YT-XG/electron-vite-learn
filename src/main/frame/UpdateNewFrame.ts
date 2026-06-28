@@ -1,0 +1,528 @@
+import { BaseFrame } from './index'
+import { app, BrowserWindowConstructorOptions, screen } from 'electron'
+import { join } from 'path'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'fs'
+import log from 'electron-log'
+import * as yaml from 'js-yaml'
+import semver from 'semver'
+
+/** 更新信息接口 */
+export interface UpdateInfo {
+  /** 版本号 */
+  version: string
+  /** 文件名 */
+  file: string
+  /** 文件大小（字节） */
+  size: number
+  /** SHA512 校验值 */
+  sha512: string
+  /** 发布说明 */
+  releaseNotes?: string
+  /** 发布日期 */
+  releaseDate?: string
+  msg?: string
+}
+/**
+ * 新版更新窗口
+ * @description 底部居中弹出的更新提示窗口，契合悬浮球主题
+ */
+export default class UpdateNewFrame extends BaseFrame {
+  /** 弹窗宽度 */
+  private static readonly POPUP_WIDTH = 380
+
+  /** 弹窗高度 */
+  private static readonly POPUP_HEIGHT = 280
+
+  /** 窗口底部距屏幕边缘的间距（像素） */
+  private static readonly BOTTOM_MARGIN = 60
+
+  /** 是否正在显示 */
+  #isShowing = false
+
+  /** 动画是否正在播放 */
+  #isAnimating = false
+
+  /** 动画帧 ID */
+  #animationFrameId: ReturnType<typeof setTimeout> | null = null
+
+  /** 窗口配置 - 透明无边框气泡 */
+  protected readonly options: BrowserWindowConstructorOptions = {
+    width: UpdateNewFrame.POPUP_WIDTH,
+    height: UpdateNewFrame.POPUP_HEIGHT,
+    transparent: true,
+    backgroundColor: '#00000000',
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    show: false
+  }
+
+  /** 路由路径 */
+  protected readonly routePath: string = '/updateNew'
+  private isDownloading = false
+  private config = {
+    // 局域网更新服务器地址（可通过环境变量 OVERUPDATE_SERVER_URL 覆盖）
+    serverUrl: process.env.UPDATE_SERVER_URL || '\\\\192.168.31.203\\releases',
+    // 本地缓存目录
+    cacheDir: join(app.getPath('userData'), 'update-cache'),
+    // 超时时间 30 秒
+    timeout: 30000,
+    // 最新版本文件名
+    latestFileName: 'latest.yml'
+  }
+  private currentDownloadPath: string | null = null
+
+  /** 当前更新信息（用于下载和安装） */
+  private currentUpdateInfo: UpdateInfo | null = null
+
+  /**
+   * 在本地缓存目录查找已下载的更新包
+   * @param version - 要查找的版本号
+   * @returns 找到的安装包路径，未找到返回 null
+   */
+  private findCachedUpdate(version: string): string | null {
+    try {
+      if (!existsSync(this.config.cacheDir)) {
+        return null
+      }
+
+      const files = readdirSync(this.config.cacheDir)
+      // 查找匹配版本号的安装包（文件名格式：update-{version}-{filename}）
+      const cachedFile = files.find((file) => file.startsWith(`update-${version}-`))
+
+      if (cachedFile) {
+        const filePath = join(this.config.cacheDir, cachedFile)
+        // 验证文件存在且大小大于 0
+        const stat = statSync(filePath)
+        if (stat.size > 0) {
+          log.info('[UpdateNew] 找到本地缓存:', filePath)
+          return filePath
+        }
+      }
+
+      return null
+    } catch (error) {
+      log.error('[UpdateNew] 查找缓存失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 注册 IPC 监听器
+   * @description 监听渲染进程的关闭请求和就绪通知
+   */
+  protected registerIPC(): void {
+    super.registerIPC()
+
+    // 渲染进程请求隐藏更新窗口
+    this.registerIPCOn('update-new:hide', async () => {
+      await this.hide()
+    })
+
+    // 渲染进程请求销毁更新窗口
+    this.registerIPCOn('update-new:destroy', async () => {
+      await this.destroy()
+    })
+
+    // 渲染进程已就绪，显示窗口并发送待处理的数据
+    this.registerIPCOn('update-new:ready', async () => {
+      console.log('渲染进程加载完毕，准备检查更新')
+      await this.checkForUpdates()
+    })
+
+    // 渲染进程请求下载更新
+    this.registerIPCOn('update-new:download', async () => {
+      log.info('[UpdateNewFrame] 收到下载请求')
+      if (!this.currentUpdateInfo) {
+        log.error('[UpdateNewFrame] 没有更新信息，无法下载')
+        return
+      }
+      try {
+        await this.downloadUpdate(this.currentUpdateInfo)
+      } catch (error) {
+        log.error('[UpdateNewFrame] 下载失败:', error)
+      }
+    })
+
+    // 渲染进程请求安装更新
+    this.registerIPCOn('update-new:install', () => {
+      log.info('[UpdateNewFrame] 收到安装请求')
+      if (!this.currentDownloadPath) {
+        log.error('[UpdateNewFrame] 没有安装包路径，无法安装')
+        return
+      }
+      try {
+        this.installUpdate(this.currentDownloadPath)
+      } catch (error) {
+        log.error('[UpdateNewFrame] 安装失败:', error)
+      }
+    })
+  }
+
+  /**
+   * 检查是否有可用更新
+   * @description 先检查本地缓存，再检查远程服务器
+   * @returns 更新信息，如果没有更新返回 null
+   */
+  async checkForUpdates(): Promise<UpdateInfo | null> {
+    console.log('进入检测更新状态')
+    try {
+      // 构建 latest.yml 文件路径
+      const latestYmlPath = join(this.config.serverUrl, this.config.latestFileName)
+
+      // 检查文件是否存在
+      if (!existsSync(latestYmlPath)) {
+        log.info('[LanUpdate] latest.yml 文件不存在:', latestYmlPath)
+        return {
+          file: '',
+          sha512: '',
+          size: 0,
+          version: '',
+          msg: 'latest.yml 文件不存在'
+        }
+      }
+
+      // 读取并解析 latest.yml
+      const yamlContent = readFileSync(latestYmlPath, 'utf-8')
+      const latestInfo = yaml.load(yamlContent) as Record<string, unknown>
+
+      // 提取版本信息
+      const remoteVersion = latestInfo.version as string
+      const currentVersion = app.getVersion()
+
+      // 比较版本号
+      if (!semver.valid(remoteVersion)) {
+        return {
+          file: '',
+          sha512: '',
+          size: 0,
+          version: '',
+          msg: `无效的版本号格式: ${remoteVersion}`
+        }
+        throw new Error(`无效的版本号格式: ${remoteVersion}`)
+      }
+
+      if (semver.lte(remoteVersion, currentVersion)) {
+        log.info('[LanUpdate] 已是最新版本')
+        await this.destroy()
+        return { file: '', sha512: '', size: 0, version: '', msg: '已是最新版本' }
+      }
+
+      // 构建更新信息（兼容 electron-builder 和自定义 latest.yml 格式）
+      const fileName =
+        (latestInfo.path as string) ||
+        ((latestInfo.files as any)?.[0]?.url as string) ||
+        (latestInfo.fileName as string) ||
+        ''
+
+      const updateInfo: UpdateInfo = {
+        version: remoteVersion,
+        file: fileName,
+        size: (latestInfo.size as number) || ((latestInfo.files as any)?.[0]?.size as number) || 0,
+        sha512:
+          (latestInfo.sha512 as string) || ((latestInfo.files as any)?.[0]?.sha512 as string) || '',
+        releaseNotes: (latestInfo.releaseNotes as string) || '',
+        releaseDate: (latestInfo.releaseDate as string) || new Date().toISOString()
+      }
+      log.info('[LanUpdate] 发现新版本:', updateInfo)
+
+      // 保存更新信息供下载和安装使用
+      this.currentUpdateInfo = updateInfo
+
+      // 检查本地缓存是否已有该版本的安装包
+      const cachedPath = this.findCachedUpdate(remoteVersion)
+      if (cachedPath) {
+        log.info('[UpdateNew] 本地已缓存该版本，直接显示安装按钮')
+        this.currentDownloadPath = cachedPath
+        // 通知渲染进程：已下载完成，可直接安装
+        this.send('lan-update-downloaded', { path: cachedPath })
+      }
+
+      // 显示更新窗口
+      await this.showUpdate({ version: remoteVersion, updateInfo })
+      return updateInfo
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      log.error('[LanUpdate] 检查更新失败:', errorMessage)
+      return {
+        file: '',
+        sha512: '',
+        size: 0,
+        version: '',
+        msg: `检查更新失败: ${errorMessage}`
+      }
+    }
+  }
+
+  /**
+   * 下载更新包
+   * @param info - 更新信息
+   * @returns 下载后的本地文件路径
+   */
+  async downloadUpdate(info: UpdateInfo): Promise<string> {
+    if (this.isDownloading) {
+      throw new Error('已有下载任务进行中')
+    }
+
+    this.isDownloading = true
+
+    try {
+      // 构建远程文件路径
+      const remoteFilePath = join(this.config.serverUrl, info.file)
+      log.info('[LanUpdate] 服务器地址:', this.config.serverUrl)
+      log.info('[LanUpdate] 文件名:', info.file)
+      log.info('[LanUpdate] 完整路径:', remoteFilePath)
+      // 检查文件是否存在
+      log.info('[LanUpdate] 检查源文件是否存在...')
+      const srcExists = existsSync(remoteFilePath)
+      log.info('[LanUpdate] 源文件存在:', srcExists)
+      if (!srcExists) {
+        throw new Error(`更新文件不存在: ${remoteFilePath}`)
+      }
+
+      // 构建本地保存路径
+      const localFileName = `update-${info.version}-${info.file}`
+      const localFilePath = join(this.config.cacheDir, localFileName)
+      this.currentDownloadPath = localFilePath
+
+      log.info('[LanUpdate] 保存到:', localFilePath)
+
+      // 确保目标目录存在
+      log.info('[LanUpdate] 创建缓存目录...')
+      mkdirSync(this.config.cacheDir, { recursive: true })
+      log.info('[LanUpdate] 缓存目录就绪')
+
+      // 报告 0% 进度
+      this.send('lan-update-progress', {
+        transferred: 0,
+        total: info.size,
+        bytesPerSecond: 0,
+        percent: 0
+      })
+
+      // 使用 copyFileSync 复制文件（支持 UNC 网络路径）
+      log.info('[LanUpdate] 开始复制文件...')
+      const startTime = Date.now()
+      copyFileSync(remoteFilePath, localFilePath)
+      const elapsed = (Date.now() - startTime) / 1000
+
+      log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
+
+      // 报告 100% 进度
+      this.send('lan-update-progress', {
+        transferred: info.size,
+        total: info.size,
+        bytesPerSecond: 0,
+        percent: 100
+      })
+
+      // 验证文件大小
+      log.info('[LanUpdate] 验证下载文件...')
+      const downloadedSize = statSync(localFilePath).size
+      log.info(`[LanUpdate] 预期大小: ${info.size}, 实际大小: ${downloadedSize}`)
+      if (info.size > 0 && downloadedSize !== info.size) {
+        log.warn(`[LanUpdate] 文件大小不匹配: 预期 ${info.size}, 实际 ${downloadedSize}`)
+      }
+
+      log.info('[LanUpdate] 下载完成:', localFilePath)
+      this.send('lan-update-downloaded', { path: localFilePath })
+
+      return localFilePath
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      log.error('[LanUpdate] 下载失败:', errorMessage)
+
+      // 清理失败的下载文件
+      if (this.currentDownloadPath && existsSync(this.currentDownloadPath)) {
+        try {
+          unlinkSync(this.currentDownloadPath)
+        } catch {
+          // 忽略清理错误
+        }
+      }
+
+      this.send('lan-update-error', { message: errorMessage })
+      throw error
+    } finally {
+      this.isDownloading = false
+    }
+  }
+
+  /**
+   * 安装更新
+   * @param installerPath - 安装包路径
+   */
+  installUpdate(installerPath: string): void {
+    if (!existsSync(installerPath)) {
+      throw new Error(`安装包不存在: ${installerPath}`)
+    }
+
+    log.info('[LanUpdate] 启动安装程序:', installerPath)
+
+    // 使用 spawn 以 detached 模式启动安装程序，使其独立于当前进程运行
+    const { spawn } = require('child_process')
+    const child = spawn(installerPath, [], {
+      detached: true,
+      stdio: 'ignore',
+      shell: true
+    })
+    child.unref()
+
+    // 等待一小段时间让安装程序启动，然后退出应用
+    setTimeout(() => {
+      app.quit()
+    }, 500)
+  }
+
+  /**
+   * 计算屏幕底部居中位置
+   * @returns 窗口左上角坐标 { x, y }
+   */
+  #calcBottomCenterPosition(): { x: number; y: number } {
+    const display = screen.getPrimaryDisplay()
+    const { workArea } = display
+
+    const popupW = UpdateNewFrame.POPUP_WIDTH
+    const popupH = UpdateNewFrame.POPUP_HEIGHT
+
+    // 水平居中
+    const x = workArea.x + (workArea.width - popupW) / 2
+    // 距底部 60px
+    const y = workArea.y + workArea.height - popupH - UpdateNewFrame.BOTTOM_MARGIN
+
+    return { x: Math.round(x), y: Math.round(y) }
+  }
+
+  /**
+   * 执行窗口位置动画
+   * @description 使用缓动函数实现平滑的弹出/收起效果
+   * @param fromY - 起始 Y 坐标
+   * @param toY - 目标 Y 坐标
+   * @param duration - 动画时长（毫秒）
+   * @returns Promise 动画完成后 resolve
+   */
+  #animateWindow(fromY: number, toY: number, duration: number = 350): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.#animationFrameId) {
+        clearTimeout(this.#animationFrameId)
+      }
+
+      this.#isAnimating = true
+      const startTime = Date.now()
+      const x = this.window!.getPosition()[0]
+
+      const animate = (): void => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+
+        // 缓动函数：easeOutCubic - 先快后慢，更自然
+        const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+        const currentY = Math.round(fromY + (toY - fromY) * easeOutCubic)
+
+        this.window!.setPosition(x, currentY)
+
+        if (progress < 1) {
+          this.#animationFrameId = setTimeout(animate, 16) // ~60fps
+        } else {
+          this.#isAnimating = false
+          this.#animationFrameId = null
+          resolve()
+        }
+      }
+
+      animate()
+    })
+  }
+
+  /**
+   * 显示更新窗口
+   * @description 从屏幕底部居中弹出，带动画效果
+   * @param data - 更新信息（版本号、更新说明、完整更新信息）
+   */
+  async showUpdate(data?: { version?: string; description?: string; updateInfo?: UpdateInfo }): Promise<void> {
+    const pos = this.#calcBottomCenterPosition()
+    const display = screen.getPrimaryDisplay()
+    const screenHeight = display.workArea.height + display.workArea.y
+
+    // 起始位置：屏幕底部外（窗口完全隐藏在底部）
+    const startY = screenHeight + 10
+
+    if (!this.isAlive()) {
+      // 窗口不存在 → 创建并播放弹出动画
+      this.create()
+      this.window!.setPosition(pos.x, startY)
+      this.window!.show()
+      this.#isShowing = true
+
+      // 播放弹出动画：从底部外滑入到目标位置
+      await this.#animateWindow(startY, pos.y, 400)
+
+      if (data) {
+        this.send('update-new:info', data)
+      }
+    } else {
+      // 窗口已存在（隐藏状态）→ 定位 + 播放弹出动画 + 发送数据
+      this.window!.setPosition(pos.x, startY)
+      this.window!.show()
+      this.#isShowing = true
+
+      // 播放弹出动画
+      await this.#animateWindow(startY, pos.y, 400)
+
+      if (data) {
+        this.send('update-new:info', data)
+      }
+    }
+  }
+
+  /**
+   * 隐藏更新窗口
+   * @description 播放收起动画，然后隐藏窗口
+   */
+  async hide(): Promise<void> {
+    if (this.isAlive() && this.#isShowing && !this.#isAnimating) {
+      this.#isShowing = false
+
+      // 计算目标位置：屏幕底部外
+      const display = screen.getPrimaryDisplay()
+      const screenHeight = display.workArea.height + display.workArea.y
+      const targetY = screenHeight + 10
+
+      // 播放收起动画：从当前位置滑出到底部外
+      const currentY = this.window!.getPosition()[1]
+      await this.#animateWindow(currentY, targetY, 300)
+
+      // 动画完成后隐藏窗口
+      if (!this.#isShowing) {
+        this.window?.hide()
+      }
+    }
+  }
+
+  /**
+   * 销毁更新窗口
+   * @description 播放收起动画后销毁窗口
+   */
+  async destroy(): Promise<void> {
+    if (this.isAlive() && !this.#isAnimating) {
+      // 计算目标位置：屏幕底部外
+      const display = screen.getPrimaryDisplay()
+      const screenHeight = display.workArea.height + display.workArea.y
+      const targetY = screenHeight + 10
+
+      // 播放收起动画
+      const currentY = this.window!.getPosition()[1]
+      await this.#animateWindow(currentY, targetY, 300)
+    }
+
+    // 清理动画帧
+    if (this.#animationFrameId) {
+      clearTimeout(this.#animationFrameId)
+      this.#animationFrameId = null
+    }
+
+    super.destroy()
+    console.log('更新窗口被销毁')
+  }
+}

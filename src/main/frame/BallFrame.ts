@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserWindowConstructorOptions, clipboard, ipcMain, screen } from 'electron'
+import { BrowserWindow, BrowserWindowConstructorOptions, clipboard, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './index'
 
@@ -6,7 +6,7 @@ import { windowFactory } from './index'
  * 主窗口 - 悬浮球时钟
  * @description 负责显示悬浮球、剪贴板监控、窗口拖拽吸附
  */
-export default class MainFrame extends BaseFrame {
+export default class BallFrame extends BaseFrame {
   /** 上次剪贴板文本 */
   #lastClipboardText = ''
 
@@ -29,10 +29,10 @@ export default class MainFrame extends BaseFrame {
 
   /**
    * 重写创建方法，添加剪贴板监控
+   * @param autoShow - 主窗口默认自动显示
    */
-  create() {
-    const window = super.create()
-    window.removeAllListeners('ready-to-show')
+  create(autoShow = true) {
+    const window = super.create(autoShow)
     this.startClipboardWatcher()
     return window
   }
@@ -45,9 +45,17 @@ export default class MainFrame extends BaseFrame {
     super.registerIPC()
 
     // 窗口拖拽定位（处理 DPI 缩放问题，移动发送事件的窗口而非固定窗口）
-    ipcMain.handle(
+    this.registerIPCHandle(
       'custom-adsorption',
-      (event, { mouseX, mouseY, offsetLeft, offsetTop, windowWidth, windowHeight }) => {
+      (event, args: Record<string, unknown>) => {
+        const { mouseX, mouseY, offsetLeft, offsetTop, windowWidth, windowHeight } = args as {
+          mouseX: number
+          mouseY: number
+          offsetLeft: number
+          offsetTop: number
+          windowWidth: number
+          windowHeight: number
+        }
         // 获取发送事件的窗口，避免多窗口共用频道时互相干扰
         const senderWindow = BrowserWindow.fromWebContents(event.sender)
         if (!senderWindow || senderWindow.isDestroyed()) return
@@ -84,7 +92,7 @@ export default class MainFrame extends BaseFrame {
     )
 
     // 获取窗口位置
-    ipcMain.handle('get-window-position', () => {
+    this.registerIPCHandle('get-window-position', () => {
       if (this.isAlive()) {
         return this.window!.getPosition()
       }
@@ -92,7 +100,7 @@ export default class MainFrame extends BaseFrame {
     })
 
     // 更新弹窗跟随位置（拖拽悬浮球时，通知弹窗同步移动）
-    ipcMain.on('update-popup:follow', () => {
+    this.registerIPCOn('update-popup:follow', () => {
       // 直接通知 TestFrame 重新定位
       const testFrame = windowFactory.getTestFrame()
       if (testFrame.isAlive()) {
@@ -106,9 +114,15 @@ export default class MainFrame extends BaseFrame {
     })
 
     // 调整窗口大小和位置
-    ipcMain.handle(
+    this.registerIPCHandle(
       'resize-window',
-      (_event, { width, height, x, y }: { width: number; height: number; x?: number; y?: number }) => {
+      (_event, args: Record<string, unknown>) => {
+        const { width, height, x, y } = args as {
+          width: number
+          height: number
+          x?: number
+          y?: number
+        }
         if (!this.isAlive()) return
 
         this.window!.setResizable(true)
@@ -128,7 +142,8 @@ export default class MainFrame extends BaseFrame {
     )
 
     // 从通知窗口恢复为悬浮球：隐藏 → 缩小 → 定位（显示由 Home.vue 挂载后触发）
-    ipcMain.handle('restore-ball', (_event, { x, y }: { x: number; y: number }) => {
+    this.registerIPCHandle('restore-ball', (_event, args: Record<string, unknown>) => {
+      const { x, y } = args as { x: number; y: number }
       if (!this.isAlive()) return
 
       this.window!.hide()
@@ -145,21 +160,21 @@ export default class MainFrame extends BaseFrame {
     })
 
     // 显示窗口（由渲染进程组件挂载后调用）
-    ipcMain.on('window:show', () => {
+    this.registerIPCOn('window:show', () => {
       if (this.isAlive()) {
         this.window!.show()
       }
     })
 
     // 显示 OpenDialog（鼠标悬停在悬浮球上）
-    ipcMain.on('open-dialog:show', () => {
+    this.registerIPCOn('open-dialog:show', () => {
       const openDialogFrame = windowFactory.getOpenDialogFrame()
       openDialogFrame.setMouseOnBall(true)
       openDialogFrame.showPopup()
     })
 
     // 隐藏 OpenDialog（鼠标离开悬浮球，延迟隐藏）
-    ipcMain.on('open-dialog:hide', () => {
+    this.registerIPCOn('open-dialog:hide', () => {
       const openDialogFrame = windowFactory.getOpenDialogFrame()
       openDialogFrame.setMouseOnBall(false)
       openDialogFrame.hideWithDelay()

@@ -1,7 +1,6 @@
-import MainFrame from './MainFrame'
-import NoticeFrame from './NoticeFrame'
-import UpdateFrame from './UpdateFrame'
-import MusicFrame from './MusicFrame'
+import BallFrame from './BallFrame'
+import NoticeNewFrame from './NoticeNewFrame'
+import UpdateNewFrame from './UpdateNewFrame'
 import TestFrame from './TestFrame'
 import OpenDialogFrame from './OpenDialogFrame'
 
@@ -10,17 +9,14 @@ import OpenDialogFrame from './OpenDialogFrame'
  * @description 统一管理所有窗口的创建和生命周期
  */
 export default class WindowFactory {
-  /** 主窗口实例 */
-  #mainFrame: MainFrame | null = null
+  /** 悬浮球实例 */
+  #ballFrame: BallFrame | null = null
 
-  /** 通知窗口实例 */
-  #noticeFrame: NoticeFrame | null = null
+  /** 新版通知窗口实例 */
+  #noticeNewFrame: NoticeNewFrame | null = null
 
-  /** 更新窗口实例 */
-  #updateFrame: UpdateFrame | null = null
-
-  /** 音乐窗口实例 */
-  #musicFrame: MusicFrame | null = null
+  /** 新版更新窗口实例 */
+  #updateNewFrame: UpdateNewFrame | null = null
 
   /** 测试窗口 */
   #testFrame: TestFrame | null = null
@@ -30,46 +26,41 @@ export default class WindowFactory {
 
   /**
    * 获取主窗口（悬浮球时钟）
-   * @returns MainFrame 实例
+   * @returns BallFrame 实例
    */
-  getMainFrame(): MainFrame {
-    if (!this.#mainFrame) {
-      this.#mainFrame = new MainFrame()
+  getBallFrame(): BallFrame {
+    if (!this.#ballFrame) {
+      this.#ballFrame = new BallFrame()
     }
-    return this.#mainFrame
+    return this.#ballFrame
   }
 
   /**
-   * 获取通知窗口
-   * @returns NoticeFrame 实例
+   * 获取新版通知窗口
+   * @returns NoticeNewFrame 实例
    */
-  getNoticeFrame(): NoticeFrame {
-    if (!this.#noticeFrame) {
-      this.#noticeFrame = new NoticeFrame()
+  getNoticeNewFrame(): NoticeNewFrame {
+    if (!this.#noticeNewFrame) {
+      this.#noticeNewFrame = new NoticeNewFrame()
+      this.#noticeNewFrame.onDestroyCallback = () => {
+        this.#noticeNewFrame = null
+      }
     }
-    return this.#noticeFrame
+    return this.#noticeNewFrame
   }
 
   /**
-   * 获取更新窗口
-   * @returns UpdateFrame 实例
+   * 获取新版更新窗口
+   * @returns UpdateNewFrame 实例
    */
-  getUpdateFrame(): UpdateFrame {
-    if (!this.#updateFrame) {
-      this.#updateFrame = new UpdateFrame()
+  getUpdateNewFrame(): UpdateNewFrame {
+    if (!this.#updateNewFrame) {
+      this.#updateNewFrame = new UpdateNewFrame()
+      this.#updateNewFrame.onDestroyCallback = () => {
+        this.#updateNewFrame = null
+      }
     }
-    return this.#updateFrame
-  }
-
-  /**
-   * 获取音乐窗口
-   * @returns MusicFrame 实例
-   */
-  getMusicFrame(): MusicFrame {
-    if (!this.#musicFrame) {
-      this.#musicFrame = new MusicFrame()
-    }
-    return this.#musicFrame
+    return this.#updateNewFrame
   }
   /**
    * 获取测试窗口
@@ -94,66 +85,33 @@ export default class WindowFactory {
   }
 
   /**
-   * 创建主窗口
+   * 创建悬浮球窗口
    * @returns 主窗口实例
    */
-  createMainFrame(): MainFrame {
-    const frame = this.getMainFrame()
+  createBallFrame(): BallFrame {
+    const frame = this.getBallFrame()
     frame.create()
     return frame
-  }
-
-  /**
-   * 显示通知
-   * @param text - 通知文本
-   */
-  showNotice(text: string): void {
-    const frame = this.getNoticeFrame()
-    frame.showNotice(text)
-  }
-
-  /**
-   * 显示更新窗口
-   * @param data - 更新信息
-   */
-  showUpdate(data: { version: string; releaseNotes?: string; releaseName?: string }): void {
-    const frame = this.getUpdateFrame()
-    frame.showUpdate(data)
-  }
-
-  /**
-   * 显示音乐窗口
-   */
-  showMusic(): void {
-    const frame = this.getMusicFrame()
-    frame.showMusic()
   }
 
   /**
    * 销毁所有窗口
    */
   destroyAll(): void {
-    this.#mainFrame?.destroy()
-    this.#noticeFrame?.destroy()
-    this.#updateFrame?.destroy()
-    this.#musicFrame?.destroy()
+    this.#ballFrame?.destroy()
+    this.#noticeNewFrame?.destroy()
+    this.#updateNewFrame?.destroy()
+    this.#testFrame?.destroy()
     this.#openDialogFrame?.destroy()
-
-    this.#mainFrame = null
-    this.#noticeFrame = null
-    this.#updateFrame = null
-    this.#musicFrame = null
-    this.#openDialogFrame = null
   }
 
   /**
-   * 关闭所有窗口
+   * 关闭所有窗口（隐藏）
    */
   closeAll(): void {
-    this.#mainFrame?.close()
-    this.#noticeFrame?.close()
-    this.#updateFrame?.close()
-    this.#musicFrame?.close()
+    this.#ballFrame?.close()
+    this.#noticeNewFrame?.destroy()
+    this.#updateNewFrame?.hide()
     this.#openDialogFrame?.hide()
   }
 }

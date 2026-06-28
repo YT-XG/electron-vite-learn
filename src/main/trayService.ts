@@ -1,6 +1,5 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
+import { app, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import { LanUpdateService } from './updater'
 import { windowFactory } from './frame'
 
 /**
@@ -11,23 +10,13 @@ export class TrayService {
   /** 托盘实例 */
   private tray: Tray | null = null
 
-  /** 主窗口引用 */
-  private mainWindow: BrowserWindow | null = null
-
-  /** 更新服务引用 */
-  private lanUpdateService: LanUpdateService | null = null
-
   /** 托盘图标路径 */
   private readonly iconPath: string = icon
 
   /**
    * 构造函数
-   * @param mainWindow - 主窗口实例
-   * @param lanUpdateService - 更新服务实例
    */
-  constructor(mainWindow: BrowserWindow, lanUpdateService: LanUpdateService | null) {
-    this.mainWindow = mainWindow
-    this.lanUpdateService = lanUpdateService
+  constructor() {
     this.createTray()
   }
 
@@ -40,7 +29,7 @@ export class TrayService {
     this.tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
 
     // 设置托盘提示文字
-    this.tray.setToolTip('悬浮球时钟')
+    this.tray.setToolTip('妙妙屋')
 
     // 创建右键菜单
     this.buildContextMenu()
@@ -54,19 +43,6 @@ export class TrayService {
    */
   private buildContextMenu(): void {
     const contextMenu = Menu.buildFromTemplate([
-      {
-        label: '显示窗口',
-        click: () => {
-          this.showWindow()
-        }
-      },
-      {
-        label: '隐藏窗口',
-        click: () => {
-          this.hideWindow()
-        }
-      },
-      { type: 'separator' },
       {
         label: '检查更新',
         click: () => {
@@ -88,86 +64,21 @@ export class TrayService {
   /**
    * 设置事件监听器
    */
-  private setupEventListeners(): void {
-    // 双击托盘图标显示/隐藏窗口
-    this.tray?.on('double-click', () => {
-      if (this.mainWindow?.isVisible()) {
-        this.hideWindow()
-      } else {
-        this.showWindow()
-      }
-    })
-
-    // 窗口关闭时隐藏到托盘（而不是退出）
-    this.mainWindow?.on('close', (event) => {
-      // 如果用户没有点击退出按钮，只是关闭窗口
-      if (!(app as any).isQuitting) {
-        event.preventDefault()
-        this.hideWindow()
-      }
-    })
-  }
-
-  /**
-   * 显示窗口
-   */
-  private showWindow(): void {
-    if (this.mainWindow) {
-      this.mainWindow.show()
-      this.mainWindow.focus()
-    }
-  }
-
-  /**
-   * 隐藏窗口
-   */
-  private hideWindow(): void {
-    if (this.mainWindow) {
-      this.mainWindow.hide()
-    }
-  }
+  private setupEventListeners(): void {}
 
   /**
    * 检查更新
    * @description 显示更新弹窗并触发检查
    */
   private checkForUpdates(): void {
-    // 先显示「正在检查更新...」
-    const testFrame = windowFactory.getTestFrame()
-    testFrame.showPopup({ state: 'checking' })
-
-    // 如果更新服务尚未初始化，延迟初始化（等弹窗窗口创建后再绑定）
-    if (!this.lanUpdateService) {
-      setTimeout(() => {
-        let testWindow = testFrame.getWindow()
-        if (!testWindow || testWindow.isDestroyed()) {
-          testFrame.create()
-          testWindow = testFrame.getWindow()
-        }
-        if (testWindow) {
-          this.lanUpdateService = new LanUpdateService(testWindow, {
-            serverUrl: process.env.UPDATE_SERVER_URL || '\\\\10.15.8.28\\releases'
-          })
-          this.#registerCallbacks(testFrame)
-          this.lanUpdateService.checkForUpdates()
-        }
-      }, 500)
-    } else {
-      this.lanUpdateService.checkForUpdates()
-    }
-  }
-
-  /**
-   * 注册更新服务回调
-   */
-  #registerCallbacks(testFrame: any): void {
-    if (!this.lanUpdateService) return
-    this.lanUpdateService.onUpdateFound = (updateInfo) => {
-      testFrame.updatePopup({ state: 'available', version: updateInfo.version })
-    }
-    this.lanUpdateService.onUpdateLatest = () => {
-      testFrame.updatePopup({ state: 'latest' })
-    }
+    windowFactory
+      .getUpdateNewFrame()
+      .checkForUpdates()
+      .then((res) => {
+        const noticeNewFrame = windowFactory.getNoticeNewFrame()
+        noticeNewFrame.setMsg(res?.msg || '')
+        noticeNewFrame.showAtBottomCenter()
+      })
   }
 
   /**
@@ -199,14 +110,6 @@ export class TrayService {
    */
   getTray(): Tray | null {
     return this.tray
-  }
-
-  /**
-   * 设置更新服务实例
-   * @param lanUpdateService - 更新服务实例
-   */
-  setLanUpdateService(lanUpdateService: LanUpdateService): void {
-    this.lanUpdateService = lanUpdateService
   }
 }
 

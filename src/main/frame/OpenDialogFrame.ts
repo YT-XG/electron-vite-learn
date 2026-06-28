@@ -1,5 +1,5 @@
 import BaseFrame from './BaseFrame'
-import { BrowserWindow, BrowserWindowConstructorOptions, ipcMain, screen } from 'electron'
+import { BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
 import { windowFactory } from './index'
 
 /**
@@ -66,20 +66,20 @@ export default class OpenDialogFrame extends BaseFrame {
     super.registerIPC()
 
     // 鼠标进入弹窗区域 — 标记状态 + 取消隐藏
-    ipcMain.on('open-dialog:mouse-enter', () => {
+    this.registerIPCOn('open-dialog:mouse-enter', () => {
       this.#isMouseInPopup = true
       this.#clearHideTimer()
     })
 
     // 鼠标离开弹窗区域 — 标记状态 + 启动延迟隐藏
-    ipcMain.on('open-dialog:mouse-leave', () => {
+    this.registerIPCOn('open-dialog:mouse-leave', () => {
       this.#isMouseInPopup = false
       this.#startHideTimer()
     })
   }
 
   /**
-   * 设置鼠标在悬浮球上的状态（由 MainFrame 的 IPC 处理器调用）
+   * 设置鼠标在悬浮球上的状态（由 BallFrame 的 IPC 处理器调用）
    * @param onBall - 鼠标是否在悬浮球上
    */
   setMouseOnBall(onBall: boolean): void {
@@ -200,7 +200,7 @@ export default class OpenDialogFrame extends BaseFrame {
    * @description 根据悬浮球位置和屏幕空间，决定向左还是向右展开
    */
   #calcPosition(): { x: number; y: number; direction: 'left' | 'right' } {
-    const mainFrame = windowFactory.getMainFrame()
+    const mainFrame = windowFactory.getBallFrame()
     const mainWindow = mainFrame.getWindow()
     if (!mainWindow || mainWindow.isDestroyed()) {
       return { x: 0, y: 0, direction: 'right' }

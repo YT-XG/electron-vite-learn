@@ -1,5 +1,5 @@
 import BaseFrame from './BaseFrame'
-import { BrowserWindow, BrowserWindowConstructorOptions, ipcMain, screen } from 'electron'
+import { BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
 import { windowFactory } from './index'
 
 /** 弹窗状态 */
@@ -65,14 +65,14 @@ export default class TestFrame extends BaseFrame {
     super.registerIPC()
 
     // 渲染进程请求更新数据（组件挂载后调用，解决窗口创建时序问题）
-    ipcMain.handle('get-update-data', () => {
+    this.registerIPCHandle('get-update-data', () => {
       const data = this.#pendingData
       this.#pendingData = null
       return data
     })
 
     // 重新定位弹窗（拖拽悬浮球时跟随移动）
-    ipcMain.on('update-popup:reposition', () => {
+    this.registerIPCOn('update-popup:reposition', () => {
       if (this.isAlive()) {
         this.positionAboveBall()
       }
@@ -136,7 +136,7 @@ export default class TestFrame extends BaseFrame {
    * 计算弹窗应定位到的位置
    */
   #calcPosition(): { x: number; y: number; above: boolean } {
-    const mainFrame = windowFactory.getMainFrame()
+    const mainFrame = windowFactory.getBallFrame()
     const mainWindow = mainFrame.getWindow()
     if (!mainWindow || mainWindow.isDestroyed()) {
       return { x: 0, y: 0, above: true }

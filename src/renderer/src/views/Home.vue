@@ -13,11 +13,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useNoticeStore } from '@renderer/store/noticeStore'
-
-const router = useRouter()
-const noticeStore = useNoticeStore()
 
 const hours = ref('00')
 const minutes = ref('00')
@@ -66,43 +61,16 @@ const handleMouseLeave = () => {
   window.electron.ipcRenderer.send('open-dialog:hide')
 }
 
-// 监听剪贴板变化
-const handleClipboardChanged = async (_event: Electron.IpcRendererEvent, text: string): Promise<void> => {
-  // 获取当前窗口位置，保存到 store 以便关闭通知时恢复
-  const [currentX, currentY] = await window.electron.ipcRenderer.invoke('get-window-position')
-  noticeStore.showNotice(text, [currentX, currentY])
-
-  // 调整窗口大小（位置安全限制由主进程处理）
-  window.electron.ipcRenderer.invoke('resize-window', {
-    width: 350,
-    height: 200,
-    x: currentX,
-    y: currentY
-  })
-  router.push('/notice')
-}
-
 onMounted(() => {
   updateTime()
   timer = setInterval(updateTime, 1000)
-  window.electron.ipcRenderer.on('clipboard-changed', handleClipboardChanged)
-
-  // 从通知窗口恢复：隐藏→缩小→定位→显示，全部在 DOM 就绪后执行
-  const [x, y] = noticeStore.savedPosition
-  if (x !== 0 || y !== 0) {
-    window.electron.ipcRenderer.invoke('restore-ball', { x, y }).then(() => {
-      window.electron.ipcRenderer.send('window:show')
-    })
-  } else {
-    window.electron.ipcRenderer.send('window:show')
-  }
+  window.electron.ipcRenderer.send('window:show')
 })
 
 onUnmounted(() => {
   if (timer) {
     clearInterval(timer)
   }
-  window.electron.ipcRenderer.removeListener('clipboard-changed', handleClipboardChanged)
 })
 </script>
 

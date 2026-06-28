@@ -3,6 +3,25 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
 
+/** IPC on 处理器类型 */
+type IPCOnHandler = {
+  channel: string
+  type: 'on'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (event: Electron.IpcMainEvent, ...args: any[]) => void
+}
+
+/** IPC handle 处理器类型 */
+type IPCHandleHandler = {
+  channel: string
+  type: 'handle'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
+}
+
+/** IPC 处理器联合类型 */
+type IPCHandler = IPCOnHandler | IPCHandleHandler
+
 /**
  * 窗口基类 - 封装所有窗口的通用逻辑
  * @description 提供窗口创建、IPC 通信、生命周期管理等基础功能
@@ -17,11 +36,18 @@ export default abstract class BaseFrame {
   /** 路由路径（子类必须实现） */
   protected abstract readonly routePath: string
 
+  /** 已注册的 IPC 处理器列表（窗口销毁时自动清理） */
+  private ipcHandlers: IPCHandler[] = []
+
+  /** 销毁回调（由 WindowFactory 设置，销毁时自动清空引用） */
+  onDestroyCallback: (() => void) | null = null
+
   /**
    * 创建窗口
+   * @param autoShow - 是否在 ready-to-show 时自动显示，默认 false
    * @returns 窗口实例
    */
-  create(): BrowserWindow {
+  create(autoShow = false): BrowserWindow {
     // 合并默认配置和子类配置
     const defaultOptions: BrowserWindowConstructorOptions = {
       show: false,
@@ -38,10 +64,12 @@ export default abstract class BaseFrame {
       ...this.options
     })
 
-    // 窗口准备好后显示
-    this.window.on('ready-to-show', () => {
-      this.window?.show()
-    })
+    // 窗口准备好后根据参数决定是否自动显示
+    if (autoShow) {
+      this.window.on('ready-to-show', () => {
+        this.window?.show()
+      })
+    }
 
     // 外部链接在默认浏览器打开
     this.window.webContents.setWindowOpenHandler((details) => {
@@ -56,6 +84,30 @@ export default abstract class BaseFrame {
     this.registerIPC()
 
     return this.window
+  }
+
+  /**
+   * 显示窗口
+   * @description 如果窗口不存在会自动创建，创建后显示
+   */
+  show(): void {
+    if (!this.isAlive()) {
+      this.create()
+    }
+    this.window?.show()
+  }
+
+  /**
+   * 在指定位置显示窗口
+   * @param x - 屏幕 X 坐标
+   * @param y - 屏幕 Y 坐标
+   */
+  showAt(x: number, y: number): void {
+    if (!this.isAlive()) {
+      this.create()
+    }
+    this.window?.setPosition(x, y)
+    this.window?.show()
   }
 
   /**
@@ -80,7 +132,7 @@ export default abstract class BaseFrame {
    */
   protected registerIPC(): void {
     // 关闭窗口（只关闭发送事件的窗口，避免多窗口共用频道时互相干扰）
-    ipcMain.on('close-window', (event) => {
+    this.registerIPCOn('close-window', (event) => {
       const senderWindow = BrowserWindow.fromWebContents(event.sender)
       if (senderWindow && !senderWindow.isDestroyed()) {
         if ((app as any).isQuitting) {
@@ -90,12 +142,35 @@ export default abstract class BaseFrame {
         }
       }
     })
+  }
 
-    // 获取应用版本号（先移除旧的，避免多窗口重复注册）
-    ipcMain.removeHandler('get-app-version')
-    ipcMain.handle('get-app-version', () => {
-      return app.getVersion()
-    })
+  /**
+   * 注册 IPC on 处理器（窗口销毁时自动清理）
+   * @param channel - 频道名称
+   * @param handler - 处理函数
+   */
+  protected registerIPCOn(
+    channel: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: (event: Electron.IpcMainEvent, ...args: any[]) => void
+  ): void {
+    // 避免重复注册同一频道的监听器
+    ipcMain.on(channel, handler)
+    this.ipcHandlers.push({ channel, type: 'on', handler })
+  }
+
+  /**
+   * 注册 IPC handle 处理器（窗口销毁时自动清理）
+   * @param channel - 频道名称
+   * @param handler - 处理函数
+   */
+  protected registerIPCHandle(
+    channel: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
+  ): void {
+    ipcMain.handle(channel, handler)
+    this.ipcHandlers.push({ channel, type: 'handle', handler })
   }
 
   /**
@@ -115,12 +190,32 @@ export default abstract class BaseFrame {
 
   /**
    * 销毁窗口
+   * @description 自动清理已注册的 IPC 处理器，并触发回调通知 WindowFactory
    */
   destroy(): void {
     if (this.window && !this.window.isDestroyed()) {
       this.window.destroy()
     }
     this.window = null
+    // 清理已注册的 IPC 处理器
+    this.clearIPCHandlers()
+    // 通知 WindowFactory 清空引用
+    this.onDestroyCallback?.()
+    this.onDestroyCallback = null
+  }
+
+  /**
+   * 清理所有已注册的 IPC 处理器
+   */
+  private clearIPCHandlers(): void {
+    for (const item of this.ipcHandlers) {
+      if (item.type === 'on') {
+        ipcMain.removeListener(item.channel, item.handler)
+      } else if (item.type === 'handle') {
+        ipcMain.removeHandler(item.channel)
+      }
+    }
+    this.ipcHandlers = []
   }
 
   /**
