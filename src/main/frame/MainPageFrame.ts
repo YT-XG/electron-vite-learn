@@ -18,6 +18,9 @@ export default class MainPageFrame extends BaseFrame {
   /** 最小高度 */
   static readonly MIN_HEIGHT = 450
 
+  /** showCentered 防抖锁，防止快速多次触发导致状态冲突 */
+  #showLock = false
+
   /** 窗口配置 */
   protected readonly options: BrowserWindowConstructorOptions = {
     width: MainPageFrame.WIDTH,
@@ -50,8 +53,19 @@ export default class MainPageFrame extends BaseFrame {
    *
    * 注意：每次显示时都会确保 alwaysOnTop 为 true，
    * 因为 minimizeForPaste() 可能在粘贴过程中临时移除了 alwaysOnTop
+   *
+   * 防抖机制：快速多次触发（如按住快捷键）时，只有首次生效
    */
   showCentered(): void {
+    // 防抖锁：防止快速多次触发导致状态竞争
+    if (this.#showLock) {
+      return
+    }
+    this.#showLock = true
+    setTimeout(() => {
+      this.#showLock = false
+    }, 100)
+
     if (!this.isAlive()) {
       // 窗口不存在 → 创建并居中，opacity: 0 → show → opacity: 1
       this.create()
