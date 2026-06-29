@@ -17,11 +17,14 @@ import { windowFactory } from '../frame'
 export interface AppSettings {
   /** Electron accelerator 格式的全局快捷键，如 'CommandOrControl+Alt+V' */
   shortcut: string
+  /** 局域网更新服务器 UNC 路径，如 '\\10.15.2.28\dist' */
+  serverUrl: string
 }
 
 /** 默认设置 */
 const DEFAULT_SETTINGS: AppSettings = {
-  shortcut: 'CommandOrControl+Alt+V'
+  shortcut: 'CommandOrControl+Alt+V',
+  serverUrl: '\\\\10.15.2.28\\dist'
 }
 
 class SettingsService {

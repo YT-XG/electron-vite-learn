@@ -16,6 +16,9 @@ export class TrayService {
   /** 右键上下文菜单 */
   private contextMenu: Electron.Menu | null = null
 
+  /** 是否正在检查更新（防抖） */
+  #isChecking = false
+
   /**
    * 构造函数
    */
@@ -83,9 +86,20 @@ export class TrayService {
 
   /**
    * 检查更新
-   * @description 显示更新弹窗并触发检查
+   * @description 显示更新弹窗并触发检查，防抖避免重复点击
    */
   private checkForUpdates(): void {
+    // 防抖：正在检查时忽略重复点击
+    if (this.#isChecking) {
+      return
+    }
+
+    this.#isChecking = true
+
+    const noticeNewFrame = windowFactory.getNoticeNewFrame()
+    noticeNewFrame.setMsg('正在检查更新...')
+    noticeNewFrame.showAtBottomCenter()
+
     windowFactory
       .getUpdateNewFrame()
       .checkForUpdates()
@@ -93,6 +107,9 @@ export class TrayService {
         const noticeNewFrame = windowFactory.getNoticeNewFrame()
         noticeNewFrame.setMsg(res?.msg || '')
         noticeNewFrame.showAtBottomCenter()
+      })
+      .finally(() => {
+        this.#isChecking = false
       })
   }
 

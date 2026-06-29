@@ -52,6 +52,44 @@
         <p v-if="showSavedTip" class="save-tip">✅ 快捷键已更新，立即生效</p>
       </Transition>
     </div>
+
+    <!-- 局域网更新服务器 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">更新服务器</span>
+        <span class="setting-hint">选择或输入服务器 IP，检查更新时会从该地址读取 latest.yml</span>
+      </div>
+
+      <div class="server-url-row">
+        <select v-model="selectedIp" class="server-url-select" @change="onSelectChange">
+          <option v-for="opt in ipOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          <option value="__custom">自定义...</option>
+        </select>
+
+        <input
+          v-if="selectedIp === '__custom'"
+          v-model="customIp"
+          type="text"
+          class="server-url-input"
+          placeholder="输入 IP 地址，如 192.168.1.100"
+          spellcheck="false"
+          @input="onCustomIpInput"
+        />
+
+        <button class="btn btn-primary" @click="saveServerUrl" :disabled="!isDirty">
+          ✅ 保存
+        </button>
+      </div>
+
+      <p class="server-preview">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        {{ fullServerUrl || '未选择服务器' }}
+      </p>
+
+      <Transition name="fade">
+        <p v-if="showServerUrlTip" class="save-tip">✅ 更新服务器地址已保存</p>
+      </Transition>
+    </div>
   </div>
 </template>
 
@@ -65,6 +103,52 @@ const state = ref<State>('idle')
 const currentShortcut = ref('')
 const capturedKeys = ref<string[]>([])
 const showSavedTip = ref(false)
+
+/** 更新服务器配置 */
+const ipOptions = [
+  { label: '10.15.8.28', value: '10.15.8.28' },
+  { label: '10.15.66.216', value: '10.15.66.216' }
+]
+const selectedIp = ref('')
+const customIp = ref('')
+const showServerUrlTip = ref(false)
+const serverUrlOrig = ref('')
+
+/** 从完整 UNC 路径提取 IP（\\10.15.8.28\dist → 10.15.8.28） */
+function extractIpFromUrl(url: string): string {
+  const match = url.match(/^\\\\([^\\]+)/)
+  if (!match) return ''
+  const ip = match[1]
+  // 判断是否在预设列表中
+  if (ipOptions.some((o) => o.value === ip)) return ip
+  return '__custom'
+}
+
+/** 拼接完整 UNC 路径 */
+const fullServerUrl = computed(() => {
+  const ip = selectedIp.value === '__custom' ? customIp.value.trim() : selectedIp.value
+  return ip ? `\\\\${ip}\\dist` : ''
+})
+
+/** 是否有改动（启用保存按钮） */
+const isDirty = computed(() => {
+  return fullServerUrl.value !== '' && fullServerUrl.value !== serverUrlOrig.value
+})
+
+/** 下拉框切换 */
+function onSelectChange(): void {
+  if (selectedIp.value !== '__custom') {
+    customIp.value = ''
+  }
+}
+
+/** 自定义 IP 输入 */
+function onCustomIpInput(): void {
+  // 确保下拉框处于自定义模式
+  if (selectedIp.value !== '__custom') {
+    selectedIp.value = '__custom'
+  }
+}
 
 /** 当前快捷键的显示分段 */
 const displayParts = computed(() => formatAccelerator(currentShortcut.value))
@@ -210,6 +294,19 @@ function cancelRecording(): void {
   document.removeEventListener('keydown', onKeydown)
 }
 
+/**
+ * 保存更新服务器地址
+ */
+async function saveServerUrl(): Promise<void> {
+  const url = fullServerUrl.value
+  await window.electron.ipcRenderer.invoke('settings:update', { serverUrl: url })
+  serverUrlOrig.value = url
+  showServerUrlTip.value = true
+  setTimeout(() => {
+    showServerUrlTip.value = false
+  }, 3000)
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  格式化
 // ═══════════════════════════════════════════════════════════════
@@ -242,6 +339,13 @@ function formatAccelerator(accel: string): string[] {
 onMounted(async () => {
   const settings = await window.electron.ipcRenderer.invoke('settings:get')
   currentShortcut.value = settings.shortcut
+  // 初始化更新服务器：从 UNC 路径反解 IP
+  const ip = extractIpFromUrl(settings.serverUrl)
+  selectedIp.value = ip || '10.15.8.28'
+  if (ip === '__custom') {
+    customIp.value = settings.serverUrl.match(/^\\\\([^\\]+)/)?.[1] || ''
+  }
+  serverUrlOrig.value = settings.serverUrl
 })
 
 onUnmounted(() => {
@@ -284,6 +388,7 @@ onUnmounted(() => {
   border: 1px solid #f0f0f0;
   border-radius: 12px;
   padding: 20px;
+  margin-bottom: 16px;
 }
 
 .setting-info {
@@ -408,8 +513,8 @@ onUnmounted(() => {
 }
 
 .btn {
-  height: 34px;
-  padding: 0 14px;
+  height: 38px;
+  padding: 0 16px;
   border: none;
   border-radius: 8px;
   font-size: 12px;
@@ -420,6 +525,7 @@ onUnmounted(() => {
   gap: 4px;
   transition: all 0.2s ease;
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .btn-primary {
@@ -456,6 +562,80 @@ onUnmounted(() => {
 .btn-ghost:hover {
   background: #f3f4f6;
   color: #555;
+}
+
+/* ========== 更新服务器 ========== */
+.server-url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.server-url-select {
+  width: 180px;
+  height: 38px;
+  padding: 0 32px 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.server-url-select:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.server-url-select:focus {
+  border-color: #3d8bff;
+  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+}
+
+.server-url-input {
+  flex: 1;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: 'Consolas', 'Monaco', monospace;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.server-url-input:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.server-url-input:focus {
+  border-color: #3d8bff;
+  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+}
+
+.server-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+  margin: 10px 0 0;
+  padding: 6px 10px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', monospace;
 }
 
 /* ========== 保存成功提示 ========== */

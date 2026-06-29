@@ -7,10 +7,10 @@ import BaseFrame from './BaseFrame'
  */
 export default class MainPageFrame extends BaseFrame {
   /** 窗口宽度 */
-  static readonly WIDTH = 800
+  static readonly WIDTH = 600
 
   /** 窗口高度 */
-  static readonly HEIGHT = 600
+  static readonly HEIGHT = 450
 
   /** 最小宽度 */
   static readonly MIN_WIDTH = 600

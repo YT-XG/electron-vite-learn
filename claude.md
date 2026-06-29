@@ -7,9 +7,11 @@ electron-vite-learn/
 ├── src/
 │   ├── main/                    # Electron 主进程
 │   │   ├── index.ts            # 主进程入口，应用生命周期管理
-│   │   ├── trayService.ts      # 系统托盘服务
-│   │   ├── clipboardService.ts # 剪贴板历史服务（sql.js SQLite）
-│   │   ├── inputService.ts    # 模拟输入服务（键盘模拟，跨平台粘贴）
+│   │   ├── service/            # 主进程服务
+│   │   │   ├── trayService.ts      # 系统托盘服务
+│   │   │   ├── clipboardService.ts # 剪贴板历史服务（sql.js SQLite）
+│   │   │   ├── inputService.ts    # 模拟输入服务（键盘模拟，跨平台粘贴）
+│   │   │   └── settingsService.ts # 应用设置服务（持久化到 settings.json）
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -190,8 +192,8 @@ electron-vite-learn/
   - `lan-update-downloaded` - 主进程发送下载完成通知
   - `lan-update-error` - 主进程发送错误信息
 - **配置方式**:
-  - 环境变量: `UPDATE_SERVER_URL=\\电脑名\共享名`
-  - 代码配置: `config` 属性（第 57-66 行）
+  - 设置页面: 用户可在「设置 → 更新服务器」中手动修改 UNC 路径
+  - 默认值: `\\10.15.2.28\dist`（在 settingsService 中配置）
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
@@ -284,6 +286,34 @@ electron-vite-learn/
 
   // 点击记录后调用
   inputService.pasteToPreviousWindow()
+  ```
+
+### 应用设置服务 (src/main/service/settingsService.ts)
+- **职责**: 管理 settings.json 中的用户配置，支持全局快捷键和更新服务器地址
+- **功能**:
+  - 设置持久化到 userData/settings.json
+  - 支持快捷键自定义（跨平台 CommandOrControl 格式）
+  - 支持局域网更新服务器 UNC 路径配置
+  - 热重载：update() 后立即重新注册全局快捷键
+  - 边界处理：文件损坏/不存在时自动返回默认值
+- **配置项**:
+  - `shortcut` - 全局快捷键（默认 `CommandOrControl+Alt+V`）
+  - `serverUrl` - 局域网更新服务器 UNC 路径（默认 `\\10.15.2.28\dist`）
+- **IPC 接口**:
+  - `settings:get` - 获取所有设置
+  - `settings:update` - 更新设置（合并写入）
+- **使用方式**:
+  ```typescript
+  import { settingsService } from './service/settingsService'
+
+  // 在主进程启动时初始化
+  await settingsService.init()
+
+  // 获取设置
+  const settings = settingsService.getAll()
+
+  // 更新设置
+  settingsService.update({ serverUrl: '\\\\192.168.1.100\\dist' })
   ```
 
 ### 剪贴板管理页面 (src/renderer/src/views/ClipboardManager.vue)

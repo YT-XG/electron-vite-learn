@@ -34,6 +34,8 @@ interface CategoryItem {
 interface AppSettings {
   /** Electron accelerator 格式的全局快捷键 */
   shortcut: string
+  /** 局域网更新服务器 UNC 路径 */
+  serverUrl: string
 }
 
 /**

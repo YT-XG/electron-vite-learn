@@ -6,13 +6,14 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   statSync,
-  unlinkSync
+  unlinkSync,
+  promises as fsPromises
 } from 'fs'
 import log from 'electron-log'
 import * as yaml from 'js-yaml'
 import semver from 'semver'
+import { settingsService } from '../service/settingsService'
 
 /** 更新信息接口 */
 export interface UpdateInfo {
@@ -70,12 +71,14 @@ export default class UpdateNewFrame extends BaseFrame {
   protected readonly routePath: string = '/updateNew'
   private isDownloading = false
   private config = {
-    // 局域网更新服务器地址（可通过环境变量 OVERUPDATE_SERVER_URL 覆盖）
-    serverUrl: process.env.UPDATE_SERVER_URL || '\\\\192.168.31.203\\dist',
+    // 局域网更新服务器地址（从 settingsService 读取，用户可在设置页面修改）
+    get serverUrl(): string {
+      return settingsService.getAll().serverUrl
+    },
     // 本地缓存目录
     cacheDir: join(app.getPath('userData'), 'update-cache'),
-    // 超时时间 30 秒
-    timeout: 15000,
+    // 超时时间
+    timeout: 10000,
     // 最新版本文件名
     latestFileName: 'latest.yml'
   }
@@ -83,6 +86,50 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /** 当前更新信息（用于下载和安装） */
   private currentUpdateInfo: UpdateInfo | null = null
+
+  /**
+   * 带超时的文件存在性检查（异步）
+   * @description 替代 existsSync，避免访问不可达的 UNC 路径时长时间阻塞
+   * @param filePath - 要检查的文件路径
+   * @param timeoutMs - 超时时间（毫秒），默认使用 config.timeout
+   * @returns 文件是否可访问
+   */
+  private async checkFileExistsWithTimeout(filePath: string, timeoutMs?: number): Promise<boolean> {
+    const timeout = timeoutMs ?? this.config.timeout
+    try {
+      await Promise.race([
+        fsPromises.access(filePath),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('网络请求超时')), timeout)
+        )
+      ])
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 带超时的文件读取（异步）
+   * @description 替代 readFileSync，避免阻塞主线程
+   * @param filePath - 要读取的文件路径
+   * @param encoding - 编码格式，默认 utf-8
+   * @param timeoutMs - 超时时间（毫秒），默认使用 config.timeout
+   * @returns 文件内容字符串
+   */
+  private async readFileWithTimeout(
+    filePath: string,
+    encoding: BufferEncoding = 'utf-8',
+    timeoutMs?: number
+  ): Promise<string> {
+    const timeout = timeoutMs ?? this.config.timeout
+    return Promise.race([
+      fsPromises.readFile(filePath, { encoding }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('读取文件超时')), timeout)
+      )
+    ])
+  }
 
   /**
    * 在本地缓存目录查找已下载的更新包
@@ -170,7 +217,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 检查是否有可用更新
-   * @description 先检查本地缓存，再检查远程服务器
+   * @description 先检查本地缓存，再检查远程服务器（带超时控制，避免 UNC 路径不可达时阻塞）
    * @returns 更新信息，如果没有更新返回 null
    */
   async checkForUpdates(): Promise<UpdateInfo | null> {
@@ -179,9 +226,10 @@ export default class UpdateNewFrame extends BaseFrame {
       // 构建 latest.yml 文件路径
       const latestYmlPath = join(this.config.serverUrl, this.config.latestFileName)
 
-      // 检查文件是否存在
-      if (!existsSync(latestYmlPath)) {
-        log.info('[LanUpdate] latest.yml 文件不存在:', latestYmlPath)
+      // 带超时检查文件是否存在（替代 existsSync，避免访问不可达 UNC 路径时长时间阻塞）
+      const fileExists = await this.checkFileExistsWithTimeout(latestYmlPath)
+      if (!fileExists) {
+        log.info('[LanUpdate] latest.yml 文件不存在或访问超时:', latestYmlPath)
         return {
           file: '',
           sha512: '',
@@ -191,8 +239,8 @@ export default class UpdateNewFrame extends BaseFrame {
         }
       }
 
-      // 读取并解析 latest.yml
-      const yamlContent = readFileSync(latestYmlPath, 'utf-8')
+      // 带超时读取 latest.yml（替代 readFileSync，避免阻塞主线程）
+      const yamlContent = await this.readFileWithTimeout(latestYmlPath)
       const latestInfo = yaml.load(yamlContent) as Record<string, unknown>
 
       // 提取版本信息
@@ -208,7 +256,6 @@ export default class UpdateNewFrame extends BaseFrame {
           version: '',
           msg: `无效的版本号格式: ${remoteVersion}`
         }
-        throw new Error(`无效的版本号格式: ${remoteVersion}`)
       }
 
       if (semver.lte(remoteVersion, currentVersion)) {
@@ -281,12 +328,12 @@ export default class UpdateNewFrame extends BaseFrame {
       log.info('[LanUpdate] 服务器地址:', this.config.serverUrl)
       log.info('[LanUpdate] 文件名:', info.file)
       log.info('[LanUpdate] 完整路径:', remoteFilePath)
-      // 检查文件是否存在
+      // 带超时检查文件是否存在（避免访问不可达 UNC 路径时长时间阻塞）
       log.info('[LanUpdate] 检查源文件是否存在...')
-      const srcExists = existsSync(remoteFilePath)
+      const srcExists = await this.checkFileExistsWithTimeout(remoteFilePath)
       log.info('[LanUpdate] 源文件存在:', srcExists)
       if (!srcExists) {
-        throw new Error(`更新文件不存在: ${remoteFilePath}`)
+        throw new Error(`更新文件不存在或访问超时: ${remoteFilePath}`)
       }
 
       // 构建本地保存路径
