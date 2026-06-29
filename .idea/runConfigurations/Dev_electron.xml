@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Dev electron" type="js.build_tools.npm" nameIsGenerated="false">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev" />
+    </scripts>
+    <node-interpreter value="project" />
+    <envs>
+      <env name="NODE_OPTIONS" value="--input-type=module" />
+      <env name="LANG" value="zh_CN.UTF-8" />
+      <env name="CHCP" value="65001" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>
