@@ -82,16 +82,16 @@ export default class NoticeNewFrame extends BaseFrame {
       await this.showAtBottomCenter()
     })
 
-    // 翻译按钮点击：打开主页面并发送文本到翻译页面
+    // 翻译按钮点击：打开主页面并切换到翻译页面
     this.recvOne('to-main-NoticeNewFrame:translate', (_event, text: string) => {
       // 打开主页面
       const mainPageFrame = windowFactory.getMainPageFrame()
       mainPageFrame.showCentered()
 
-      // 发送文本到所有可见窗口的翻译页面
+      // 发送 openTranslate 事件，让 MainPageFrame 处理页面切换和文本填充
       BrowserWindow.getAllWindows().forEach((w) => {
         if (!w.isDestroyed() && w.isVisible()) {
-          w.webContents.send('to-renderer-Translate:fillText', text)
+          w.webContents.send('to-main-MainPage:openTranslate', text)
         }
       })
     })
