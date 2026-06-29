@@ -3,6 +3,9 @@
     <div class="notice-border" :class="{ 'scale-in': isVisible }">
       <div class="notice-card">
         <span class="notice-text">{{ msg }}</span>
+        <button class="translate-btn" @click="openTranslate" title="翻译">
+          🌐
+        </button>
       </div>
     </div>
   </div>
@@ -23,6 +26,14 @@ const isVisible = ref(false)
  */
 const setMsg = (data: string) => {
   msg.value = data
+}
+
+/**
+ * 打开翻译页面
+ * 向主进程发送翻译请求，主进程会打开主页面并传递文本
+ */
+const openTranslate = () => {
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:translate', msg.value)
 }
 
 onMounted(() => {
@@ -53,7 +64,7 @@ onMounted(() => {
 /* 渐变边框容器 - 通过 @property 动画渐变角度，元素本身不旋转 */
 .notice-border {
   position: relative;
-  width: 304px;
+  width: 360px;
   height: 48px;
   border-radius: 24px;
   padding: 2px;
@@ -93,11 +104,10 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   display: flex;
-  justify-content: center;
   align-items: center;
   background: #ffffff;
   border-radius: 22px;
-  padding: 0 20px;
+  padding: 0 12px 0 20px;
 }
 
 .notice-text {
@@ -109,7 +119,30 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 260px;
+  flex: 1;
+  margin-right: 8px;
+}
+
+/* 翻译按钮 */
+.translate-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #fff;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.translate-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.4);
 }
 </style>
 

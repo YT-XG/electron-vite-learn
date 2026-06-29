@@ -1,5 +1,6 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
 import BaseFrame from './BaseFrame'
+import { windowFactory } from './WindowFactory'
 
 /**
  * 通知弹窗
@@ -8,7 +9,7 @@ import BaseFrame from './BaseFrame'
  */
 export default class NoticeNewFrame extends BaseFrame {
   /** 弹窗宽度 */
-  private static readonly POPUP_WIDTH = 320
+  private static readonly POPUP_WIDTH = 360
 
   /** 弹窗高度（单行文字） */
   private static readonly POPUP_HEIGHT = 60
@@ -79,6 +80,20 @@ export default class NoticeNewFrame extends BaseFrame {
         this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg)
       }
       await this.showAtBottomCenter()
+    })
+
+    // 翻译按钮点击：打开主页面并发送文本到翻译页面
+    this.recvOne('to-main-NoticeNewFrame:translate', (_event, text: string) => {
+      // 打开主页面
+      const mainPageFrame = windowFactory.getMainPageFrame()
+      mainPageFrame.showCentered()
+
+      // 发送文本到所有可见窗口的翻译页面
+      BrowserWindow.getAllWindows().forEach((w) => {
+        if (!w.isDestroyed() && w.isVisible()) {
+          w.webContents.send('to-renderer-Translate:fillText', text)
+        }
+      })
     })
   }
 
