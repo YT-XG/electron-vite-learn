@@ -4,6 +4,7 @@ import { windowFactory } from './frame'
 import { TrayService } from './service/trayService'
 import { clipboardService } from './service/clipboardService'
 import { settingsService } from './service/settingsService'
+import { translateService } from './service/translateService'
 import './service/inputService'
 import log from 'electron-log'
 
@@ -35,6 +36,8 @@ app.whenReady().then(async () => {
   await clipboardService.init()
   // 初始化设置服务（加载配置文件 + 注册全局快捷键）
   settingsService.init()
+  // 初始化翻译服务（SQLite + IPC 注册）
+  await translateService.init()
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
@@ -78,5 +81,6 @@ app.on('before-quit', () => {
   ;(app as any).isQuitting = true
   clipboardService.stop()
   settingsService.destroy()
+  translateService.destroy()
   trayService?.destroy()
 })
