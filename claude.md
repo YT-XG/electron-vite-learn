@@ -50,6 +50,7 @@ electron-vite-learn/
 │           │   ├── OpenDialog.vue # 悬浮球展开对话框
 │           │   ├── MainPage.vue  # 主页面（侧边栏布局，托盘左键打开）
 │           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 收藏）
+│           │   ├── Translate.vue    # 翻译页面
 │           │   └── Test.vue   # 测试页面
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
@@ -297,16 +298,19 @@ electron-vite-learn/
   ```
 
 ### 应用设置服务 (src/main/service/settingsService.ts)
-- **职责**: 管理 settings.json 中的用户配置，支持全局快捷键和更新服务器地址
+- **职责**: 管理 settings.json 中的用户配置，支持全局快捷键、更新服务器地址和翻译 API 配置
 - **功能**:
   - 设置持久化到 userData/settings.json
   - 支持快捷键自定义（跨平台 CommandOrControl 格式）
   - 支持局域网更新服务器 UNC 路径配置
+  - 支持翻译 API 地址和 Key 配置（可选，用于自定义翻译服务）
   - 热重载：update() 后立即重新注册全局快捷键
   - 边界处理：文件损坏/不存在时自动返回默认值
 - **配置项**:
   - `shortcut` - 全局快捷键（默认 `CommandOrControl+Alt+V`）
   - `serverUrl` - 局域网更新服务器 UNC 路径（默认 `\\10.15.2.28\dist`）
+  - `translateApiUrl` - 翻译 API 地址（可选，默认使用 MyMemory 免费 API）
+  - `translateApiKey` - 翻译 API Key（可选，用于自定义翻译服务认证）
 - **IPC 接口**:
   - `settings:get` - 获取所有设置
   - `settings:update` - 更新设置（合并写入）
@@ -444,6 +448,8 @@ electron-vite-learn/
   - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
   - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
+  - `ClipboardManager.vue` - 剪贴板管理（历史记录 + 收藏）
+  - `Translate.vue` - 翻译页面，支持多语言文本翻译和历史记录
   - `Test.vue` - 测试页面
 
 ## 开发命令
