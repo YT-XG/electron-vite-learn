@@ -19,6 +19,10 @@ export interface AppSettings {
   shortcut: string
   /** 局域网更新服务器 UNC 路径，如 '\\10.15.2.28\dist' */
   serverUrl: string
+  /** 翻译 API 地址（可选） */
+  translateApiUrl?: string
+  /** 翻译 API Key（可选） */
+  translateApiKey?: string
 }
 
 /** 默认设置 */

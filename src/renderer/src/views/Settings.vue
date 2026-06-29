@@ -90,6 +90,44 @@
         <p v-if="showServerUrlTip" class="save-tip">✅ 更新服务器地址已保存</p>
       </Transition>
     </div>
+
+    <!-- 翻译 API 配置 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">翻译 API</span>
+        <span class="setting-hint">配置翻译服务 API 地址和密钥（留空使用默认免费 API）</span>
+      </div>
+
+      <div class="api-config-row">
+        <div class="form-group">
+          <label>API 地址</label>
+          <input
+            v-model="translateApiUrl"
+            type="text"
+            class="form-input"
+            placeholder="留空使用默认 API"
+            spellcheck="false"
+          />
+        </div>
+        <div class="form-group">
+          <label>API Key（可选）</label>
+          <input
+            v-model="translateApiKey"
+            type="password"
+            class="form-input"
+            placeholder="输入 API Key（如果有）"
+          />
+        </div>
+      </div>
+
+      <button class="btn btn-primary" @click="saveTranslateApi" :disabled="!isTranslateApiDirty">
+        ✅ 保存
+      </button>
+
+      <Transition name="fade">
+        <p v-if="showTranslateApiTip" class="save-tip">✅ 翻译 API 配置已保存</p>
+      </Transition>
+    </div>
   </div>
 </template>
 
@@ -114,6 +152,12 @@ const customIp = ref('')
 const showServerUrlTip = ref(false)
 const serverUrlOrig = ref('')
 
+/** 翻译 API 配置 */
+const translateApiUrl = ref('')
+const translateApiKey = ref('')
+const showTranslateApiTip = ref(false)
+const translateApiOrig = ref({ apiUrl: '', apiKey: '' })
+
 /** 从完整 UNC 路径提取 IP（\\10.15.8.28\dist → 10.15.8.28） */
 function extractIpFromUrl(url: string): string {
   const match = url.match(/^\\\\([^\\]+)/)
@@ -133,6 +177,12 @@ const fullServerUrl = computed(() => {
 /** 是否有改动（启用保存按钮） */
 const isDirty = computed(() => {
   return fullServerUrl.value !== '' && fullServerUrl.value !== serverUrlOrig.value
+})
+
+/** 翻译 API 配置是否有改动 */
+const isTranslateApiDirty = computed(() => {
+  return translateApiUrl.value !== translateApiOrig.value.apiUrl ||
+         translateApiKey.value !== translateApiOrig.value.apiKey
 })
 
 /** 下拉框切换 */
@@ -307,6 +357,24 @@ async function saveServerUrl(): Promise<void> {
   }, 3000)
 }
 
+/**
+ * 保存翻译 API 配置
+ */
+async function saveTranslateApi(): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', {
+    translateApiUrl: translateApiUrl.value,
+    translateApiKey: translateApiKey.value
+  })
+  translateApiOrig.value = {
+    apiUrl: translateApiUrl.value,
+    apiKey: translateApiKey.value
+  }
+  showTranslateApiTip.value = true
+  setTimeout(() => {
+    showTranslateApiTip.value = false
+  }, 3000)
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  格式化
 // ═══════════════════════════════════════════════════════════════
@@ -346,6 +414,13 @@ onMounted(async () => {
     customIp.value = settings.serverUrl.match(/^\\\\([^\\]+)/)?.[1] || ''
   }
   serverUrlOrig.value = settings.serverUrl
+  // 初始化翻译 API 配置
+  translateApiUrl.value = settings.translateApiUrl || ''
+  translateApiKey.value = settings.translateApiKey || ''
+  translateApiOrig.value = {
+    apiUrl: settings.translateApiUrl || '',
+    apiKey: settings.translateApiKey || ''
+  }
 })
 
 onUnmounted(() => {
@@ -653,5 +728,46 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ========== 翻译 API 配置 ========== */
+.api-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+}
+
+.form-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: 'Consolas', 'Monaco', monospace;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  border-color: #3d8bff;
+  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
 }
 </style>
