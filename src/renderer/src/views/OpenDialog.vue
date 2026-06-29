@@ -38,17 +38,17 @@ const isOpen = ref(false)
 
 /** 处理鼠标进入 */
 const handleMouseEnter = () => {
-  window.electron.ipcRenderer.send('open-dialog:mouse-enter')
+  window.electron.ipcRenderer.send('to-main-OpenDialogFrame:mouseEnter')
 }
 
 /** 处理鼠标离开 */
 const handleMouseLeave = () => {
-  window.electron.ipcRenderer.send('open-dialog:mouse-leave')
+  window.electron.ipcRenderer.send('to-main-OpenDialogFrame:mouseLeave')
 }
 
 /** 处理关闭按钮点击 */
 const handleClose = () => {
-  window.electron.ipcRenderer.send('close-window')
+  window.electron.ipcRenderer.send('to-main-BaseFrame:closeWindow')
 }
 
 /** 监听展开动画事件 */
@@ -71,18 +71,18 @@ const handleCloseAnimate = () => {
 
   // 动画结束后隐藏窗口
   setTimeout(() => {
-    window.electron.ipcRenderer.send('close-window')
+    window.electron.ipcRenderer.send('to-main-BaseFrame:closeWindow')
   }, 300)
 }
 
 onMounted(() => {
-  window.electron.ipcRenderer.on('open-dialog:animate', handleAnimate)
-  window.electron.ipcRenderer.on('open-dialog:close', handleCloseAnimate)
+  window.electron.ipcRenderer.on('to-renderer-OpenDialogFrame:animate', handleAnimate)
+  window.electron.ipcRenderer.on('to-renderer-OpenDialogFrame:close', handleCloseAnimate)
 })
 
 onUnmounted(() => {
-  window.electron.ipcRenderer.removeListener('open-dialog:animate', handleAnimate)
-  window.electron.ipcRenderer.removeListener('open-dialog:close', handleCloseAnimate)
+  window.electron.ipcRenderer.removeListener('to-renderer-OpenDialogFrame:animate', handleAnimate)
+  window.electron.ipcRenderer.removeListener('to-renderer-OpenDialogFrame:close', handleCloseAnimate)
 })
 </script>
 

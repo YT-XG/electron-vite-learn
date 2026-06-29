@@ -132,7 +132,7 @@ export default abstract class BaseFrame {
    */
   protected registerIPC(): void {
     // 关闭窗口（只关闭发送事件的窗口，避免多窗口共用频道时互相干扰）
-    this.registerIPCOn('close-window', (event) => {
+    this.recvOne('to-main-BaseFrame:closeWindow', (event) => {
       const senderWindow = BrowserWindow.fromWebContents(event.sender)
       if (senderWindow && !senderWindow.isDestroyed()) {
         if ((app as any).isQuitting) {
@@ -144,33 +144,97 @@ export default abstract class BaseFrame {
     })
   }
 
+  // ========== 四种通信方式：recv/send + one/two ==========
+
   /**
-   * 注册 IPC on 处理器（窗口销毁时自动清理）
+   * 渲染→主 单向（通知模式）
+   * @description 渲染进程发送消息，主进程处理但不返回
    * @param channel - 频道名称
    * @param handler - 处理函数
    */
-  protected registerIPCOn(
+  protected recvOne(
     channel: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (event: Electron.IpcMainEvent, ...args: any[]) => void
   ): void {
-    // 避免重复注册同一频道的监听器
     ipcMain.on(channel, handler)
     this.ipcHandlers.push({ channel, type: 'on', handler })
   }
 
   /**
-   * 注册 IPC handle 处理器（窗口销毁时自动清理）
+   * 渲染→主 双向（请求模式）
+   * @description 渲染进程请求数据，主进程返回结果
    * @param channel - 频道名称
-   * @param handler - 处理函数
+   * @param handler - 处理函数，需要 return 数据
    */
-  protected registerIPCHandle(
+  protected recvTwo(
     channel: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
   ): void {
     ipcMain.handle(channel, handler)
     this.ipcHandlers.push({ channel, type: 'handle', handler })
+  }
+
+  /**
+   * 主→渲染 单向（通知模式）
+   * @description 主进程推送消息到渲染进程
+   * @param channel - 频道名称
+   * @param data - 数据
+   */
+  protected sendOne(channel: string, ...data: unknown[]): void {
+    if (this.isAlive()) {
+      this.window!.webContents.send(channel, ...data)
+    }
+  }
+
+  /**
+   * 主→渲染 双向（请求模式）
+   * @description 主进程向渲染进程请求数据，等待返回
+   * @param channel - 频道名称
+   * @param timeout - 超时时间（毫秒），默认 5000
+   * @param args - 参数
+   * @returns 渲染进程返回的数据
+   */
+  protected async sendTwo(
+    channel: string,
+    timeout = 5000,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...args: unknown[]
+  ): Promise<any> {
+    if (!this.isAlive()) {
+      throw new Error('Window not alive')
+    }
+
+    const requestId = `${channel}-${Date.now()}-${Math.random()}`
+    const responseChannel = `__response:${requestId}`
+
+    return new Promise((resolve, reject) => {
+      // 监听一次性响应
+      const cleanup = (): void => {
+        this.window?.webContents.removeAllListeners(responseChannel)
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.window!.webContents.on(responseChannel as any, (_event: any, result: any) => {
+        cleanup()
+        resolve(result)
+      })
+
+      // 超时处理
+      const timer = setTimeout(() => {
+        cleanup()
+        reject(new Error(`sendTwo timeout: ${channel}`))
+      }, timeout)
+
+      // 清理超时定时器（正常响应时）
+      this.window!.webContents.once(responseChannel as any, () => {
+        clearTimeout(timer)
+      })
+
+      // 发送请求到渲染进程
+      this.sendOne(`__invoke:${channel}`, requestId, ...args)
+    })
   }
 
   /**
@@ -230,16 +294,5 @@ export default abstract class BaseFrame {
    */
   isAlive(): boolean {
     return this.window !== null && !this.window.isDestroyed()
-  }
-
-  /**
-   * 发送消息到渲染进程
-   * @param channel - 频道名称
-   * @param data - 数据
-   */
-  send(channel: string, ...data: unknown[]): void {
-    if (this.isAlive()) {
-      this.window!.webContents.send(channel, ...data)
-    }
   }
 }

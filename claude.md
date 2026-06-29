@@ -109,6 +109,11 @@ electron-vite-learn/
   - `MainPageFrame.ts` - 主页面窗口，无边框，屏幕正中心显示，左键托盘打开
   - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
 - **设计模式**: 工厂模式 + 模板方法模式
+- **IPC 通信方式**:
+  - `recvOne(channel, handler)` - 渲染→主 单向（通知模式）
+  - `recvTwo(channel, handler)` - 渲染→主 双向（请求模式）
+  - `sendOne(channel, ...data)` - 主→渲染 单向（通知模式）
+  - `sendTwo(channel, timeout, ...args)` - 主→渲染 双向（请求模式）
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
@@ -213,12 +218,14 @@ electron-vite-learn/
   - 支持拖拽缩放（resizable: true）
   - 左键点击托盘图标切换显示/隐藏
   - 初始位置在屏幕正中心
-  - 自定义标题栏：app 名称 + 最小化/关闭按钮
+  - 自定义标题栏：app 名称 + 版本号 + 最小化/关闭按钮
   - 顶部渐变色条（蓝→粉，品牌标识）
   - 入场动画：scale + opacity 弹性过渡
   - 侧边栏布局：左侧菜单栏（支持收缩/展开） + 右侧内容区
 - **IPC 接口**:
   - `main-page:minimize` - 最小化窗口
+  - `main-page:ready` - 渲染进程已就绪，触发版本号发送
+  - `main-page:version` - 主进程发送应用版本号
   - `close-window` - 关闭/隐藏窗口（继承自 BaseFrame）
 - **使用方式**:
   ```typescript
@@ -397,6 +404,7 @@ electron-vite-learn/
   - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示
   - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
   - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
+  - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
   - `Test.vue` - 测试页面
 
 ## 开发命令
@@ -431,6 +439,77 @@ npm run lint
 3. 在修改代码后必须要编译检查是否有报错，不需要启动应用
 4. **【重要】模块业务逻辑、数据库结构都发生更改后必须要更新相关 md 文件**
 5. 在遇到用户需求模糊时必须要向用户提问，不要自己猜
+
+### 窗口框架规范（必须遵守）
+1. **创建窗口时必须继承 BaseFrame**：新增窗口类时，必须继承 `BaseFrame` 基类，复用其通用逻辑（窗口创建、IPC 注册、生命周期管理等）
+2. **四种通信方式命名规范**：
+   - `recvOne` - 渲染→主 单向（通知模式）
+   - `recvTwo` - 渲染→主 双向（请求模式）
+   - `sendOne` - 主→渲染 单向（通知模式）
+   - `sendTwo` - 主→渲染 双向（请求模式）
+3. **频道命名规范**：
+   - 主→渲染：`to-renderer-{渲染组件名}:{方法名}`
+   - 渲染→主：`to-main-{主进程窗口名}:{方法名}`
+   - 示例：`to-renderer-MainPage:getVersion`（主进程向 MainPage 发送版本信息）
+
+### 服务类通信规范
+1. **Service 保持全局注册**：Service 是全局单例，不绑定特定窗口生命周期，使用 `ipcMain.handle()` / `ipcMain.on()` 全局注册
+2. **频道命名规范**：
+   - 渲染→服务：`to-service-{ServiceName}:{方法名}`
+   - 服务→渲染：广播事件使用 `broadcast:{事件名}` 格式
+   - 示例：`to-service-ClipboardService:getHistory`（获取剪贴板历史）
+
+示例：
+```typescript
+// clipboardService.ts
+private registerIPC(): void {
+  // 渲染→服务（双向）
+  ipcMain.handle('to-service-ClipboardService:getHistory', (_event, limit, offset) => {
+    return this.getAll(limit ?? 50, offset ?? 0)
+  })
+
+  ipcMain.handle('to-service-ClipboardService:delete', (_event, id) => {
+    this.delete(id)
+  })
+}
+
+// 广播到所有窗口（服务→渲染）
+broadcastNewItem(item: HistoryItem): void {
+  BrowserWindow.getAllWindows().forEach((w) => {
+    if (!w.isDestroyed() && w.isVisible()) {
+      w.webContents.send('broadcast:clipboard-new', item)
+    }
+  })
+}
+```
+
+示例（Frame）：
+```typescript
+export default class MyFrame extends BaseFrame {
+  protected readonly options: BrowserWindowConstructorOptions = { /* ... */ }
+  protected readonly routePath: string = '/myRoute'
+
+  protected registerIPC(): void {
+    super.registerIPC()
+
+    // 渲染→主 单向（通知）
+    this.recvOne('to-main-MyFrame:onReady', () => {
+      console.log('渲染进程已就绪')
+    })
+
+    // 渲染→主 双向（请求）
+    this.recvTwo('to-main-MyFrame:getData', (event, id) => {
+      return { id, name: 'test' }
+    })
+
+    // 主→渲染 单向（通知）
+    this.sendOne('to-renderer-MyPage:updateAvailable', { version: '1.0.0' })
+
+    // 主→渲染 双向（请求，等待渲染进程返回）
+    const rendererData = await this.sendTwo('to-renderer-MyPage:getUserInfo', 5000, userId)
+  }
+}
+```
 
 ### 代码注释规范
 1. **方法级注释**：每个函数/方法上方必须添加注释，说明其功能、参数和返回值

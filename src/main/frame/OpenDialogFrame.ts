@@ -66,13 +66,13 @@ export default class OpenDialogFrame extends BaseFrame {
     super.registerIPC()
 
     // 鼠标进入弹窗区域 — 标记状态 + 取消隐藏
-    this.registerIPCOn('open-dialog:mouse-enter', () => {
+    this.recvOne('to-main-OpenDialogFrame:mouseEnter', () => {
       this.#isMouseInPopup = true
       this.#clearHideTimer()
     })
 
     // 鼠标离开弹窗区域 — 标记状态 + 启动延迟隐藏
-    this.registerIPCOn('open-dialog:mouse-leave', () => {
+    this.recvOne('to-main-OpenDialogFrame:mouseLeave', () => {
       this.#isMouseInPopup = false
       this.#startHideTimer()
     })
@@ -117,7 +117,7 @@ export default class OpenDialogFrame extends BaseFrame {
         this.window?.show()
         this.#isShowing = true
         // 通知渲染进程播放展开动画
-        this.send('open-dialog:animate', { direction: pos.direction })
+        this.sendOne('to-renderer-OpenDialogFrame:animate', { direction: pos.direction })
       })
     } else {
       // 窗口已存在（隐藏状态）→ 定位 + 显示
@@ -125,7 +125,7 @@ export default class OpenDialogFrame extends BaseFrame {
       this.window!.show()
       this.#isShowing = true
       // 通知渲染进程播放展开动画
-      this.send('open-dialog:animate', { direction: pos.direction })
+      this.sendOne('open-dialog:animate', { direction: pos.direction })
     }
   }
 
@@ -160,7 +160,7 @@ export default class OpenDialogFrame extends BaseFrame {
     this.#clearHideTimer()
     if (this.isAlive() && this.#isShowing) {
       this.#isShowing = false
-      this.send('open-dialog:close')
+      this.sendOne('to-renderer-OpenDialogFrame:close')
       // 延迟隐藏，让关闭动画播放
       setTimeout(() => {
         if (!this.#isShowing) {

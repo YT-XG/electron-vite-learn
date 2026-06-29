@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
+import { app, BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 
 /**
@@ -81,7 +81,7 @@ export default class MainPageFrame extends BaseFrame {
       })
     } else if (this.window!.isVisible()) {
       // 窗口已显示 → 通知渲染进程播放退场动画，动画完成后通知主进程隐藏
-      this.window!.webContents.send('main-page:start-hide')
+      this.sendOne('to-renderer-MainPage:startHide')
     } else {
       // 窗口已存在但隐藏 → 确保 alwaysOnTop，居中，opacity: 0 → show → opacity: 1
       this.window!.setAlwaysOnTop(true)
@@ -90,7 +90,7 @@ export default class MainPageFrame extends BaseFrame {
       this.window!.show()
       setTimeout(() => {
         this.window?.setOpacity(1)
-        this.window!.webContents.send('main-page:re-show')
+        this.sendOne('to-renderer-MainPage:reShow')
       }, 30)
     }
   }
@@ -139,17 +139,22 @@ export default class MainPageFrame extends BaseFrame {
     super.registerIPC()
 
     // 最小化窗口
-    this.registerIPCOn('main-page:minimize', () => {
+    this.recvOne('to-main-MainPage:minimize', () => {
       if (this.isAlive()) {
         this.window!.minimize()
       }
     })
 
     // 退场动画播放完毕，隐藏窗口
-    this.registerIPCOn('main-page:hide-after-animation', () => {
+    this.recvOne('to-main-MainPage:hideAfterAnimation', () => {
       if (this.isAlive()) {
         this.window!.hide()
       }
+    })
+
+    this.recvOne('to-main-MainPage:ready', () => {
+      // 发送应用版本号到渲染进程
+      this.sendOne('to-renderer-MainPage:version', app.getVersion())
     })
   }
 }

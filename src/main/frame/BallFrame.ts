@@ -29,8 +29,8 @@ export default class BallFrame extends BaseFrame {
     super.registerIPC()
 
     // 窗口拖拽定位（处理 DPI 缩放问题，移动发送事件的窗口而非固定窗口）
-    this.registerIPCHandle(
-      'custom-adsorption',
+    this.recvTwo(
+      'to-main-BallFrame:customAdsorption',
       (event, args: Record<string, unknown>) => {
         const { mouseX, mouseY, offsetLeft, offsetTop, windowWidth, windowHeight } = args as {
           mouseX: number
@@ -76,7 +76,7 @@ export default class BallFrame extends BaseFrame {
     )
 
     // 获取窗口位置
-    this.registerIPCHandle('get-window-position', () => {
+    this.recvTwo('to-main-BallFrame:getWindowPosition', () => {
       if (this.isAlive()) {
         return this.window!.getPosition()
       }
@@ -84,7 +84,7 @@ export default class BallFrame extends BaseFrame {
     })
 
     // 更新弹窗跟随位置（拖拽悬浮球时，通知弹窗同步移动）
-    this.registerIPCOn('update-popup:follow', () => {
+    this.recvOne('to-main-BallFrame:updatePopupFollow', () => {
       // 直接通知 TestFrame 重新定位
       const testFrame = windowFactory.getTestFrame()
       if (testFrame.isAlive()) {
@@ -98,8 +98,8 @@ export default class BallFrame extends BaseFrame {
     })
 
     // 调整窗口大小和位置
-    this.registerIPCHandle(
-      'resize-window',
+    this.recvTwo(
+      'to-main-BallFrame:resizeWindow',
       (_event, args: Record<string, unknown>) => {
         const { width, height, x, y } = args as {
           width: number
@@ -126,7 +126,7 @@ export default class BallFrame extends BaseFrame {
     )
 
     // 从通知窗口恢复为悬浮球：隐藏 → 缩小 → 定位（显示由 Home.vue 挂载后触发）
-    this.registerIPCHandle('restore-ball', (_event, args: Record<string, unknown>) => {
+    this.recvTwo('to-main-BallFrame:restoreBall', (_event, args: Record<string, unknown>) => {
       const { x, y } = args as { x: number; y: number }
       if (!this.isAlive()) return
 
@@ -144,21 +144,21 @@ export default class BallFrame extends BaseFrame {
     })
 
     // 显示窗口（由渲染进程组件挂载后调用）
-    this.registerIPCOn('window:show', () => {
+    this.recvOne('to-main-BallFrame:windowShow', () => {
       if (this.isAlive()) {
         this.window!.show()
       }
     })
 
     // 显示 OpenDialog（鼠标悬停在悬浮球上）
-    this.registerIPCOn('open-dialog:show', () => {
+    this.recvOne('to-main-BallFrame:openDialogShow', () => {
       const openDialogFrame = windowFactory.getOpenDialogFrame()
       openDialogFrame.setMouseOnBall(true)
       openDialogFrame.showPopup()
     })
 
     // 隐藏 OpenDialog（鼠标离开悬浮球，延迟隐藏）
-    this.registerIPCOn('open-dialog:hide', () => {
+    this.recvOne('to-main-BallFrame:openDialogHide', () => {
       const openDialogFrame = windowFactory.getOpenDialogFrame()
       openDialogFrame.setMouseOnBall(false)
       openDialogFrame.hideWithDelay()

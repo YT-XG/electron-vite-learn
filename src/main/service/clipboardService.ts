@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
 import { windowFactory } from '../frame'
+import { inputService } from './inputService'
 
 /**
  * 剪贴板历史记录项
@@ -95,9 +96,7 @@ class ClipboardService {
         created_at INTEGER NOT NULL
       )
     `)
-    this.db.run(
-      'CREATE INDEX IF NOT EXISTS idx_created_at ON clipboard_history(created_at DESC)'
-    )
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_created_at ON clipboard_history(created_at DESC)')
 
     // 收藏表（独立存储，支持手动添加和分类）
     this.db.run(`
@@ -109,12 +108,8 @@ class ClipboardService {
         created_at  INTEGER NOT NULL
       )
     `)
-    this.db.run(
-      'CREATE INDEX IF NOT EXISTS idx_fav_category ON favorites(category)'
-    )
-    this.db.run(
-      'CREATE INDEX IF NOT EXISTS idx_fav_created_at ON favorites(created_at DESC)'
-    )
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_fav_category ON favorites(category)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_fav_created_at ON favorites(created_at DESC)')
 
     this.save()
 
@@ -172,10 +167,7 @@ class ClipboardService {
     }
 
     const now = Date.now()
-    this.db.run('INSERT INTO clipboard_history (content, created_at) VALUES (?, ?)', [
-      content,
-      now
-    ])
+    this.db.run('INSERT INTO clipboard_history (content, created_at) VALUES (?, ?)', [content, now])
 
     // 超出最大数量时删除最旧的
     const countResult = this.db.exec('SELECT COUNT(*) FROM clipboard_history')
@@ -199,7 +191,7 @@ class ClipboardService {
     }
     BrowserWindow.getAllWindows().forEach((w) => {
       if (!w.isDestroyed() && w.isVisible()) {
-        w.webContents.send('clipboard-history:new', newItem)
+        w.webContents.send('broadcast:clipboard-new', newItem)
       }
     })
 
@@ -210,7 +202,6 @@ class ClipboardService {
 
     log.info('[ClipboardService] 新增记录:', content.substring(0, 50))
   }
-
   /**
    * 获取历史记录（分页）
    * @param limit - 每页数量
@@ -232,9 +223,7 @@ class ClipboardService {
    */
   getFavorites(): FavoriteItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT * FROM favorites ORDER BY created_at DESC'
-    )
+    const result = this.db.exec('SELECT * FROM favorites ORDER BY created_at DESC')
     return this.parseFavoritesResult(result)
   }
 
@@ -297,10 +286,12 @@ class ClipboardService {
    */
   updateFavorite(id: number, content: string, category: string, description: string): void {
     if (!this.db) return
-    this.db.run(
-      'UPDATE favorites SET content = ?, category = ?, description = ? WHERE id = ?',
-      [content, category, description, id]
-    )
+    this.db.run('UPDATE favorites SET content = ?, category = ?, description = ? WHERE id = ?', [
+      content,
+      category,
+      description,
+      id
+    ])
     this.save()
   }
 
@@ -407,43 +398,64 @@ class ClipboardService {
    */
   private registerIPC(): void {
     // 获取历史记录（分页）
-    ipcMain.handle('clipboard-history:get', (_event, limit?: number, offset?: number) => {
-      return this.getAll(limit ?? 50, offset ?? 0)
-    })
+    ipcMain.handle(
+      'to-service-ClipboardService:getHistory',
+      (_event, limit?: number, offset?: number) => {
+        return this.getAll(limit ?? 50, offset ?? 0)
+      }
+    )
 
     // 搜索历史记录
-    ipcMain.handle('clipboard-history:search', (_event, keyword: string) => {
+    ipcMain.handle('to-service-ClipboardService:searchHistory', (_event, keyword: string) => {
       return this.search(keyword)
     })
 
     // 删除历史记录
-    ipcMain.handle('clipboard-history:delete', (_event, id: number) => {
+    ipcMain.handle('to-service-ClipboardService:deleteHistory', (_event, id: number) => {
       this.delete(id)
     })
 
     // 清空历史记录
-    ipcMain.handle('clipboard-history:clearAll', () => {
+    ipcMain.handle('to-service-ClipboardService:clearHistory', () => {
       this.clearAll()
     })
 
+    // 点击历史记录项（复制并粘贴）
+    ipcMain.handle('to-service-ClipboardService:clickItem', async (_event, content: string) => {
+      // 写入系统剪贴板 + 同步监控缓存（避免触发通知弹窗）
+      clipboard.writeText(content)
+      this.syncMonitorCache()
+
+      // 获取并隐藏主页面窗口
+      const mainPageFrame = windowFactory.getMainPageFrame()
+      mainPageFrame.minimizeForPaste()
+
+      // 等待焦点切换后执行粘贴
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      await inputService.pasteToPreviousWindow()
+    })
+
     // 获取收藏列表
-    ipcMain.handle('favorites:getAll', () => {
+    ipcMain.handle('to-service-ClipboardService:getFavorites', () => {
       return this.getFavorites()
     })
 
     // 按分类获取收藏列表
-    ipcMain.handle('favorites:getByCategory', (_event, category: string) => {
-      return this.getFavoritesByCategory(category)
-    })
+    ipcMain.handle(
+      'to-service-ClipboardService:getFavoritesByCategory',
+      (_event, category: string) => {
+        return this.getFavoritesByCategory(category)
+      }
+    )
 
     // 获取所有分类
-    ipcMain.handle('favorites:getCategories', () => {
+    ipcMain.handle('to-service-ClipboardService:getCategories', () => {
       return this.getCategories()
     })
 
     // 添加收藏
     ipcMain.handle(
-      'favorites:add',
+      'to-service-ClipboardService:addFavorite',
       (_event, content: string, category: string, description: string) => {
         return this.addFavorite(content, category, description)
       }
@@ -451,19 +463,19 @@ class ClipboardService {
 
     // 更新收藏
     ipcMain.handle(
-      'favorites:update',
+      'to-service-ClipboardService:updateFavorite',
       (_event, id: number, content: string, category: string, description: string) => {
         this.updateFavorite(id, content, category, description)
       }
     )
 
     // 删除收藏
-    ipcMain.handle('favorites:delete', (_event, id: number) => {
+    ipcMain.handle('to-service-ClipboardService:deleteFavorite', (_event, id: number) => {
       this.deleteFavorite(id)
     })
 
     // 清空收藏
-    ipcMain.handle('favorites:clearAll', () => {
+    ipcMain.handle('to-service-ClipboardService:clearFavorites', () => {
       this.clearAllFavorites()
     })
   }

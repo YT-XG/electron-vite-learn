@@ -36,7 +36,7 @@ const dragMouseDown = (event: MouseEvent) => {
   document.onmousemove = (ev: MouseEvent) => {
     if (isKeyDown.value) {
       // 发送鼠标屏幕坐标和窗口内偏移量，由主进程处理位置计算和边界限制
-      window.electron.ipcRenderer.invoke('custom-adsorption', {
+      window.electron.ipcRenderer.invoke('to-main-BallFrame:customAdsorption', {
         mouseX: ev.screenX,
         mouseY: ev.screenY,
         offsetLeft: dinatesX.value,
@@ -53,18 +53,18 @@ const dragMouseDown = (event: MouseEvent) => {
 
 /** 鼠标进入悬浮球 */
 const handleMouseEnter = () => {
-  window.electron.ipcRenderer.send('open-dialog:show')
+  window.electron.ipcRenderer.send('to-main-BallFrame:openDialogShow')
 }
 
 /** 鼠标离开悬浮球 */
 const handleMouseLeave = () => {
-  window.electron.ipcRenderer.send('open-dialog:hide')
+  window.electron.ipcRenderer.send('to-main-BallFrame:openDialogHide')
 }
 
 onMounted(() => {
   updateTime()
   timer = setInterval(updateTime, 1000)
-  window.electron.ipcRenderer.send('window:show')
+  window.electron.ipcRenderer.send('to-main-BallFrame:windowShow')
 })
 
 onUnmounted(() => {

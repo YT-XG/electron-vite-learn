@@ -10,7 +10,11 @@
     <!-- 自定义标题栏 -->
     <div class="title-bar">
       <div class="title-bar-drag">
-        <button class="sidebar-toggle" @click="toggleSidebar" :title="isSidebarCollapsed ? '展开菜单' : '收起菜单'">
+        <button
+          class="sidebar-toggle"
+          @click="toggleSidebar"
+          :title="isSidebarCollapsed ? '展开菜单' : '收起菜单'"
+        >
           <svg width="12" height="12" viewBox="0 0 12 12">
             <line x1="2" y1="3" x2="10" y2="3" stroke="currentColor" stroke-width="1.5" />
             <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" />
@@ -18,6 +22,7 @@
           </svg>
         </button>
         <span class="app-name">妙妙屋</span>
+        <span class="app-version" v-if="version">v{{ version }}</span>
       </div>
       <div class="window-controls">
         <button class="control-btn minimize-btn" @click="minimize" title="最小化">
@@ -90,6 +95,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import ClipboardManager from './ClipboardManager.vue'
 import Settings from './Settings.vue'
 
+const version = ref('')
 /** 当前页面 */
 const currentPage = ref<'home' | 'clipboard' | 'settings'>('clipboard')
 
@@ -113,7 +119,7 @@ const toggleSidebar = () => {
  * 最小化窗口
  */
 const minimize = () => {
-  window.electron.ipcRenderer.send('main-page:minimize')
+  window.electron.ipcRenderer.send('to-main-MainPage:minimize')
 }
 
 /**
@@ -128,7 +134,7 @@ const close = () => {
  */
 const onAnimationEnd = (): void => {
   if (isHiding.value) {
-    window.electron.ipcRenderer.send('main-page:hide-after-animation')
+    window.electron.ipcRenderer.send('to-main-MainPage:hideAfterAnimation')
   }
 }
 
@@ -152,13 +158,23 @@ const onReShow = (): void => {
   })
 }
 
+/**
+ * 接收应用版本号
+ * @param _event - IPC 事件对象
+ * @param ver - 版本号字符串
+ */
+const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
+  version.value = ver
+}
+
 onMounted(() => {
   // 通知主进程：渲染进程已准备好
-  window.electron.ipcRenderer.send('main-page:ready')
+  window.electron.ipcRenderer.send('to-main-MainPage:ready')
 
   // 监听主进程事件
-  window.electron.ipcRenderer.on('main-page:start-hide', onStartHide)
-  window.electron.ipcRenderer.on('main-page:re-show', onReShow)
+  window.electron.ipcRenderer.on('to-renderer-MainPage:startHide', onStartHide)
+  window.electron.ipcRenderer.on('to-renderer-MainPage:reShow', onReShow)
+  window.electron.ipcRenderer.on('to-renderer-MainPage:version', onVersion)
 
   // 延迟两帧后触发动画，确保 CSS 初始状态已渲染
   requestAnimationFrame(() => {
@@ -169,8 +185,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.electron.ipcRenderer.removeListener('main-page:start-hide', onStartHide)
-  window.electron.ipcRenderer.removeListener('main-page:re-show', onReShow)
+  window.electron.ipcRenderer.removeListener('to-renderer-MainPage:startHide', onStartHide)
+  window.electron.ipcRenderer.removeListener('to-renderer-MainPage:reShow', onReShow)
+  window.electron.ipcRenderer.removeListener('to-renderer-MainPage:version', onVersion)
 })
 </script>
 
@@ -228,24 +245,19 @@ onUnmounted(() => {
 /* ========== 渐变色条 ========== */
 .gradient-bar {
   height: 3px;
-  background: linear-gradient(
-    90deg,
-    #3d8bff,
-    #78b4ff,
-    #a0d0ff,
-    #ff96c8,
-    #ff6ab0,
-    #ff3d8b,
-    #3d8bff
-  );
+  background: linear-gradient(90deg, #3d8bff, #78b4ff, #a0d0ff, #ff96c8, #ff6ab0, #ff3d8b, #3d8bff);
   background-size: 200% 100%;
   animation: gradient-flow 3s linear infinite;
   flex-shrink: 0;
 }
 
 @keyframes gradient-flow {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 /* ========== 标题栏 ========== */
@@ -293,6 +305,16 @@ onUnmounted(() => {
   color: #1a1a1a;
   letter-spacing: 0.5px;
   user-select: none;
+}
+
+.app-version {
+  font-size: 10px;
+  font-weight: 400;
+  color: #999;
+  background: #f3f4f6;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
 }
 
 .window-controls {
@@ -419,8 +441,13 @@ onUnmounted(() => {
 }
 
 @keyframes icon-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 .welcome-title {

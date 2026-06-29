@@ -37,44 +37,16 @@ app.whenReady().then(async () => {
   settingsService.init()
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
-  ipcMain.on('clipboard-write', (_event, text: string) => {
+  ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
     clipboard.writeText(text)
   })
 
-  // 点击剪贴板记录 → 写入剪贴板 → 隐藏窗口 → 恢复焦点 → 粘贴
-  // 由 ClipboardManager.vue 的 copyItem 触发
-  // 设计参考 copy-creator（Rust Tauri）的 paste_with_defocus
-  ipcMain.handle('clipboard:click-item', async (_event, content: string) => {
-    log.info('[Clipboard] 用户点击记录，开始粘贴流程')
-
-    // 1. 写入系统剪贴板 + 同步监控缓存（避免触发通知弹窗）
-    clipboard.writeText(content)
-    clipboardService.syncMonitorCache()
-    log.info('[Clipboard] 已写入系统剪贴板')
-
-    // 2. 最小化主页面窗口（先移除 alwaysOnTop → 最小化 → Windows 自动恢复焦点）
-    const mainPage = windowFactory.getMainPageFrame()
-    if (mainPage.isAlive()) {
-      mainPage.minimizeForPaste()
-      log.info('[Clipboard] 已最小化主页面（Windows 自动恢复焦点到上一个窗口）')
-    }
-
-    // 3. 等待焦点稳定
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    // 4. 执行粘贴（nut-js Ctrl+V，使用 SendInput，无需前台权限）
-    log.info('[Clipboard] 开始执行粘贴...')
-    const inputService = (await import('./service/inputService')).inputService
-    await inputService.pasteToPreviousWindow()
-    log.info('[Clipboard] 粘贴流程完成')
-  })
-
   // 设置相关 IPC
-  ipcMain.handle('settings:get', () => {
+  ipcMain.handle('to-service-SettingsService:get', () => {
     return settingsService.getAll()
   })
 
-  ipcMain.handle('settings:update', (_event, partial: Record<string, unknown>) => {
+  ipcMain.handle('to-service-SettingsService:update', (_event, partial: Record<string, unknown>) => {
     settingsService.update(partial)
   })
 

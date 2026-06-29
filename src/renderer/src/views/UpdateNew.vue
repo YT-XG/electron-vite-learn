@@ -119,7 +119,7 @@ const handleDownload = (): void => {
   if (downloadStatus.value !== 'idle') return
   downloadStatus.value = 'downloading'
   progress.value = 0
-  window.electron.ipcRenderer.send('update-new:download')
+  window.electron.ipcRenderer.send('to-main-UpdateNewFrame:download')
 }
 
 /**
@@ -129,7 +129,7 @@ const handleDownload = (): void => {
 const handleInstall = (): void => {
   if (downloadStatus.value !== 'downloaded') return
   downloadStatus.value = 'installing'
-  window.electron.ipcRenderer.send('update-new:install')
+  window.electron.ipcRenderer.send('to-main-UpdateNewFrame:install')
 }
 
 /**
@@ -139,7 +139,7 @@ const handleInstall = (): void => {
 const handleClose = (): void => {
   isVisible.value = false
   setTimeout(() => {
-    window.electron.ipcRenderer.send('update-new:destroy')
+    window.electron.ipcRenderer.send('to-main-UpdateNewFrame:destroy')
   }, 300)
 }
 
@@ -204,23 +204,23 @@ onMounted(() => {
   })
 
   // 注册 IPC 监听器
-  window.electron.ipcRenderer.on('update-new:animate', handleAnimate)
-  window.electron.ipcRenderer.on('update-new:info', handleUpdateInfo)
-  window.electron.ipcRenderer.on('lan-update-progress', handleProgress)
-  window.electron.ipcRenderer.on('lan-update-downloaded', handleDownloaded)
-  window.electron.ipcRenderer.on('lan-update-error', handleError)
+  window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:animate', handleAnimate)
+  window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:info', handleUpdateInfo)
+  window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:progress', handleProgress)
+  window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:downloaded', handleDownloaded)
+  window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:error', handleError)
 
   // 通知主进程：渲染进程已就绪，可以发送数据了
-  window.electron.ipcRenderer.send('update-new:ready')
+  window.electron.ipcRenderer.send('to-main-UpdateNewFrame:ready')
 })
 
 onUnmounted(() => {
   // 清理 IPC 监听器
-  window.electron.ipcRenderer.removeListener('update-new:animate', handleAnimate)
-  window.electron.ipcRenderer.removeListener('update-new:info', handleUpdateInfo)
-  window.electron.ipcRenderer.removeListener('lan-update-progress', handleProgress)
-  window.electron.ipcRenderer.removeListener('lan-update-downloaded', handleDownloaded)
-  window.electron.ipcRenderer.removeListener('lan-update-error', handleError)
+  window.electron.ipcRenderer.removeListener('to-renderer-UpdateNewFrame:animate', handleAnimate)
+  window.electron.ipcRenderer.removeListener('to-renderer-UpdateNewFrame:info', handleUpdateInfo)
+  window.electron.ipcRenderer.removeListener('to-renderer-UpdateNewFrame:progress', handleProgress)
+  window.electron.ipcRenderer.removeListener('to-renderer-UpdateNewFrame:downloaded', handleDownloaded)
+  window.electron.ipcRenderer.removeListener('to-renderer-UpdateNewFrame:error', handleError)
 })
 </script>
 

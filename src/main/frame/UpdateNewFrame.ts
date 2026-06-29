@@ -171,23 +171,23 @@ export default class UpdateNewFrame extends BaseFrame {
     super.registerIPC()
 
     // 渲染进程请求隐藏更新窗口
-    this.registerIPCOn('update-new:hide', async () => {
+    this.recvOne('to-main-UpdateNewFrame:hide', async () => {
       await this.hide()
     })
 
     // 渲染进程请求销毁更新窗口
-    this.registerIPCOn('update-new:destroy', async () => {
+    this.recvOne('to-main-UpdateNewFrame:destroy', async () => {
       await this.destroy()
     })
 
     // 渲染进程已就绪，显示窗口并发送待处理的数据
-    this.registerIPCOn('update-new:ready', async () => {
+    this.recvOne('to-main-UpdateNewFrame:ready', async () => {
       console.log('渲染进程加载完毕，准备检查更新')
       await this.checkForUpdates()
     })
 
     // 渲染进程请求下载更新
-    this.registerIPCOn('update-new:download', async () => {
+    this.recvOne('to-main-UpdateNewFrame:download', async () => {
       log.info('[UpdateNewFrame] 收到下载请求')
       if (!this.currentUpdateInfo) {
         log.error('[UpdateNewFrame] 没有更新信息，无法下载')
@@ -201,7 +201,7 @@ export default class UpdateNewFrame extends BaseFrame {
     })
 
     // 渲染进程请求安装更新
-    this.registerIPCOn('update-new:install', () => {
+    this.recvOne('to-main-UpdateNewFrame:install', () => {
       log.info('[UpdateNewFrame] 收到安装请求')
       if (!this.currentDownloadPath) {
         log.error('[UpdateNewFrame] 没有安装包路径，无法安装')
@@ -291,7 +291,7 @@ export default class UpdateNewFrame extends BaseFrame {
         log.info('[UpdateNew] 本地已缓存该版本，直接显示安装按钮')
         this.currentDownloadPath = cachedPath
         // 通知渲染进程：已下载完成，可直接安装
-        this.send('lan-update-downloaded', { path: cachedPath })
+        this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
       }
 
       // 显示更新窗口
@@ -349,7 +349,7 @@ export default class UpdateNewFrame extends BaseFrame {
       log.info('[LanUpdate] 缓存目录就绪')
 
       // 报告 0% 进度
-      this.send('lan-update-progress', {
+      this.sendOne('to-renderer-UpdateNewFrame:progress', {
         transferred: 0,
         total: info.size,
         bytesPerSecond: 0,
@@ -365,7 +365,7 @@ export default class UpdateNewFrame extends BaseFrame {
       log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
 
       // 报告 100% 进度
-      this.send('lan-update-progress', {
+      this.sendOne('to-renderer-UpdateNewFrame:progress', {
         transferred: info.size,
         total: info.size,
         bytesPerSecond: 0,
@@ -381,7 +381,7 @@ export default class UpdateNewFrame extends BaseFrame {
       }
 
       log.info('[LanUpdate] 下载完成:', localFilePath)
-      this.send('lan-update-downloaded', { path: localFilePath })
+      this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: localFilePath })
 
       return localFilePath
     } catch (error) {
@@ -397,7 +397,7 @@ export default class UpdateNewFrame extends BaseFrame {
         }
       }
 
-      this.send('lan-update-error', { message: errorMessage })
+      this.sendOne('to-renderer-UpdateNewFrame:error', { message: errorMessage })
       throw error
     } finally {
       this.isDownloading = false
@@ -518,7 +518,7 @@ export default class UpdateNewFrame extends BaseFrame {
       await this.#animateWindow(startY, pos.y, 400)
 
       if (data) {
-        this.send('update-new:info', data)
+        this.sendOne('to-renderer-UpdateNewFrame:info', data)
       }
     } else {
       // 窗口已存在（隐藏状态）→ 定位 + 播放弹出动画 + 发送数据
@@ -530,7 +530,7 @@ export default class UpdateNewFrame extends BaseFrame {
       await this.#animateWindow(startY, pos.y, 400)
 
       if (data) {
-        this.send('update-new:info', data)
+        this.sendOne('to-renderer-UpdateNewFrame:info', data)
       }
     }
   }

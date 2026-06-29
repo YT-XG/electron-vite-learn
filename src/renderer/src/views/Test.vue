@@ -56,7 +56,7 @@ const handleClose = () => {
     clearTimeout(autoCloseTimer)
     autoCloseTimer = null
   }
-  window.electron.ipcRenderer.send('close-window')
+  window.electron.ipcRenderer.send('to-main-BaseFrame:closeWindow')
 }
 
 /**
@@ -101,13 +101,13 @@ const handlePopupData = (payload: { version?: string; direction?: string; state?
 
 onMounted(async () => {
   // 从主进程获取待显示的数据（解决窗口创建时序问题）
-  const data = await window.electron.ipcRenderer.invoke('get-update-data')
+  const data = await window.electron.ipcRenderer.invoke('to-main-TestFrame:getUpdateData')
   if (data) {
     handlePopupData(data)
   }
 
   // 监听弹窗数据更新
-  window.electron.ipcRenderer.on('show-update-popup', (_event, payload) => {
+  window.electron.ipcRenderer.on('to-renderer-TestFrame:showUpdatePopup', (_event, payload) => {
     handlePopupData(payload)
   })
 

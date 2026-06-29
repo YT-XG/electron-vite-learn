@@ -73,10 +73,10 @@ export default class NoticeNewFrame extends BaseFrame {
     super.registerIPC()
 
     // 渲染进程已就绪，发送缓存的消息并显示弹窗
-    this.registerIPCOn('notice-new:ready', async () => {
+    this.recvOne('to-main-NoticeNewFrame:ready', async () => {
       // 如果消息还没发过（窗口创建时 send 丢失的情况），现在补发
       if (!this.#msgSent) {
-        this.send('notice-new:sendMsg', this.#msg)
+        this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg)
       }
       await this.showAtBottomCenter()
     })
@@ -160,7 +160,7 @@ export default class NoticeNewFrame extends BaseFrame {
       this.create()
     } else {
       // 窗口已存在 → 直接发送消息
-      this.send('notice-new:sendMsg', this.#msg)
+      this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg)
       this.#msgSent = true
     }
 

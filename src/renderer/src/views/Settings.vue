@@ -273,7 +273,7 @@ function mapKey(event: KeyboardEvent): string {
  */
 async function saveShortcut(): Promise<void> {
   const accelerator = capturedKeys.value.join('+')
-  await window.electron.ipcRenderer.invoke('settings:update', { shortcut: accelerator })
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { shortcut: accelerator })
   currentShortcut.value = accelerator
   state.value = 'idle'
   document.removeEventListener('keydown', onKeydown)
@@ -299,7 +299,7 @@ function cancelRecording(): void {
  */
 async function saveServerUrl(): Promise<void> {
   const url = fullServerUrl.value
-  await window.electron.ipcRenderer.invoke('settings:update', { serverUrl: url })
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { serverUrl: url })
   serverUrlOrig.value = url
   showServerUrlTip.value = true
   setTimeout(() => {
@@ -337,7 +337,7 @@ function formatAccelerator(accel: string): string[] {
 // ═══════════════════════════════════════════════════════════════
 
 onMounted(async () => {
-  const settings = await window.electron.ipcRenderer.invoke('settings:get')
+  const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   currentShortcut.value = settings.shortcut
   // 初始化更新服务器：从 UNC 路径反解 IP
   const ip = extractIpFromUrl(settings.serverUrl)

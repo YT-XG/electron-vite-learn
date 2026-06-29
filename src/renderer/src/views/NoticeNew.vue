@@ -27,9 +27,9 @@ const setMsg = (data: string) => {
 
 onMounted(() => {
   // 通知主进程渲染已就绪
-  window.electron.ipcRenderer.send('notice-new:ready')
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:ready')
   // 监听主进程发送的消息
-  window.electron.ipcRenderer.on('notice-new:sendMsg', (_e, data: string) => {
+  window.electron.ipcRenderer.on('to-renderer-NoticeNewFrame:sendMsg', (_e, data: string) => {
     setMsg(data)
     // 下一帧触发 CSS 缩放动画（从 scale(0.2) → scale(1)）
     nextTick(() => {

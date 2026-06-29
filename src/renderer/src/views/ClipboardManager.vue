@@ -296,7 +296,7 @@ const displayList = computed<DisplayItem[]>(() => {
  * 获取历史记录
  */
 const fetchHistory = async (): Promise<void> => {
-  const list = await window.electron.ipcRenderer.invoke('clipboard-history:get', 100, 0)
+  const list = await window.electron.ipcRenderer.invoke('to-service-ClipboardService:getHistory', 100, 0)
   historyList.value = list
 }
 
@@ -304,7 +304,7 @@ const fetchHistory = async (): Promise<void> => {
  * 获取收藏列表
  */
 const fetchFavorites = async (): Promise<void> => {
-  const list = await window.electron.ipcRenderer.invoke('favorites:getAll')
+  const list = await window.electron.ipcRenderer.invoke('to-service-ClipboardService:getFavorites')
   favoritesList.value = list
 }
 
@@ -312,7 +312,7 @@ const fetchFavorites = async (): Promise<void> => {
  * 获取分类列表
  */
 const fetchCategories = async (): Promise<void> => {
-  const list = await window.electron.ipcRenderer.invoke('favorites:getCategories')
+  const list = await window.electron.ipcRenderer.invoke('to-service-ClipboardService:getCategories')
   categories.value = list
 }
 
@@ -342,7 +342,7 @@ const switchTab = async (tab: 'history' | 'favorites'): Promise<void> => {
 const copyItem = async (content: string): Promise<void> => {
   try {
     // 主进程处理：写入剪贴板 + 隐藏窗口 + 恢复焦点 + 粘贴
-    await window.electron.ipcRenderer.invoke('clipboard:click-item', content)
+    await window.electron.ipcRenderer.invoke('to-service-ClipboardService:clickItem', content)
   } catch (err) {
     console.error('[ClipboardManager] 粘贴失败:', err)
   }
@@ -353,7 +353,7 @@ const copyItem = async (content: string): Promise<void> => {
  * @param item - 历史记录项
  */
 const quickFavorite = async (item: HistoryItem): Promise<void> => {
-  await window.electron.ipcRenderer.invoke('favorites:add', item.content, '', '')
+  await window.electron.ipcRenderer.invoke('to-service-ClipboardService:addFavorite', item.content, '', '')
   // 刷新收藏列表和分类，更新计数
   await fetchFavorites()
   await fetchCategories()
@@ -365,10 +365,10 @@ const quickFavorite = async (item: HistoryItem): Promise<void> => {
  */
 const deleteItem = async (item: DisplayItem): Promise<void> => {
   if (activeTab.value === 'history') {
-    await window.electron.ipcRenderer.invoke('clipboard-history:delete', item.id)
+    await window.electron.ipcRenderer.invoke('to-service-ClipboardService:deleteHistory', item.id)
     historyList.value = historyList.value.filter((h) => h.id !== item.id)
   } else {
-    await window.electron.ipcRenderer.invoke('favorites:delete', item.id)
+    await window.electron.ipcRenderer.invoke('to-service-ClipboardService:deleteFavorite', item.id)
     favoritesList.value = favoritesList.value.filter((f) => f.id !== item.id)
     await fetchCategories()
   }
@@ -385,7 +385,7 @@ const confirmClearHistory = (): void => {
  * 清空所有历史记录
  */
 const clearAllHistory = async (): Promise<void> => {
-  await window.electron.ipcRenderer.invoke('clipboard-history:clearAll')
+  await window.electron.ipcRenderer.invoke('to-service-ClipboardService:clearHistory')
   historyList.value = []
   showClearConfirm.value = false
 }
@@ -422,7 +422,7 @@ const saveFavorite = async (): Promise<void> => {
   if (editingFavorite.value) {
     // 编辑
     await window.electron.ipcRenderer.invoke(
-      'favorites:update',
+      'to-service-ClipboardService:updateFavorite',
       editingFavorite.value.id,
       formData.value.content,
       formData.value.category,
@@ -431,7 +431,7 @@ const saveFavorite = async (): Promise<void> => {
   } else {
     // 添加
     await window.electron.ipcRenderer.invoke(
-      'favorites:add',
+      'to-service-ClipboardService:addFavorite',
       formData.value.content,
       formData.value.category,
       formData.value.description
@@ -481,11 +481,11 @@ onMounted(async () => {
   loading.value = false
 
   // 监听增量推送
-  window.electron.ipcRenderer.on('clipboard-history:new', onNewItem)
+  window.electron.ipcRenderer.on('broadcast:clipboard-new', onNewItem)
 })
 
 onUnmounted(() => {
-  window.electron.ipcRenderer.removeListener('clipboard-history:new', onNewItem)
+  window.electron.ipcRenderer.removeListener('broadcast:clipboard-new', onNewItem)
 })
 </script>
 

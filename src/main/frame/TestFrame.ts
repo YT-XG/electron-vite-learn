@@ -65,14 +65,14 @@ export default class TestFrame extends BaseFrame {
     super.registerIPC()
 
     // 渲染进程请求更新数据（组件挂载后调用，解决窗口创建时序问题）
-    this.registerIPCHandle('get-update-data', () => {
+    this.recvTwo('to-main-TestFrame:getUpdateData', () => {
       const data = this.#pendingData
       this.#pendingData = null
       return data
     })
 
     // 重新定位弹窗（拖拽悬浮球时跟随移动）
-    this.registerIPCOn('update-popup:reposition', () => {
+    this.recvOne('to-main-TestFrame:updatePopupReposition', () => {
       if (this.isAlive()) {
         this.positionAboveBall()
       }
@@ -100,7 +100,7 @@ export default class TestFrame extends BaseFrame {
     } else {
       // 窗口已存在（隐藏状态）→ 定位 + 发送数据 + 显示
       this.window!.setPosition(pos.x, pos.y)
-      this.send('show-update-popup', payload)
+      this.sendOne('to-renderer-TestFrame:showUpdatePopup', payload)
       this.window!.show()
     }
 
@@ -117,7 +117,7 @@ export default class TestFrame extends BaseFrame {
 
     const pos = this.#calcPosition()
     const direction = pos.above ? 'above' : 'below'
-    this.send('show-update-popup', { ...data, direction })
+    this.sendOne('show-update-popup', { ...data, direction })
 
     // 重置自动关闭定时器
     this.#startAutoCloseTimer(data.state)

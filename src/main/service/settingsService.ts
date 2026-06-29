@@ -24,7 +24,7 @@ export interface AppSettings {
 /** 默认设置 */
 const DEFAULT_SETTINGS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+V',
-  serverUrl: '\\\\10.15.2.28\\dist'
+  serverUrl: '\\\\10.15.8.28\\dist'
 }
 
 class SettingsService {
