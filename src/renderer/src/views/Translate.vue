@@ -119,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 /**
  * 翻译历史记录项类型
@@ -315,8 +315,24 @@ const goBack = () => {
   window.electron.ipcRenderer.send('to-main-MainPage:setPage', 'home')
 }
 
+/**
+ * 接收外部填充文本
+ */
+const onFillText = (_event: Electron.IpcRendererEvent, text: string): void => {
+  inputText.value = text
+  resultText.value = ''
+  errorMessage.value = ''
+}
+
 onMounted(async () => {
   await fetchHistory()
+
+  // 监听文本填充事件
+  window.electron.ipcRenderer.on('to-renderer-Translate:fillText', onFillText)
+})
+
+onUnmounted(() => {
+  window.electron.ipcRenderer.removeListener('to-renderer-Translate:fillText', onFillText)
 })
 </script>
 

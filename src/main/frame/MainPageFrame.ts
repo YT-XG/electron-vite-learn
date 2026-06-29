@@ -156,5 +156,16 @@ export default class MainPageFrame extends BaseFrame {
       // 发送应用版本号到渲染进程
       this.sendOne('to-renderer-MainPage:version', app.getVersion())
     })
+
+    // 打开翻译页面并填充文本
+    this.recvOne('to-main-MainPage:openTranslate', (_event, text: string) => {
+      // 切换到翻译页面
+      this.sendOne('to-renderer-MainPage:setPage', 'translate')
+
+      // 发送文本到翻译页面
+      setTimeout(() => {
+        this.sendOne('to-renderer-Translate:fillText', text)
+      }, 100)
+    })
   }
 }
