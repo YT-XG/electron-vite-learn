@@ -11,7 +11,8 @@ electron-vite-learn/
 │   │   │   ├── trayService.ts      # 系统托盘服务
 │   │   │   ├── clipboardService.ts # 剪贴板历史服务（sql.js SQLite）
 │   │   │   ├── inputService.ts    # 模拟输入服务（键盘模拟，跨平台粘贴）
-│   │   │   └── settingsService.ts # 应用设置服务（持久化到 settings.json）
+│   │   │   ├── settingsService.ts # 应用设置服务（持久化到 settings.json）
+│   │   │   └── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -321,6 +322,44 @@ electron-vite-learn/
 
   // 更新设置
   settingsService.update({ serverUrl: '\\\\192.168.1.100\\dist' })
+  ```
+
+### 翻译服务 (src/main/service/translateService.ts)
+- **职责**: 处理翻译 API 调用和翻译历史管理
+- **功能**:
+  - 使用 MyMemory API 提供免费翻译，支持自定义 API 配置
+  - 使用 sql.js（纯 JS SQLite）持久化存储翻译历史，数据文件位于 userData/translate.db
+  - 支持分页查询、删除、清空翻译历史
+  - 翻译成功后自动保存历史记录
+- **数据库表结构**:
+  - **translate_history 表（翻译历史）**:
+    - `id` INTEGER PRIMARY KEY AUTOINCREMENT
+    - `source_lang` TEXT - 源语言
+    - `target_lang` TEXT - 目标语言
+    - `source_text` TEXT - 原文
+    - `result_text` TEXT - 译文
+    - `created_at` INTEGER - 创建时间戳
+- **IPC 接口**:
+  - `to-service-TranslateService:translate` - 翻译文本
+  - `to-service-TranslateService:getHistory` - 获取翻译历史（分页）
+  - `to-service-TranslateService:delete` - 删除一条翻译历史
+  - `to-service-TranslateService:clearAll` - 清空所有翻译历史
+- **使用方式**:
+  ```typescript
+  import { translateService } from './service/translateService'
+
+  // 在主进程启动时初始化
+  await translateService.init()
+
+  // 翻译文本
+  const result = await translateService.translate({
+    text: 'Hello',
+    sourceLang: 'en',
+    targetLang: 'zh'
+  })
+
+  // 获取翻译历史
+  const history = translateService.getHistory(50, 0)
   ```
 
 ### 剪贴板管理页面 (src/renderer/src/views/ClipboardManager.vue)
