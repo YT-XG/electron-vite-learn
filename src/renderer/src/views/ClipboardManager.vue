@@ -112,6 +112,14 @@
             <div class="item-actions" @click.stop>
               <button
                 v-if="activeTab === 'history'"
+                class="action-btn translate-action"
+                @click="translateItem(item as HistoryItem)"
+                title="翻译"
+              >
+                🌐
+              </button>
+              <button
+                v-if="activeTab === 'history'"
                 class="action-btn"
                 @click="quickFavorite(item as HistoryItem)"
                 title="收藏"
@@ -357,6 +365,14 @@ const quickFavorite = async (item: HistoryItem): Promise<void> => {
   // 刷新收藏列表和分类，更新计数
   await fetchFavorites()
   await fetchCategories()
+}
+
+/**
+ * 翻译历史记录项
+ * @param item - 历史记录项
+ */
+const translateItem = (item: HistoryItem): void => {
+  window.electron.ipcRenderer.send('to-main-MainPage:openTranslate', item.content)
 }
 
 /**
@@ -833,6 +849,14 @@ onUnmounted(() => {
 .delete-btn:hover {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.translate-action {
+  color: #3d8bff;
+}
+
+.translate-action:hover {
+  background: rgba(61, 139, 255, 0.1);
 }
 
 /* ========== 弹窗 ========== */
