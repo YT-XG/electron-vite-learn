@@ -119,7 +119,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+
+/** 定义组件事件 */
+const emit = defineEmits<{
+  (e: 'goBack'): void
+}>()
 
 /**
  * 翻译历史记录项类型
@@ -192,12 +197,35 @@ const targetLanguages = computed(() => {
 })
 
 /**
+ * 监听源语言变化，自动修正目标语言
+ * @description 当源语言切换后，如果目标语言不在新的源语言的 targets 列表中，自动选择第一个可用目标语言
+ */
+watch(sourceLang, (newSourceLang) => {
+  const source = languages.find(l => l.code === newSourceLang)
+  if (source && !source.targets.includes(targetLang.value)) {
+    // 目标语言不在新的源语言的 targets 列表中，自动选择第一个可用目标语言
+    targetLang.value = source.targets[0]
+  }
+})
+
+/**
  * 互换源语言和目标语言
+ * @description 互换后自动修正目标语言，确保其在新的源语言的 targets 列表中
  */
 const swapLanguages = () => {
-  const temp = sourceLang.value
-  sourceLang.value = targetLang.value
-  targetLang.value = temp
+  const tempSource = sourceLang.value
+  const tempTarget = targetLang.value
+
+  // 互换源语言和目标语言
+  sourceLang.value = tempTarget
+  targetLang.value = tempSource
+
+  // 检查互换后的目标语言是否在新的源语言的 targets 列表中
+  const newSource = languages.find(l => l.code === sourceLang.value)
+  if (newSource && !newSource.targets.includes(targetLang.value)) {
+    // 不在列表中，自动选择第一个可用目标语言
+    targetLang.value = newSource.targets[0]
+  }
 }
 
 /**
@@ -312,7 +340,7 @@ const formatTime = (timestamp: number): string => {
  * 返回首页
  */
 const goBack = () => {
-  window.electron.ipcRenderer.send('to-main-MainPage:setPage', 'home')
+  emit('goBack')
 }
 
 /**

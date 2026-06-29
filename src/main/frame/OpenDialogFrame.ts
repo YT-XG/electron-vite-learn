@@ -125,7 +125,7 @@ export default class OpenDialogFrame extends BaseFrame {
       this.window!.show()
       this.#isShowing = true
       // 通知渲染进程播放展开动画
-      this.sendOne('open-dialog:animate', { direction: pos.direction })
+      this.sendOne('to-renderer-OpenDialogFrame:animate', { direction: pos.direction })
     }
   }
 

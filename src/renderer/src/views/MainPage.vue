@@ -95,7 +95,7 @@
         <!-- 设置 -->
         <Settings v-else-if="currentPage === 'settings'" />
         <!-- 翻译 -->
-        <Translate v-else-if="currentPage === 'translate'" />
+        <Translate v-else-if="currentPage === 'translate'" @goBack="currentPage = 'home'" />
       </main>
     </div>
   </div>

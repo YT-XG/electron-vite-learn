@@ -117,7 +117,7 @@ export default class TestFrame extends BaseFrame {
 
     const pos = this.#calcPosition()
     const direction = pos.above ? 'above' : 'below'
-    this.sendOne('show-update-popup', { ...data, direction })
+    this.sendOne('to-renderer-TestFrame:showUpdatePopup', { ...data, direction })
 
     // 重置自动关闭定时器
     this.#startAutoCloseTimer(data.state)
