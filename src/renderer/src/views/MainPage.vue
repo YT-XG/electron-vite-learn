@@ -69,6 +69,15 @@
             <span class="nav-icon">⚙️</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
           </button>
+          <!-- 翻译 -->
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'translate' }"
+            @click="currentPage = 'translate'"
+          >
+            <span class="nav-icon">🌐</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">翻译</span>
+          </button>
         </nav>
       </aside>
 
@@ -85,6 +94,8 @@
         <ClipboardManager v-else-if="currentPage === 'clipboard'" />
         <!-- 设置 -->
         <Settings v-else-if="currentPage === 'settings'" />
+        <!-- 翻译 -->
+        <Translate v-else-if="currentPage === 'translate'" />
       </main>
     </div>
   </div>
@@ -94,10 +105,11 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import ClipboardManager from './ClipboardManager.vue'
 import Settings from './Settings.vue'
+import Translate from './Translate.vue'
 
 const version = ref('')
 /** 当前页面 */
-const currentPage = ref<'home' | 'clipboard' | 'settings'>('clipboard')
+const currentPage = ref<'home' | 'clipboard' | 'settings' | 'translate'>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
