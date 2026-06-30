@@ -70,7 +70,6 @@ electron-vite-learn/
 │               ├── electron.svg
 │               └── wavy-lines.svg
 ├── types/                      # 类型声明
-│   └── tailwindcss.d.ts        # TailwindCSS 类型声明
 ├── build/                      # 构建配置
 ├── .github/                    # GitHub Actions CI/CD
 │   └── workflows/
@@ -90,7 +89,6 @@ electron-vite-learn/
 
 - **框架**: Electron 28 + Vue 3.4 + TypeScript 5.3
 - **构建工具**: Vite 5 + electron-vite 2
-- **CSS 框架**: TailwindCSS 4
 - **路由**: Vue Router 4
 - **状态管理**: Pinia
 - **HTTP 请求**: Axios
