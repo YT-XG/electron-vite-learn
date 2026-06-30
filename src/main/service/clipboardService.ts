@@ -195,9 +195,9 @@ class ClipboardService {
       }
     })
 
-    // 弹出通知弹窗
+    // 弹出通知弹窗（显示翻译按钮）
     const noticeFrame = windowFactory.getNoticeNewFrame()
-    noticeFrame.setMsg(content)
+    noticeFrame.setMsg(content, true)
     noticeFrame.showAtBottomCenter()
 
     log.info('[ClipboardService] 新增记录:', content.substring(0, 50))

@@ -60,15 +60,6 @@
             <span class="nav-icon">📋</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">剪切板</span>
           </button>
-          <!-- 设置 -->
-          <button
-            class="nav-item"
-            :class="{ active: currentPage === 'settings' }"
-            @click="currentPage = 'settings'"
-          >
-            <span class="nav-icon">⚙️</span>
-            <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
-          </button>
           <!-- 翻译 -->
           <button
             class="nav-item"
@@ -78,20 +69,29 @@
             <span class="nav-icon">🌐</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">翻译</span>
           </button>
+          <!-- 设置 -->
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'settings' }"
+            @click="currentPage = 'settings'"
+          >
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
+          </button>
         </nav>
       </aside>
 
       <!-- 右侧内容区 -->
       <main class="content">
         <!-- 首页 -->
-        <div v-if="currentPage === 'home'" class="home-page">
+        <div v-show="currentPage === 'home'" class="home-page">
           <div class="welcome-icon">✦</div>
           <h2 class="welcome-title">妙妙屋</h2>
           <p class="welcome-desc">你的桌面效率工具</p>
         </div>
 
         <!-- 剪贴板管理 -->
-        <ClipboardManager v-else-if="currentPage === 'clipboard'" />
+        <ClipboardManager v-if="currentPage === 'clipboard'" />
         <!-- 设置 -->
         <Settings v-else-if="currentPage === 'settings'" />
         <!-- 翻译 -->
@@ -179,6 +179,17 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
   version.value = ver
 }
 
+/**
+ * 接收页面切换指令
+ * @param _event - IPC 事件对象
+ * @param page - 目标页面名称
+ */
+const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
+  if (['home', 'clipboard', 'settings', 'translate'].includes(page)) {
+    currentPage.value = page as 'home' | 'clipboard' | 'settings' | 'translate'
+  }
+}
+
 onMounted(() => {
   // 通知主进程：渲染进程已准备好
   window.electron.ipcRenderer.send('to-main-MainPage:ready')
@@ -187,6 +198,7 @@ onMounted(() => {
   window.electron.ipcRenderer.on('to-renderer-MainPage:startHide', onStartHide)
   window.electron.ipcRenderer.on('to-renderer-MainPage:reShow', onReShow)
   window.electron.ipcRenderer.on('to-renderer-MainPage:version', onVersion)
+  window.electron.ipcRenderer.on('to-renderer-MainPage:setPage', onSetPage)
 
   // 延迟两帧后触发动画，确保 CSS 初始状态已渲染
   requestAnimationFrame(() => {
@@ -200,6 +212,7 @@ onUnmounted(() => {
   window.electron.ipcRenderer.removeListener('to-renderer-MainPage:startHide', onStartHide)
   window.electron.ipcRenderer.removeListener('to-renderer-MainPage:reShow', onReShow)
   window.electron.ipcRenderer.removeListener('to-renderer-MainPage:version', onVersion)
+  window.electron.ipcRenderer.removeListener('to-renderer-MainPage:setPage', onSetPage)
 })
 </script>
 

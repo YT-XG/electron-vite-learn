@@ -18,7 +18,7 @@ electron-vite-learn/
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
 │   │       ├── BallFrame.ts    # 主窗口（悬浮球时钟）
 │   │       ├── NoticeFrame.ts  # 通知窗口
-│   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，5秒自动销毁）
+│   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，5秒自动销毁，支持翻译按钮）
 │   │       ├── TestFrame.ts    # 测试窗口
 │   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
@@ -45,7 +45,7 @@ electron-vite-learn/
 │           │   ├── Home.vue   # 悬浮球时钟（可拖拽、显示当前时间）
 │           │   ├── About.vue  # 关于页
 │           │   ├── Notice.vue # 通知窗口（剪贴板通知）
-│           │   ├── NoticeNew.vue   # 通知弹窗（蓝粉渐变胶囊样式）
+│           │   ├── NoticeNew.vue   # 通知弹窗（蓝粉渐变胶囊样式，支持翻译按钮）
 │           │   ├── UpdateNew.vue   # 更新窗口（底部居中弹出）
 │           │   ├── OpenDialog.vue # 悬浮球展开对话框
 │           │   ├── MainPage.vue  # 主页面（侧边栏布局，托盘左键打开）
@@ -104,7 +104,7 @@ electron-vite-learn/
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
   - `BallFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
   - `NoticeFrame.ts` - 剪贴板通知窗口，从右下角弹出显示复制的文字
-  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，5 秒后自动销毁
+  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，5 秒后自动销毁，支持翻译按钮（仅剪贴板通知显示）
   - `TestFrame.ts` - 测试窗口
   - `OpenDialogFrame.ts` - 悬浮球展开对话框窗口，鼠标悬停时向左/右侧展开
   - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
@@ -125,6 +125,15 @@ electron-vite-learn/
 
   // 显示通知
   windowFactory.showNotice('剪贴板内容已更新')
+
+  // 显示通知弹窗（底部居中）
+  const noticeFrame = windowFactory.getNoticeNewFrame()
+  noticeFrame.setMsg('剪贴板内容', true)  // 第二个参数 true 表示显示翻译按钮
+  noticeFrame.showAtBottomCenter()
+
+  // 显示更新通知（不显示翻译按钮）
+  noticeFrame.setMsg('正在检查更新...')  // 默认 false，不显示翻译按钮
+  noticeFrame.showAtBottomCenter()
 
   // 显示更新窗口（底部居中弹出）
   windowFactory.showUpdateNew({ version: '1.0.1', description: '修复了一些 bug' })
@@ -173,6 +182,38 @@ electron-vite-learn/
 
   // 定位到悬浮球位置
   openDialogFrame.positionAboveBall()
+  ```
+
+### 通知弹窗 (src/main/frame/NoticeNewFrame.ts)
+- **职责**: 底部居中弹出的通知提示窗口，支持翻译按钮（仅剪贴板通知显示）
+- **功能**:
+  - 屏幕底部居中定位（距底部 60px）
+  - 按需创建，不自动启动
+  - 带有弹出/收起 CSS 动画
+  - 透明无边框窗口，蓝粉渐变胶囊风格
+  - 5 秒后自动销毁
+  - **翻译按钮**：仅剪贴板复制文字时显示，其他通知（如检查更新）不显示
+- **IPC 接口**:
+  - `to-main-NoticeNewFrame:ready` - 渲染进程已就绪，触发消息发送
+  - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（包含 showTranslate 参数）
+  - `to-main-NoticeNewFrame:translate` - 翻译按钮点击，打开翻译页面
+- **公开方法**:
+  - `setMsg(text, showTranslate?)` - 设置通知消息，showTranslate 默认 false
+  - `showAtBottomCenter()` - 在屏幕底部居中显示通知弹窗
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 获取通知弹窗实例
+  const noticeFrame = windowFactory.getNoticeNewFrame()
+
+  // 显示剪贴板通知（显示翻译按钮）
+  noticeFrame.setMsg('复制的文本内容', true)
+  noticeFrame.showAtBottomCenter()
+
+  // 显示其他通知（不显示翻译按钮）
+  noticeFrame.setMsg('正在检查更新...')
+  noticeFrame.showAtBottomCenter()
   ```
 
 ### 更新窗口 (src/main/frame/UpdateNewFrame.ts)
@@ -224,17 +265,26 @@ electron-vite-learn/
   - 顶部渐变色条（蓝→粉，品牌标识）
   - 入场动画：scale + opacity 弹性过渡
   - 侧边栏布局：左侧菜单栏（支持收缩/展开） + 右侧内容区
+  - **翻译跳转**：支持从通知弹窗跳转到翻译页面并自动填充文本
 - **IPC 接口**:
   - `main-page:minimize` - 最小化窗口
   - `main-page:ready` - 渲染进程已就绪，触发版本号发送
   - `main-page:version` - 主进程发送应用版本号
+  - `to-renderer-MainPage:setPage` - 主进程发送页面切换指令
   - `close-window` - 关闭/隐藏窗口（继承自 BaseFrame）
+- **公开方法**:
+  - `showCentered()` - 在屏幕正中心显示/隐藏窗口（toggle）
+  - `showAndTranslate(text)` - 显示窗口并跳转到翻译页面（不触发退场动画）
+  - `openTranslate(text)` - 打开翻译页面并填充指定文本（窗口需已显示）
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
 
   // 左键点击托盘自动调用
   windowFactory.getMainPageFrame().showCentered()
+
+  // 显示窗口并跳转到翻译页面（从通知弹窗调用）
+  windowFactory.getMainPageFrame().showAndTranslate('要翻译的文本')
   ```
 
 ### 剪贴板历史服务 (src/main/service/clipboardService.ts)
@@ -444,7 +494,7 @@ electron-vite-learn/
   - `Home.vue` - 悬浮球时钟，显示当前时间（HH:MM:SS），支持窗口拖拽
   - `About.vue` - 关于页
   - `Notice.vue` - 剪贴板通知窗口，显示复制的文字（最多两行，超出省略），支持拖拽、关闭按钮、10秒自动关闭
-  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示
+  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示，支持翻译按钮（仅剪贴板通知显示）
   - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
   - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航

@@ -23,6 +23,9 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 待发送的消息 */
   #msg = ''
 
+  /** 是否显示翻译按钮（仅剪贴板通知显示） */
+  #showTranslate = false
+
   /** 自动销毁定时器 */
   #destroyTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -51,9 +54,11 @@ export default class NoticeNewFrame extends BaseFrame {
   /**
    * 设置待发送的消息
    * @param data - 通知文本内容
+   * @param showTranslate - 是否显示翻译按钮，默认 false
    */
-  setMsg(data: string) {
+  setMsg(data: string, showTranslate = false) {
     this.#msg = data
+    this.#showTranslate = showTranslate
     return this
   }
 
@@ -77,23 +82,15 @@ export default class NoticeNewFrame extends BaseFrame {
     this.recvOne('to-main-NoticeNewFrame:ready', async () => {
       // 如果消息还没发过（窗口创建时 send 丢失的情况），现在补发
       if (!this.#msgSent) {
-        this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg)
+        this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg, this.#showTranslate)
       }
       await this.showAtBottomCenter()
     })
 
     // 翻译按钮点击：打开主页面并切换到翻译页面
     this.recvOne('to-main-NoticeNewFrame:translate', (_event, text: string) => {
-      // 打开主页面
-      const mainPageFrame = windowFactory.getMainPageFrame()
-      mainPageFrame.showCentered()
-
-      // 发送 openTranslate 事件，让 MainPageFrame 处理页面切换和文本填充
-      BrowserWindow.getAllWindows().forEach((w) => {
-        if (!w.isDestroyed() && w.isVisible()) {
-          w.webContents.send('to-main-MainPage:openTranslate', text)
-        }
-      })
+      // 打开主页面并跳转到翻译页面
+      windowFactory.getMainPageFrame().showAndTranslate(text)
     })
   }
 
@@ -175,7 +172,7 @@ export default class NoticeNewFrame extends BaseFrame {
       this.create()
     } else {
       // 窗口已存在 → 直接发送消息
-      this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg)
+      this.sendOne('to-renderer-NoticeNewFrame:sendMsg', this.#msg, this.#showTranslate)
       this.#msgSent = true
     }
 

@@ -96,6 +96,52 @@ export default class MainPageFrame extends BaseFrame {
   }
 
   /**
+   * 显示窗口并跳转到翻译页面
+   * @param text - 要填充的文本内容
+   * @description 与 showCentered() 不同，此方法不会 toggle 窗口可见性，
+   *              窗口已显示时保持显示，未显示时创建并显示
+   */
+  showAndTranslate(text: string): void {
+    if (!this.isAlive()) {
+      // 窗口不存在 → 创建并显示，等待渲染进程准备好后切换页面
+      this.create()
+      this.#centerOnScreen()
+      this.window!.setOpacity(0)
+      this.window!.show()
+
+      // 渲染进程加载完成后淡入并切换页面
+      this.window!.webContents.once('did-finish-load', () => {
+        setTimeout(() => {
+          this.window?.setOpacity(1)
+          // 等待动画播放完毕后再切换页面
+          setTimeout(() => {
+            this.openTranslate(text)
+          }, 400)
+        }, 30)
+      })
+    } else {
+      // 窗口已存在（无论是否可见）→ 确保显示并切换页面
+      if (!this.window!.isVisible()) {
+        this.window!.setAlwaysOnTop(true)
+        this.#centerOnScreen()
+        this.window!.setOpacity(0)
+        this.window!.show()
+        setTimeout(() => {
+          this.window?.setOpacity(1)
+          this.sendOne('to-renderer-MainPage:reShow')
+          // 等待动画播放完毕后再切换页面
+          setTimeout(() => {
+            this.openTranslate(text)
+          }, 400)
+        }, 30)
+      } else {
+        // 窗口已显示 → 直接切换页面，不触发退场动画
+        this.openTranslate(text)
+      }
+    }
+  }
+
+  /**
    * 最小化窗口让 Windows 自然恢复焦点（用于粘贴场景）
    *
    * 原理：`minimize()` 比 `hide()` 更能可靠地触发焦点转移。
@@ -133,6 +179,20 @@ export default class MainPageFrame extends BaseFrame {
   }
 
   /**
+   * 打开翻译页面并填充文本
+   * @param text - 要填充的文本内容
+   */
+  openTranslate(text: string): void {
+    // 切换到翻译页面
+    this.sendOne('to-renderer-MainPage:setPage', 'translate')
+
+    // 发送文本到翻译页面
+    setTimeout(() => {
+      this.sendOne('to-renderer-Translate:fillText', text)
+    }, 100)
+  }
+
+  /**
    * 注册 IPC 监听器
    */
   protected registerIPC(): void {
@@ -155,17 +215,6 @@ export default class MainPageFrame extends BaseFrame {
     this.recvOne('to-main-MainPage:ready', () => {
       // 发送应用版本号到渲染进程
       this.sendOne('to-renderer-MainPage:version', app.getVersion())
-    })
-
-    // 打开翻译页面并填充文本
-    this.recvOne('to-main-MainPage:openTranslate', (_event, text: string) => {
-      // 切换到翻译页面
-      this.sendOne('to-renderer-MainPage:setPage', 'translate')
-
-      // 发送文本到翻译页面
-      setTimeout(() => {
-        this.sendOne('to-renderer-Translate:fillText', text)
-      }, 100)
     })
   }
 }
