@@ -105,7 +105,11 @@ function shellQuote(value: string): string {
 }
 
 function buildManagedCommand(scriptPath: string, eventName: string): string {
-  return `${shellQuote(process.execPath)} ${shellQuote(scriptPath)} ${shellQuote(eventName)} # ${MANAGED_MARKER}`
+  // 使用 Node.js 运行 Hook 脚本，而不是 Electron 可执行文件
+  // Electron 可执行文件会启动整个 GUI 应用，导致循环重启问题
+  // 优先使用 NODE 环境变量，然后尝试系统 PATH 中的 node 命令
+  const nodeExecutable = process.env.NODE || 'node'
+  return `${shellQuote(nodeExecutable)} ${shellQuote(scriptPath)} ${shellQuote(eventName)} # ${MANAGED_MARKER}`
 }
 
 function managedHook(command: string, matcher?: string, timeout?: number): Record<string, unknown> {
