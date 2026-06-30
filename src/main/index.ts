@@ -5,6 +5,7 @@ import { TrayService } from './service/trayService'
 import { clipboardService } from './service/clipboardService'
 import { settingsService } from './service/settingsService'
 import { translateService } from './service/translateService'
+import { claudeCodeService } from './service/claudeCodeService'
 import './service/inputService'
 import log from 'electron-log'
 
@@ -38,6 +39,8 @@ app.whenReady().then(async () => {
   settingsService.init()
   // 初始化翻译服务（SQLite + IPC 注册）
   await translateService.init()
+  // 初始化 Claude Code 监控服务（HTTP 服务器 + Hook 管理）
+  await claudeCodeService.init()
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
@@ -82,5 +85,6 @@ app.on('before-quit', () => {
   clipboardService.stop()
   settingsService.destroy()
   translateService.destroy()
+  claudeCodeService.destroy()
   trayService?.destroy()
 })

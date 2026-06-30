@@ -67,6 +67,14 @@ interface IPCChannels {
   invoke(channel: 'settings:get'): Promise<AppSettings>
   invoke(channel: 'settings:update', settings: Partial<AppSettings>): Promise<void>
 
+  // Claude Code 监控
+  invoke(channel: 'to-service-ClaudeCodeService:installHook'): Promise<{ success: boolean; message: string }>
+  invoke(channel: 'to-service-ClaudeCodeService:uninstallHook'): Promise<{ success: boolean; message: string }>
+  invoke(channel: 'to-service-ClaudeCodeService:resolvePermission', sessionId: string, decision: 'allow' | 'always' | 'deny'): Promise<void>
+  invoke(channel: 'to-service-ClaudeCodeService:isInstalled'): Promise<boolean>
+  invoke(channel: 'to-service-ClaudeCodeService:isRunning'): Promise<boolean>
+  send(channel: 'to-main-PermissionNoticeFrame:resolve', sessionId: string, decision: 'allow' | 'always' | 'deny'): void
+
   // 监听
   on(channel: 'clipboard-history:new', listener: (event: unknown, item: HistoryItem) => void): void
   removeListener(channel: 'clipboard-history:new', listener: (event: unknown, item: HistoryItem) => void): void

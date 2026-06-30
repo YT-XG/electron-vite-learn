@@ -4,6 +4,7 @@ import UpdateNewFrame from './UpdateNewFrame'
 import TestFrame from './TestFrame'
 import OpenDialogFrame from './OpenDialogFrame'
 import MainPageFrame from './MainPageFrame'
+import PermissionNoticeFrame from './PermissionNoticeFrame'
 
 /**
  * 窗口工厂
@@ -27,6 +28,9 @@ export default class WindowFactory {
 
   /** 主页面窗口 */
   #mainPageFrame: MainPageFrame | null = null
+
+  /** 权限确认窗口 */
+  #permissionNoticeFrame: PermissionNoticeFrame | null = null
 
   /**
    * 获取主窗口（悬浮球时钟）
@@ -105,6 +109,20 @@ export default class WindowFactory {
   }
 
   /**
+   * 获取权限确认窗口
+   * @returns PermissionNoticeFrame 实例
+   */
+  getPermissionNoticeFrame(): PermissionNoticeFrame {
+    if (!this.#permissionNoticeFrame) {
+      this.#permissionNoticeFrame = new PermissionNoticeFrame()
+      this.#permissionNoticeFrame.onDestroyCallback = () => {
+        this.#permissionNoticeFrame = null
+      }
+    }
+    return this.#permissionNoticeFrame
+  }
+
+  /**
    * 创建悬浮球窗口
    * @returns 主窗口实例
    */
@@ -124,6 +142,7 @@ export default class WindowFactory {
     this.#testFrame?.destroy()
     this.#openDialogFrame?.destroy()
     this.#mainPageFrame?.destroy()
+    this.#permissionNoticeFrame?.destroy()
   }
 
   /**
@@ -135,6 +154,7 @@ export default class WindowFactory {
     this.#updateNewFrame?.hide()
     this.#openDialogFrame?.hide()
     this.#mainPageFrame?.close()
+    this.#permissionNoticeFrame?.destroy()
   }
 }
 

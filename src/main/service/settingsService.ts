@@ -119,6 +119,9 @@ class SettingsService {
       openAtLogin: this.settings.autoStart,
       openAsHidden: true
     })
+    windowFactory
+      .getNoticeManager()
+      .show({ text: '开机自启已' + (this.settings.autoStart ? '开启' : '关闭')})
     log.info('[Settings] 开机自启:', this.settings.autoStart ? '已开启' : '已关闭')
   }
 

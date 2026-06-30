@@ -1,6 +1,7 @@
 // src/main/frame/NoticeManager.ts
 import { screen } from 'electron'
 import NoticeNewFrame from './NoticeNewFrame'
+import ClaudeCodeStatusFrame, { type ClaudeCodeStatus } from './ClaudeCodeStatusFrame'
 
 /** 通知配置选项 */
 export interface NoticeOptions {
@@ -31,6 +32,9 @@ export default class NoticeManager {
 
   /** 当前存活的通知实例列表（索引 0 = 最新，越往后越旧） */
   private notices: NoticeNewFrame[] = []
+
+  /** Claude Code 常驻状态通知实例 */
+  private claudeCodeStatusFrame: ClaudeCodeStatusFrame | null = null
 
   /**
    * 显示一个新通知
@@ -121,5 +125,56 @@ export default class NoticeManager {
    */
   getCount(): number {
     return this.notices.length
+  }
+
+  // ========== Claude Code 状态通知管理 ==========
+
+  /**
+   * 显示 Claude Code 状态通知
+   * @param status - 状态类型
+   * @param customText - 自定义状态文本（可选）
+   */
+  showClaudeCodeStatus(status: ClaudeCodeStatus, customText?: string): void {
+    if (!this.claudeCodeStatusFrame) {
+      this.claudeCodeStatusFrame = new ClaudeCodeStatusFrame()
+      this.claudeCodeStatusFrame.onDestroyCallback = () => {
+        this.claudeCodeStatusFrame = null
+      }
+    }
+
+    this.claudeCodeStatusFrame.updateStatus(status, customText)
+    this.claudeCodeStatusFrame.show()
+  }
+
+  /**
+   * 隐藏 Claude Code 状态通知（带淡出动画）
+   * @param delay - 延迟隐藏时间（毫秒），默认 0
+   */
+  hideClaudeCodeStatus(delay = 0): void {
+    if (this.claudeCodeStatusFrame) {
+      this.claudeCodeStatusFrame.hideWithAnimation(delay)
+    }
+  }
+
+  /**
+   * 更新 Claude Code 状态（如果窗口未显示则不显示）
+   * @param status - 状态类型
+   * @param customText - 自定义状态文本（可选）
+   */
+  updateClaudeCodeStatus(status: ClaudeCodeStatus, customText?: string): void {
+    if (this.claudeCodeStatusFrame) {
+      this.claudeCodeStatusFrame.updateStatus(status, customText)
+    }
+  }
+
+  /**
+   * 销毁 Claude Code 状态通知
+   */
+  destroyClaudeCodeStatus(): void {
+    if (this.claudeCodeStatusFrame) {
+      this.claudeCodeStatusFrame.onDestroyCallback = null
+      this.claudeCodeStatusFrame.destroy()
+      this.claudeCodeStatusFrame = null
+    }
   }
 }

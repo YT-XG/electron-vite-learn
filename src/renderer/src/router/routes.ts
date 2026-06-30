@@ -25,5 +25,15 @@ export const AppRoutes = [
     path: '/mainPage',
     name: '主页面',
     component: () => import('@renderer/views/MainPage.vue')
+  },
+  {
+    path: '/permissionNotice',
+    name: '权限确认',
+    component: () => import('@renderer/views/PermissionNotice.vue')
+  },
+  {
+    path: '/claudeCodeStatus',
+    name: 'Claude Code 状态',
+    component: () => import('@renderer/views/ClaudeCodeStatus.vue')
   }
 ]

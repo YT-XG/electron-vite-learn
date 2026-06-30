@@ -12,7 +12,8 @@ electron-vite-learn/
 │   │   │   ├── clipboardService.ts # 剪贴板历史服务（sql.js SQLite）
 │   │   │   ├── inputService.ts    # 模拟输入服务（键盘模拟，跨平台粘贴）
 │   │   │   ├── settingsService.ts # 应用设置服务（持久化到 settings.json）
-│   │   │   └── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
+│   │   │   ├── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
+│   │   │   └── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -20,6 +21,8 @@ electron-vite-learn/
 │   │       ├── NoticeFrame.ts  # 通知窗口
 │   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，支持翻译按钮）
 │   │       ├── NoticeManager.ts    # 通知管理器（多通知堆叠、自定义时长、移动动画）
+│   │       ├── PermissionNoticeFrame.ts # 权限确认弹窗（Claude Code 权限请求交互）
+│   │       ├── ClaudeCodeStatusFrame.ts # Claude Code 状态通知（常驻状态条）
 │   │       ├── TestFrame.ts    # 测试窗口
 │   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
@@ -52,6 +55,8 @@ electron-vite-learn/
 │           │   ├── MainPage.vue  # 主页面（侧边栏布局，托盘左键打开）
 │           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 收藏）
 │           │   ├── Translate.vue    # 翻译页面
+│           │   ├── PermissionNotice.vue # 权限确认弹窗（Claude Code 权限请求交互）
+│           │   ├── ClaudeCodeStatus.vue # Claude Code 状态通知（常驻状态条）
 │           │   └── Test.vue   # 测试页面
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
@@ -234,13 +239,14 @@ electron-vite-learn/
   ```
 
 ### 通知管理器 (src/main/frame/NoticeManager.ts)
-- **职责**: 管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画
+- **职责**: 管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画，以及 Claude Code 常驻状态通知
 - **功能**:
   - 维护通知实例池（最多 5 个）
   - 新通知从底部出现，旧通知被向上顶起
   - 平滑过渡动画（300ms easeOutCubic）
   - 每个通知可自定义显示时长
   - 超过上限时自动销毁最早的通知
+  - **Claude Code 状态管理**: 管理常驻状态通知的显示/更新/隐藏/销毁
 - **IPC 接口**: 无（内部管理，不直接暴露 IPC）
 - **使用方式**:
   ```typescript
@@ -263,6 +269,18 @@ electron-vite-learn/
   windowFactory.getNoticeManager().show({
     text: '请访问 https://example.com 查看详情'
   })
+
+  // 显示 Claude Code 状态通知（常驻显示）
+  windowFactory.getNoticeManager().showClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
+
+  // 更新 Claude Code 状态
+  windowFactory.getNoticeManager().updateClaudeCodeStatus('waiting_permission', '⏳ 等待权限: Bash')
+
+  // 隐藏 Claude Code 状态通知（带淡出动画）
+  windowFactory.getNoticeManager().hideClaudeCodeStatus()
+
+  // 销毁 Claude Code 状态通知
+  windowFactory.getNoticeManager().destroyClaudeCodeStatus()
   ```
 
 ### 更新窗口 (src/main/frame/UpdateNewFrame.ts)
@@ -465,6 +483,112 @@ electron-vite-learn/
 
   // 获取翻译历史
   const history = translateService.getHistory(50, 0)
+  ```
+
+### Claude Code 监控服务 (src/main/service/claudeCodeService.ts)
+- **职责**: 监控 Claude Code CLI 运行状态，提供权限请求交互和常驻状态通知
+- **功能**:
+  - **自动启用**: 应用启动时自动安装 Hook 并启动 HTTP 服务器
+  - 通过 Hook 脚本拦截 Claude Code 的事件（SessionStart/End, Stop, PermissionRequest）
+  - 启动 HTTP 服务器（127.0.0.1:17861）接收 Hook 事件
+  - 权限请求：暂存 HTTP 响应，显示权限确认窗口，同时更新常驻状态为"等待权限"
+  - 非权限事件：通过 NoticeManager 更新常驻状态通知
+  - 支持安装/卸载 Hook 到 ~/.claude/settings.json
+  - **状态管理**: 跟踪活跃会话计数，管理常驻状态通知的显示/隐藏
+- **工作流程**:
+  ```
+  应用启动 → 自动安装 Hook → 启动 HTTP 服务器
+  Claude Code CLI → Hook 脚本 → HTTP POST → 主进程 HTTP 服务器
+      → SessionStart: 显示"会话运行中"状态
+      → PermissionRequest: 更新为"等待权限: 工具名"
+      → Stop/StopFailure: 短暂显示"任务完成"
+      → SessionEnd: 延迟 3 秒隐藏状态通知
+  ```
+- **IPC 接口**:
+  - `to-service-ClaudeCodeService:installHook` - 安装 Hook
+  - `to-service-ClaudeCodeService:uninstallHook` - 卸载 Hook
+  - `to-service-ClaudeCodeService:resolvePermission` - 解决权限请求
+  - `to-service-ClaudeCodeService:isInstalled` - 检查 Hook 是否已安装
+  - `to-service-ClaudeCodeService:isRunning` - 检查服务器是否运行
+- **使用方式**:
+  ```typescript
+  import { claudeCodeService } from './service/claudeCodeService'
+
+  // 在主进程启动时初始化
+  await claudeCodeService.init()
+
+  // 安装 Hook（启动 HTTP 服务器）
+  await claudeCodeService.installHook()
+
+  // 检查 Hook 是否已安装
+  const installed = claudeCodeService.isHookInstalled()
+
+  // 解决权限请求
+  claudeCodeService.resolvePermission(sessionId, 'allow')
+  ```
+
+### 权限确认弹窗 (src/main/frame/PermissionNoticeFrame.ts)
+- **职责**: 底部居中弹出的权限确认窗口，用于 Claude Code 权限请求交互
+- **功能**:
+  - 显示工具名称、命令内容
+  - 提供拒绝/同意/全部同意三个按钮
+  - 点击按钮后通过 IPC 通知主进程，主进程写回 HTTP 响应
+  - 透明无边框窗口，蓝粉渐变胶囊风格
+  - 支持鼠标穿透（透明区域可点击）
+- **IPC 接口**:
+  - `to-renderer-PermissionNoticeFrame:show` - 显示权限确认窗口（主进程发送）
+  - `to-main-PermissionNoticeFrame:resolve` - 用户点击按钮（渲染进程发送）
+  - `to-main-PermissionNoticeFrame:mouse-enter-card` - 鼠标进入卡片区域
+  - `to-main-PermissionNoticeFrame:mouse-leave-card` - 鼠标离开卡片区域
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 显示权限确认窗口（由 claudeCodeService 自动调用）
+  const noticeFrame = windowFactory.getPermissionNoticeFrame()
+  noticeFrame.showPermissionNotice({
+    sessionId: 'xxx',
+    toolName: 'Bash',
+    command: 'rm -rf /tmp/test',
+    description: ''
+  })
+  ```
+
+### Claude Code 状态通知 (src/main/frame/ClaudeCodeStatusFrame.ts)
+- **职责**: 底部居中显示的常驻状态条，用于显示 Claude Code 的运行状态
+- **功能**:
+  - 显示 Claude Code 的当前状态（会话运行中、等待权限确认、任务完成等）
+  - 支持更新状态文本（无需销毁重建窗口）
+  - 不设置自动销毁定时器，持续显示直到手动隐藏
+  - 透明无边框窗口，蓝粉渐变胶囊风格
+  - 支持鼠标穿透（透明区域可点击）
+  - 支持淡入/淡出动画
+- **状态类型**:
+  - `running` - 🟢 会话运行中
+  - `thinking` - 💭 思考中...
+  - `executing` - ⚡ 执行任务中
+  - `waiting_permission` - ⏳ 等待权限确认
+  - `completed` - ✅ 任务完成
+- **IPC 接口**:
+  - `to-renderer-ClaudeCodeStatusFrame:updateStatus` - 更新状态文本（主进程发送）
+  - `to-renderer-ClaudeCodeStatusFrame:show` - 显示窗口（主进程发送）
+  - `to-renderer-ClaudeCodeStatusFrame:hide` - 隐藏窗口（主进程发送）
+  - `to-main-ClaudeCodeStatusFrame:ready` - 渲染进程已就绪（渲染进程发送）
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 显示状态通知（通过 NoticeManager）
+  windowFactory.getNoticeManager().showClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
+
+  // 更新状态
+  windowFactory.getNoticeManager().updateClaudeCodeStatus('waiting_permission', '⏳ 等待权限: Bash')
+
+  // 隐藏状态通知（带淡出动画）
+  windowFactory.getNoticeManager().hideClaudeCodeStatus()
+
+  // 销毁状态通知
+  windowFactory.getNoticeManager().destroyClaudeCodeStatus()
   ```
 
 ### 剪贴板管理页面 (src/renderer/src/views/ClipboardManager.vue)
