@@ -73,6 +73,9 @@ electron-vite-learn/
 │   └── tailwindcss.d.ts        # TailwindCSS 类型声明
 ├── build/                      # 构建配置
 ├── resources/                  # 应用资源（图标等）
+├── .github/
+│   └── workflows/
+│       └── build.yml           # GitHub Actions 自动构建（macOS）
 ├── electron.vite.config.ts     # Electron-Vite 配置
 ├── electron-builder.yml        # 打包配置
 ├── .gitattributes              # Git 行尾符配置
