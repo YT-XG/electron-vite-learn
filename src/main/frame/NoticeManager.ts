@@ -16,6 +16,7 @@ export interface NoticeOptions {
 /**
  * 多通知管理器
  * @description 管理多个 NoticeNewFrame 实例，支持通知堆叠、自定义时长和移动动画
+ *              Claude Code 状态通知作为堆叠的一部分参与位置计算，避免与普通通知重叠
  */
 export default class NoticeManager {
   /** 最大同时显示通知数 */
@@ -35,6 +36,9 @@ export default class NoticeManager {
 
   /** Claude Code 常驻状态通知实例 */
   private claudeCodeStatusFrame: ClaudeCodeStatusFrame | null = null
+
+  /** Claude Code 状态通知是否正在显示 */
+  private claudeCodeStatusVisible = false
 
   /**
    * 显示一个新通知
@@ -74,12 +78,20 @@ export default class NoticeManager {
 
   /**
    * 重新计算所有通知位置并平滑移动
+   * @description Claude Code 状态通知作为堆叠最顶部元素参与计算
    */
   private repositionAll(): void {
+    // 先重排普通通知
     for (let i = 0; i < this.notices.length; i++) {
       const notice = this.notices[i]
       const targetY = this.calcY(i)
       notice.moveTo(targetY, true)
+    }
+
+    // Claude Code 状态通知放在堆叠最顶部（索引 = notices.length）
+    if (this.claudeCodeStatusVisible && this.claudeCodeStatusFrame) {
+      const statusY = this.calcY(this.notices.length)
+      this.claudeCodeStatusFrame.moveTo(statusY, true)
     }
   }
 
@@ -131,6 +143,7 @@ export default class NoticeManager {
 
   /**
    * 显示 Claude Code 状态通知
+   * @description 状态通知作为堆叠最顶部元素，位于所有普通通知之上
    * @param status - 状态类型
    * @param customText - 自定义状态文本（可选）
    */
@@ -139,20 +152,33 @@ export default class NoticeManager {
       this.claudeCodeStatusFrame = new ClaudeCodeStatusFrame()
       this.claudeCodeStatusFrame.onDestroyCallback = () => {
         this.claudeCodeStatusFrame = null
+        this.claudeCodeStatusVisible = false
       }
     }
 
     this.claudeCodeStatusFrame.updateStatus(status, customText)
-    this.claudeCodeStatusFrame.show()
+    this.claudeCodeStatusVisible = true
+
+    // 计算初始位置：放在当前通知堆叠的顶部
+    const initialY = this.calcY(this.notices.length)
+    this.claudeCodeStatusFrame.show(initialY)
   }
 
   /**
    * 隐藏 Claude Code 状态通知（带淡出动画）
+   * @description 隐藏后将下方普通通知向上移动填补空位
    * @param delay - 延迟隐藏时间（毫秒），默认 0
    */
   hideClaudeCodeStatus(delay = 0): void {
     if (this.claudeCodeStatusFrame) {
+      this.claudeCodeStatusVisible = false
       this.claudeCodeStatusFrame.hideWithAnimation(delay)
+
+      // 淡出动画结束后重排普通通知
+      const animDuration = 300
+      setTimeout(() => {
+        this.repositionAll()
+      }, delay + animDuration)
     }
   }
 
@@ -169,12 +195,16 @@ export default class NoticeManager {
 
   /**
    * 销毁 Claude Code 状态通知
+   * @description 销毁后重排普通通知
    */
   destroyClaudeCodeStatus(): void {
     if (this.claudeCodeStatusFrame) {
       this.claudeCodeStatusFrame.onDestroyCallback = null
       this.claudeCodeStatusFrame.destroy()
       this.claudeCodeStatusFrame = null
+      this.claudeCodeStatusVisible = false
+      // 重排普通通知，填补空位
+      this.repositionAll()
     }
   }
 }

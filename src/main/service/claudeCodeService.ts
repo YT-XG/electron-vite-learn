@@ -54,6 +54,9 @@ const MANAGED_MARKER = 'electron-vite-learn-claude-code'
 const HOOK_EVENTS: Array<{ name: string; matcher?: string; timeout?: number }> = [
   { name: 'SessionStart' },
   { name: 'SessionEnd' },
+  { name: 'UserPromptSubmit' },
+  { name: 'PreToolUse' },
+  { name: 'PostToolUse' },
   { name: 'Stop' },
   { name: 'StopFailure' },
   { name: 'PermissionRequest', matcher: '*', timeout: 86400 }
@@ -62,6 +65,39 @@ const HOOK_EVENTS: Array<{ name: string; matcher?: string; timeout?: number }> =
 // ── 工具函数 ──
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+/**
+ * 从 transcript JSONL 文件中读取最近的工具名称
+ * @description 只读最后 20 行，找到最近的 tool_use 块，提取工具名
+ *              轻量操作，不缓存，不占用内存
+ */
+function readLastToolName(transcriptPath: string | null): string | null {
+  if (!transcriptPath || !existsSync(transcriptPath)) return null
+  try {
+    const text = readFileSync(transcriptPath, 'utf-8').trim()
+    const lines = text.split(/\r?\n/).slice(-20).reverse()
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line)
+        const message = entry.message ?? entry
+        const content = message.content ?? entry.content
+        if (!Array.isArray(content)) continue
+        // 从后往前找最近的 tool_use 块
+        for (let i = content.length - 1; i >= 0; i--) {
+          const block = content[i]
+          if (block && block.type === 'tool_use' && typeof block.name === 'string') {
+            return block.name
+          }
+        }
+      } catch {
+        // 单行解析失败，跳过
+      }
+    }
+  } catch {
+    // 文件读取失败，忽略
+  }
+  return null
 }
 
 function shellQuote(value: string): string {
@@ -373,7 +409,8 @@ class ClaudeCodeService {
       try {
         const payload = asRecord(JSON.parse(body || '{}'))
         const eventName = String(payload.hook_event_name || payload.hookEventName || '')
-        const sessionId = String(payload.session_id || payload.sessionId || 'unknown')
+        // Claude Code Hook 不提供 session_id，从 transcript_path 中提取 UUID 作为会话标识
+        const sessionId = this.extractSessionId(payload)
 
         // 构造事件对象
         const event: ClaudeCodeHookEvent = {
@@ -423,7 +460,34 @@ class ClaudeCodeService {
   }
 
   /**
+   * 从 Hook payload 中提取会话 ID
+   * @description Claude Code Hook 不直接提供 session_id，
+   *              从 transcript_path 中提取 UUID 作为会话标识
+   *              例如: ".../e27582bf-ccb7-4ad6-8a95-08005a4f1008.jsonl" → "e27582bf-ccb7-4ad6-8a95-08005a4f1008"
+   */
+  private extractSessionId(payload: Record<string, unknown>): string {
+    // 优先使用直接提供的 session_id（未来 Claude Code 可能会添加）
+    const directId = payload.session_id || payload.sessionId
+    if (typeof directId === 'string' && directId) return directId
+
+    // 从 transcript_path 中提取 UUID
+    const transcriptPath = String(payload.transcript_path || payload.transcriptPath || '')
+    if (transcriptPath) {
+      // 匹配文件名中的 UUID（32位 hex + 4个连字符的标准 UUID 格式）
+      const uuidMatch = transcriptPath.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+      if (uuidMatch) return uuidMatch[1]
+    }
+
+    // 兜底：用 cwd 作为会话标识（同一项目目录 = 同一会话）
+    const cwd = String(payload.cwd || '')
+    if (cwd) return `cwd:${cwd}`
+
+    return 'unknown'
+  }
+
+  /**
    * 从 Hook payload 中提取工具名称
+   * @description 优先从 payload 字段提取，兜底从 transcript 文件读取
    */
   private extractToolName(payload: Record<string, unknown>): string | null {
     // 尝试多种可能的字段名
@@ -434,7 +498,9 @@ class ClaudeCodeService {
     const toolInput = asRecord(payload.tool_input || payload.toolInput || payload.input)
     if (toolInput.name) return String(toolInput.name)
 
-    return null
+    // 兜底：从 transcript JSONL 文件读取最近的 tool_use 块
+    const transcriptPath = String(payload.transcript_path || payload.transcriptPath || '')
+    return readLastToolName(transcriptPath || null)
   }
 
   /**
@@ -500,26 +566,41 @@ class ClaudeCodeService {
         })
         break
 
+      case 'UserPromptSubmit':
+        // 用户发送了请求，准备工作
+        noticeManager.showClaudeCodeStatus('thinking', '📝 已收到用户请求，准备工作中...')
+        break
+
+      case 'PreToolUse': {
+        // 工具即将执行，显示具体工具名
+        const toolName = event.toolName || '未知工具'
+        noticeManager.showClaudeCodeStatus('executing', `🔨 正在调用 ${toolName}...`)
+        break
+      }
+
+      case 'PostToolUse': {
+        // 工具执行完毕
+        const toolName = event.toolName || '未知工具'
+        noticeManager.showClaudeCodeStatus('executing', `✍️ ${toolName} 执行完毕`)
+        break
+      }
+
       case 'Stop':
-        // 更新状态为"任务完成"
-        noticeManager.updateClaudeCodeStatus('completed', '✅ 任务完成')
-        // 2 秒后恢复为"运行中"
-        setTimeout(() => {
-          if (this.sessionCount > 0) {
-            noticeManager.updateClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
-          }
-        }, 2000)
+        // 任务完成，3 秒后自动隐藏状态通知
+        noticeManager.showClaudeCodeStatus('completed', '✅ 任务完成')
+        this.cancelHideTimer()
+        this.hideTimer = setTimeout(() => {
+          noticeManager.hideClaudeCodeStatus()
+        }, 3000)
         break
 
       case 'StopFailure':
-        // 更新状态为"任务异常结束"
-        noticeManager.updateClaudeCodeStatus('completed', '❌ 任务异常结束')
-        // 2 秒后恢复为"运行中"
-        setTimeout(() => {
-          if (this.sessionCount > 0) {
-            noticeManager.updateClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
-          }
-        }, 2000)
+        // 任务异常结束，3 秒后自动隐藏
+        noticeManager.showClaudeCodeStatus('completed', '❌ 任务异常结束')
+        this.cancelHideTimer()
+        this.hideTimer = setTimeout(() => {
+          noticeManager.hideClaudeCodeStatus()
+        }, 3000)
         break
 
       default:

@@ -127,11 +127,13 @@ export default class ClaudeCodeStatusFrame extends BaseFrame {
   /**
    * 显示常驻状态通知
    * @description 如果窗口不存在则创建，已存在则更新状态
+   * @param overrideY - 覆盖 Y 坐标（由 NoticeManager 传入，协调位置）
    */
-  show(): void {
+  show(overrideY?: number): void {
     this.#clearHideTimer()
 
     const pos = this.#calcBottomCenterPosition()
+    const y = overrideY ?? pos.y
 
     if (!this.isAlive()) {
       // 窗口不存在 → 创建新窗口
@@ -148,7 +150,7 @@ export default class ClaudeCodeStatusFrame extends BaseFrame {
     // 定位
     this.window!.setBounds({
       x: pos.x,
-      y: pos.y,
+      y,
       width: ClaudeCodeStatusFrame.POPUP_WIDTH,
       height: ClaudeCodeStatusFrame.POPUP_HEIGHT
     })
@@ -201,6 +203,45 @@ export default class ClaudeCodeStatusFrame extends BaseFrame {
       clearTimeout(this.#hideTimer)
       this.#hideTimer = null
     }
+  }
+
+  /**
+   * 平滑移动到目标 Y 坐标
+   * @param targetY - 目标 Y 坐标
+   * @param animated - 是否使用动画，默认 true
+   */
+  moveTo(targetY: number, animated = true): void {
+    if (!this.isAlive()) return
+
+    if (!animated) {
+      const [x] = this.window!.getPosition()
+      this.window!.setPosition(x, targetY)
+      return
+    }
+
+    const [x, startY] = this.window!.getPosition()
+    if (startY === targetY) return
+
+    const duration = 300
+    const startTime = Date.now()
+
+    const animate = (): void => {
+      if (!this.isAlive()) return
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      // 缓动函数：easeOutCubic - 先快后慢，自然停止
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const currentY = Math.round(startY + (targetY - startY) * eased)
+
+      this.window!.setPosition(x, currentY)
+
+      if (progress < 1) {
+        setTimeout(animate, 16) // ~60fps
+      }
+    }
+
+    animate()
   }
 
   /**
