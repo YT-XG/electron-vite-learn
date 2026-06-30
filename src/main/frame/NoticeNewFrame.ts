@@ -129,6 +129,20 @@ export default class NoticeNewFrame extends BaseFrame {
       await this.showAtBottomCenter()
     })
 
+    // 鼠标进入通知卡片区域：临时关闭鼠标穿透，允许按钮交互
+    this.recvOne('to-main-NoticeNewFrame:mouse-enter-card', () => {
+      if (this.isAlive()) {
+        this.window!.setIgnoreMouseEvents(false)
+      }
+    })
+
+    // 鼠标离开通知卡片区域：恢复鼠标穿透，透明区域可点击
+    this.recvOne('to-main-NoticeNewFrame:mouse-leave-card', () => {
+      if (this.isAlive()) {
+        this.window!.setIgnoreMouseEvents(true, { forward: true })
+      }
+    })
+
     // 翻译按钮点击：打开主页面并切换到翻译页面
     this.recvOne('to-main-NoticeNewFrame:translate', (_event, text: string) => {
       // 打开主页面并跳转到翻译页面
@@ -219,6 +233,8 @@ export default class NoticeNewFrame extends BaseFrame {
       // 窗口不存在 → 创建新窗口（IPC handler 会在页面加载后补发消息）
       this.#msgSent = false
       this.create()
+      // 设置鼠标穿透：透明区域可点击，forward 保证渲染进程能收到 mousemove 事件
+      this.window!.setIgnoreMouseEvents(true, { forward: true })
     } else {
       // 窗口已存在 → 直接发送消息
       this.sendOne(

@@ -1,6 +1,11 @@
 <template>
   <div class="notice-container">
-    <div class="notice-border" :class="{ 'scale-in': isVisible }">
+    <div
+      class="notice-border"
+      :class="{ 'scale-in': isVisible }"
+      @mouseenter="onCardEnter"
+      @mouseleave="onCardLeave"
+    >
       <div class="notice-card">
         <span class="notice-text">{{ msg }}</span>
         <div v-if="showOpenLink || showTranslate" class="btn-group">
@@ -57,6 +62,22 @@ const openTranslate = () => {
  */
 const openLink = () => {
   window.electron.ipcRenderer.send('to-main-NoticeNewFrame:openLink', msg.value)
+}
+
+/**
+ * 鼠标进入通知卡片区域
+ * 通知主进程关闭鼠标穿透，允许按钮交互
+ */
+const onCardEnter = () => {
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:mouse-enter-card')
+}
+
+/**
+ * 鼠标离开通知卡片区域
+ * 通知主进程恢复鼠标穿透，透明区域可点击
+ */
+const onCardLeave = () => {
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:mouse-leave-card')
 }
 
 onMounted(() => {
