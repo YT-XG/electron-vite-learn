@@ -101,31 +101,73 @@
         <span class="setting-hint">选择或输入服务器 IP，检查更新时会从该地址读取 latest.yml</span>
       </div>
 
-      <div class="server-url-row">
-        <select v-model="selectedIp" class="server-url-select" @change="onSelectChange">
-          <option v-for="opt in ipOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          <option value="__custom">自定义...</option>
-        </select>
+      <!-- Windows: UNC 路径选择器 -->
+      <template v-if="!isMacOS">
+        <div class="server-url-row">
+          <select v-model="selectedIp" class="server-url-select" @change="onSelectChange">
+            <option v-for="opt in ipOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            <option value="__custom">自定义...</option>
+          </select>
 
-        <input
-          v-if="selectedIp === '__custom'"
-          v-model="customIp"
-          type="text"
-          class="server-url-input"
-          placeholder="输入 IP 地址，如 192.168.1.100"
-          spellcheck="false"
-          @input="onCustomIpInput"
-        />
+          <input
+            v-if="selectedIp === '__custom'"
+            v-model="customIp"
+            type="text"
+            class="server-url-input"
+            placeholder="输入 IP 地址，如 192.168.1.100"
+            spellcheck="false"
+            @input="onCustomIpInput"
+          />
 
-        <button class="btn btn-primary" @click="saveServerUrl" :disabled="!isDirty">
-          ✅ 保存
-        </button>
-      </div>
+          <button class="btn btn-primary" @click="saveServerUrl" :disabled="!isDirty">
+            ✅ 保存
+          </button>
+        </div>
 
-      <p class="server-preview">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        {{ fullServerUrl || '未选择服务器' }}
-      </p>
+        <p class="server-preview">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          {{ fullServerUrl || '未选择服务器' }}
+        </p>
+      </template>
+
+      <!-- macOS: SMB 挂载说明 -->
+      <template v-else>
+        <div class="mac-mount-status">
+          <div class="status-icon" :class="{ mounted: isMacMounted }">
+            <svg v-if="isMacMounted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
+          <div class="status-info">
+            <p class="status-text">{{ isMacMounted ? '共享文件夹已挂载' : '共享文件夹未挂载' }}</p>
+            <p class="status-hint">{{ isMacMounted ? '当前路径: ' + macServerPath : '请先在 Finder 中挂载共享文件夹' }}</p>
+          </div>
+        </div>
+
+        <!-- macOS 挂载帮助 -->
+        <div class="mac-mount-help">
+          <div class="help-header" @click="showMountHelp = !showMountHelp">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>{{ isMacMounted ? '如何更换共享文件夹？' : '如何连接共享文件夹？' }}</span>
+            <svg class="help-arrow" :class="{ open: showMountHelp }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <Transition name="fade">
+            <div v-if="showMountHelp" class="help-content">
+              <div class="help-tip">
+                <strong>💡 只需挂载共享文件夹，无需手动填写路径</strong><br>
+                挂载成功后，应用会自动使用 <code>/Volumes/dist</code> 路径检查更新
+              </div>
+              <ol class="help-steps">
+                <li>打开 <strong>Finder</strong>（访达）</li>
+                <li>菜单栏 → <strong>前往</strong> → <strong>连接服务器</strong>（快捷键 <kbd>⌘</kbd><kbd>K</kbd>）</li>
+                <li>输入服务器地址：<code>smb://10.15.8.28/dist</code></li>
+                <li>点击 <strong>连接</strong>，输入 Windows 用户名和密码</li>
+                <li>挂载成功后，共享文件夹会出现在 <code>/Volumes/dist</code></li>
+              </ol>
+              <p class="help-tip">💡 挂载后路径通常为 <code>/Volumes/dist</code>，请在上方输入框中填写此路径</p>
+            </div>
+          </Transition>
+        </div>
+      </template>
 
       <Transition name="fade">
         <p v-if="showServerUrlTip" class="save-tip">✅ 更新服务器地址已保存</p>
@@ -183,6 +225,17 @@ const currentTheme = ref<'light' | 'dark'>(
 /** 开机自启动 */
 const autoStart = ref(false)
 
+/** 是否为 macOS 平台 */
+const isMacOS = navigator.platform.includes('Mac')
+
+/** macOS 挂载帮助展开状态 */
+const showMountHelp = ref(false)
+
+/** macOS 共享文件夹是否已挂载 */
+const isMacMounted = computed(() => {
+  return macServerPath.value === '/Volumes/dist'
+})
+
 /**
  * 设置主题
  * @param theme - 主题名称
@@ -218,6 +271,9 @@ const customIp = ref('')
 const showServerUrlTip = ref(false)
 const serverUrlOrig = ref('')
 
+/** macOS 服务器路径 */
+const macServerPath = ref('')
+
 /** 翻译 API 配置 */
 const translateApiUrl = ref('')
 const translateApiKey = ref('')
@@ -234,8 +290,13 @@ function extractIpFromUrl(url: string): string {
   return '__custom'
 }
 
-/** 拼接完整 UNC 路径 */
+/** 拼接完整路径（跨平台） */
 const fullServerUrl = computed(() => {
+  if (isMacOS) {
+    // macOS: 直接使用输入的路径
+    return macServerPath.value.trim()
+  }
+  // Windows: 拼接 UNC 路径
   const ip = selectedIp.value === '__custom' ? customIp.value.trim() : selectedIp.value
   return ip ? `\\\\${ip}\\dist` : ''
 })
@@ -477,13 +538,21 @@ onMounted(async () => {
   const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   currentShortcut.value = settings.shortcut
   autoStart.value = settings.autoStart ?? false
-  // 初始化更新服务器：从 UNC 路径反解 IP
-  const ip = extractIpFromUrl(settings.serverUrl)
-  selectedIp.value = ip || '10.15.8.28'
-  if (ip === '__custom') {
-    customIp.value = settings.serverUrl.match(/^\\\\([^\\]+)/)?.[1] || ''
+
+  // 初始化更新服务器
+  if (isMacOS) {
+    // macOS: 直接使用路径
+    macServerPath.value = settings.serverUrl || '/Volumes/dist'
+  } else {
+    // Windows: 从 UNC 路径反解 IP
+    const ip = extractIpFromUrl(settings.serverUrl)
+    selectedIp.value = ip || '10.15.8.28'
+    if (ip === '__custom') {
+      customIp.value = settings.serverUrl.match(/^\\\\([^\\]+)/)?.[1] || ''
+    }
   }
   serverUrlOrig.value = settings.serverUrl
+
   // 初始化翻译 API 配置
   translateApiUrl.value = settings.translateApiUrl || ''
   translateApiKey.value = settings.translateApiKey || ''
@@ -798,6 +867,159 @@ onUnmounted(() => {
   padding: 6px 10px;
   background: var(--bg-secondary);
   border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ========== macOS 挂载状态 ========== */
+.mac-mount-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+}
+
+.status-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.status-icon.mounted {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+}
+
+.status-info {
+  flex: 1;
+}
+
+.status-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.status-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 2px 0 0;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ========== macOS 挂载帮助 ========== */
+.mac-mount-help {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent-blue);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.help-header:hover {
+  color: var(--accent-pink);
+}
+
+.help-arrow {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.help-arrow.open {
+  transform: rotate(180deg);
+}
+
+.help-content {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.help-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.help-steps li {
+  margin-bottom: 4px;
+}
+
+.help-steps strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.help-steps code {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: var(--accent-blue);
+}
+
+.help-steps kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color-hover);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 1px 0 var(--text-tertiary);
+}
+
+.help-tip {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  background: rgba(61, 139, 255, 0.08);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.help-tip code {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: var(--accent-blue);
+}
+
+/* macOS 路径输入框 */
+.mac-path-input {
+  flex: 1;
   font-family: 'Consolas', 'Monaco', monospace;
 }
 

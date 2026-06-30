@@ -17,7 +17,11 @@ import { windowFactory } from '../frame'
 export interface AppSettings {
   /** Electron accelerator 格式的全局快捷键，如 'CommandOrControl+Alt+V' */
   shortcut: string
-  /** 局域网更新服务器 UNC 路径，如 '\\10.15.2.28\dist' */
+  /**
+   * 局域网更新服务器路径
+   * - Windows: UNC 路径，如 '\\10.15.2.28\dist'
+   * - macOS: SMB 挂载路径，如 '/Volumes/dist'（需先在 Finder 中挂载共享文件夹）
+   */
   serverUrl: string
   /** 开机自启动 */
   autoStart: boolean
@@ -27,10 +31,25 @@ export interface AppSettings {
   translateApiKey?: string
 }
 
+/**
+ * 获取默认更新服务器路径（跨平台）
+ * @description Windows 使用 UNC 路径，macOS 使用 SMB 挂载路径
+ * @returns 默认服务器路径
+ */
+function getDefaultServerUrl(): string {
+  if (process.platform === 'darwin') {
+    // macOS: 用户需要先在 Finder 中挂载 SMB 共享到 /Volumes/dist
+    // 操作：Finder → 前往 → 连接服务器 → 输入 smb://10.15.8.28/dist
+    return '/Volumes/dist'
+  }
+  // Windows: 使用 UNC 路径
+  return '\\\\10.15.8.28\\dist'
+}
+
 /** 默认设置 */
 const DEFAULT_SETTINGS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+V',
-  serverUrl: '\\\\10.15.8.28\\dist',
+  serverUrl: getDefaultServerUrl(),
   autoStart: false
 }
 
@@ -84,6 +103,7 @@ class SettingsService {
    * 从 disk 加载设置
    * 文件不存在 → 返回默认值
    * 文件损坏 → log 警告 + 返回默认值
+   * 跨平台修正：自动修正不匹配当前平台的 serverUrl
    */
   #load(): AppSettings {
     if (!existsSync(this.filePath)) {
@@ -92,7 +112,24 @@ class SettingsService {
 
     try {
       const raw = readFileSync(this.filePath, 'utf-8')
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+      const loaded = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+
+      // 跨平台修正：如果 serverUrl 与当前平台不匹配，自动替换为默认值
+      if (process.platform === 'darwin') {
+        // macOS: UNC 路径（\\开头）不适用，替换为默认 SMB 挂载路径
+        if (loaded.serverUrl.startsWith('\\\\')) {
+          log.info('[Settings] macOS 检测到 UNC 路径，自动替换为默认 SMB 挂载路径')
+          loaded.serverUrl = DEFAULT_SETTINGS.serverUrl
+        }
+      } else {
+        // Windows: SMB 挂载路径（/Volumes/ 开头）不适用，替换为默认 UNC 路径
+        if (loaded.serverUrl.startsWith('/Volumes/')) {
+          log.info('[Settings] Windows 检测到 SMB 挂载路径，自动替换为默认 UNC 路径')
+          loaded.serverUrl = DEFAULT_SETTINGS.serverUrl
+        }
+      }
+
+      return loaded
     } catch (err) {
       log.warn('[Settings] 配置文件损坏，使用默认值:', err)
       return { ...DEFAULT_SETTINGS }

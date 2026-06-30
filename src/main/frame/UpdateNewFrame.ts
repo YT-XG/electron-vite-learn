@@ -14,6 +14,7 @@ import log from 'electron-log'
 import * as yaml from 'js-yaml'
 import semver from 'semver'
 import { settingsService } from '../service/settingsService'
+import { getBottomMargin, isMacOS } from '../utils/platform'
 
 /** 更新信息接口 */
 export interface UpdateInfo {
@@ -216,6 +217,45 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
+   * 检查服务器路径是否有效
+   * @description 针对 macOS 提供更友好的错误提示
+   * @returns 错误信息，有效返回 null
+   */
+  #validateServerUrl(): string | null {
+    const serverUrl = this.config.serverUrl
+
+    if (isMacOS()) {
+      // macOS: 检查是否还是 Windows UNC 路径格式
+      if (serverUrl.startsWith('\\\\') || serverUrl.startsWith('\\\\')) {
+        return 'macOS 不支持 Windows UNC 路径，请在设置中修改为 SMB 挂载路径（如 /Volumes/dist）'
+      }
+
+      // macOS: 检查路径是否在 /Volumes 下（SMB 挂载位置）
+      if (!serverUrl.startsWith('/Volumes/') && !serverUrl.startsWith('/mnt/')) {
+        log.warn('[LanUpdate] macOS 更新路径可能不正确:', serverUrl)
+      }
+
+      // macOS: 检查挂载点是否存在
+      if (!existsSync(serverUrl)) {
+        return `共享文件夹未挂载，请先在 Finder 中挂载：
+1. 打开 Finder
+2. 菜单栏 → 前往 → 连接服务器（⌘K）
+3. 输入 smb://10.15.8.28/dist
+4. 点击连接并输入 Windows 用户名密码
+
+挂载后路径为: ${serverUrl}`
+      }
+    } else {
+      // Windows: 检查是否是 UNC 路径格式
+      if (!serverUrl.startsWith('\\\\')) {
+        return 'Windows 请使用 UNC 路径格式（如 \\\\10.15.8.28\\dist）'
+      }
+    }
+
+    return null
+  }
+
+  /**
    * 检查是否有可用更新
    * @description 先检查本地缓存，再检查远程服务器（带超时控制，避免 UNC 路径不可达时阻塞）
    * @returns 更新信息，如果没有更新返回 null
@@ -223,6 +263,19 @@ export default class UpdateNewFrame extends BaseFrame {
   async checkForUpdates(): Promise<UpdateInfo | null> {
     console.log('进入检测更新状态')
     try {
+      // 验证服务器路径
+      const validationError = this.#validateServerUrl()
+      if (validationError) {
+        log.error('[LanUpdate] 服务器路径验证失败:', validationError)
+        return {
+          file: '',
+          sha512: '',
+          size: 0,
+          version: '',
+          msg: validationError
+        }
+      }
+
       // 构建 latest.yml 文件路径
       const latestYmlPath = join(this.config.serverUrl, this.config.latestFileName)
 
@@ -230,12 +283,24 @@ export default class UpdateNewFrame extends BaseFrame {
       const fileExists = await this.checkFileExistsWithTimeout(latestYmlPath)
       if (!fileExists) {
         log.info('[LanUpdate] latest.yml 文件不存在或访问超时:', latestYmlPath)
+
+        // 提供更详细的错误信息
+        let msg = '请求超时，请检查网络连接'
+        if (isMacOS()) {
+          msg = `无法访问更新服务器，请检查：
+1. 共享文件夹是否已挂载到 ${this.config.serverUrl}
+2. 网络连接是否正常
+3. Windows 共享文件夹是否开启
+
+当前路径: ${this.config.serverUrl}`
+        }
+
         return {
           file: '',
           sha512: '',
           size: 0,
           version: '',
-          msg: '请求超时，请检查网络连接'
+          msg
         }
       }
 
@@ -415,14 +480,38 @@ export default class UpdateNewFrame extends BaseFrame {
 
     log.info('[LanUpdate] 启动安装程序:', installerPath)
 
-    // 使用 spawn 以 detached 模式启动安装程序，使其独立于当前进程运行
     const { spawn } = require('child_process')
-    const child = spawn(installerPath, [], {
-      detached: true,
-      stdio: 'ignore',
-      shell: true
-    })
-    child.unref()
+
+    if (process.platform === 'darwin') {
+      // macOS: 处理 .dmg 或 .app 文件
+      if (installerPath.endsWith('.dmg')) {
+        // 挂载 DMG 并打开 Finder
+        spawn('hdiutil', ['attach', installerPath, '-nobrowse'], {
+          detached: true,
+          stdio: 'ignore'
+        })
+      } else if (installerPath.endsWith('.app')) {
+        // 直接启动 .app
+        spawn('open', [installerPath], {
+          detached: true,
+          stdio: 'ignore'
+        })
+      } else {
+        // 其他格式，尝试用 open 命令打开
+        spawn('open', [installerPath], {
+          detached: true,
+          stdio: 'ignore'
+        })
+      }
+    } else {
+      // Windows: 使用 spawn 以 detached 模式启动安装程序
+      const child = spawn(installerPath, [], {
+        detached: true,
+        stdio: 'ignore',
+        shell: true
+      })
+      child.unref()
+    }
 
     // 等待一小段时间让安装程序启动，然后退出应用
     setTimeout(() => {
@@ -443,8 +532,9 @@ export default class UpdateNewFrame extends BaseFrame {
 
     // 水平居中
     const x = workArea.x + (workArea.width - popupW) / 2
-    // 距底部 60px
-    const y = workArea.y + workArea.height - popupH - UpdateNewFrame.BOTTOM_MARGIN
+    // 距底部 60px（macOS 会额外加上 Dock 高度）
+    const bottomMargin = getBottomMargin(UpdateNewFrame.BOTTOM_MARGIN)
+    const y = workArea.y + workArea.height - popupH - bottomMargin
 
     return { x: Math.round(x), y: Math.round(y) }
   }
@@ -502,7 +592,10 @@ export default class UpdateNewFrame extends BaseFrame {
   }): Promise<void> {
     const pos = this.#calcBottomCenterPosition()
     const display = screen.getPrimaryDisplay()
-    const screenHeight = display.workArea.height + display.workArea.y
+    const { workArea, bounds } = display
+    // macOS 需要加上 Dock 高度
+    const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
+    const screenHeight = workArea.height + workArea.y + dockHeight
 
     // 起始位置：屏幕底部外（窗口完全隐藏在底部）
     const startY = screenHeight + 10
@@ -543,9 +636,11 @@ export default class UpdateNewFrame extends BaseFrame {
     if (this.isAlive() && this.#isShowing && !this.#isAnimating) {
       this.#isShowing = false
 
-      // 计算目标位置：屏幕底部外
+      // 计算目标位置：屏幕底部外（考虑 macOS Dock）
       const display = screen.getPrimaryDisplay()
-      const screenHeight = display.workArea.height + display.workArea.y
+      const { workArea, bounds } = display
+      const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
+      const screenHeight = workArea.height + workArea.y + dockHeight
       const targetY = screenHeight + 10
 
       // 播放收起动画：从当前位置滑出到底部外
@@ -565,9 +660,11 @@ export default class UpdateNewFrame extends BaseFrame {
    */
   async destroy(): Promise<void> {
     if (this.isAlive() && !this.#isAnimating) {
-      // 计算目标位置：屏幕底部外
+      // 计算目标位置：屏幕底部外（考虑 macOS Dock）
       const display = screen.getPrimaryDisplay()
-      const screenHeight = display.workArea.height + display.workArea.y
+      const { workArea, bounds } = display
+      const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
+      const screenHeight = workArea.height + workArea.y + dockHeight
       const targetY = screenHeight + 10
 
       // 播放收起动画
