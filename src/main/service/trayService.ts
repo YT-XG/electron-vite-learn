@@ -96,17 +96,19 @@ export class TrayService {
 
     this.#isChecking = true
 
-    const noticeNewFrame = windowFactory.getNoticeNewFrame()
-    noticeNewFrame.setMsg('正在检查更新...')
-    noticeNewFrame.showAtBottomCenter()
+    windowFactory.getNoticeManager().show({
+      text: '正在检查更新...',
+      duration: 3000
+    })
 
     windowFactory
       .getUpdateNewFrame()
       .checkForUpdates()
       .then((res) => {
-        const noticeNewFrame = windowFactory.getNoticeNewFrame()
-        noticeNewFrame.setMsg(res?.msg || '')
-        noticeNewFrame.showAtBottomCenter()
+        windowFactory.getNoticeManager().show({
+          text: res?.msg || '',
+          duration: 5000
+        })
       })
       .finally(() => {
         this.#isChecking = false
