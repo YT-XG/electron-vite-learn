@@ -117,16 +117,16 @@ onMounted(() => {
   height: calc(100% - 4px);
   display: flex;
   align-items: center;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 22px;
   padding: 0 12px 0 20px;
   box-shadow:
-    0 4px 20px rgba(61, 139, 255, 0.25),
+    0 4px 20px var(--shadow-color),
     0 2px 8px rgba(255, 106, 176, 0.15);
 }
 
 .notice-text {
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.3px;
@@ -143,7 +143,7 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   border-radius: 50%;
   cursor: pointer;
   display: flex;

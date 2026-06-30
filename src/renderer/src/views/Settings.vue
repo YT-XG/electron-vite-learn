@@ -482,6 +482,24 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+/* 自定义滚动条 */
+.settings-page::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-page::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.settings-page::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
 /* ========== 页面标题 ========== */
 .page-header {
   margin-bottom: 24px;
