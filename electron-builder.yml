@@ -39,10 +39,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: true
-publish:
-  provider: github
-  owner: YT-XG
-  repo: electron-vite-learn
-  channel: latest
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
