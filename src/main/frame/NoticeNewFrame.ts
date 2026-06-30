@@ -4,7 +4,7 @@ import { windowFactory } from './WindowFactory'
 
 /**
  * 通知弹窗
- * @description 底部居中弹出的通知提示窗口，契合悬浮球主题，5 秒后自动销毁
+ * @description 底部居中弹出的通知提示窗口，契合悬浮球主题，显示时长由 NoticeManager 统一管理
  *              入场缩放到大动画由渲染进程 CSS 实现，收起向下滑出由主进程控制
  */
 export default class NoticeNewFrame extends BaseFrame {
@@ -206,7 +206,7 @@ export default class NoticeNewFrame extends BaseFrame {
 
   /**
    * 在屏幕底部居中显示通知弹窗
-   * @description 定位 → 发送消息 → 显示窗口（CSS 处理入场放大动画） → 5 秒后自动销毁
+   * @description 定位 → 发送消息 → 显示窗口（CSS 处理入场放大动画）
    *              支持重复调用：窗口销毁后会自动重建
    */
   async showAtBottomCenter(): Promise<void> {
@@ -268,6 +268,7 @@ export default class NoticeNewFrame extends BaseFrame {
     const startTime = Date.now()
 
     const animate = (): void => {
+      if (!this.isAlive()) return
       const elapsed = Date.now() - startTime
       const progress = Math.min(elapsed / duration, 1)
 

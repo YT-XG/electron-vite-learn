@@ -63,7 +63,9 @@ export default class NoticeManager {
     this.repositionAll()
 
     // 显示新通知（在底部位置）
-    notice.showAtBottomCenter()
+    notice.showAtBottomCenter().catch(() => {
+      // Window creation failed, notice will be cleaned up by onDestroyCallback
+    })
   }
 
   /**
