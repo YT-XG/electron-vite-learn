@@ -74,10 +74,12 @@
         </button>
       </div>
 
-      <!-- 加载状态 -->
-      <div v-if="loading" class="cm-empty">
-        <div class="empty-icon">⏳</div>
-        <div class="empty-text">加载中...</div>
+      <!-- 加载状态 - 骨架屏 -->
+      <div v-if="loading" class="cm-skeleton">
+        <div class="skeleton-item" v-for="i in 5" :key="i">
+          <div class="skeleton-content"></div>
+          <div class="skeleton-meta"></div>
+        </div>
       </div>
 
       <!-- 空状态 -->
@@ -511,7 +513,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--bg-primary);
   overflow: hidden;
 }
 
@@ -539,7 +541,7 @@ onUnmounted(() => {
 }
 
 .cm-tab:hover {
-  background: #f9fafb;
+  background: var(--bg-secondary);
 }
 
 .cm-tab.active {
@@ -553,7 +555,7 @@ onUnmounted(() => {
   left: 20%;
   right: 20%;
   height: 2px;
-  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-pink));
   border-radius: 1px;
 }
 
@@ -564,19 +566,19 @@ onUnmounted(() => {
 .tab-label {
   font-size: 13px;
   font-weight: 600;
-  color: #888;
+  color: var(--text-secondary);
   transition: color 0.25s;
 }
 
 .cm-tab.active .tab-label {
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .tab-count {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   padding: 1px 6px;
   border-radius: 10px;
   min-width: 18px;
@@ -611,7 +613,7 @@ onUnmounted(() => {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: #bbb;
+  color: var(--text-tertiary);
   pointer-events: none;
 }
 
@@ -619,23 +621,23 @@ onUnmounted(() => {
   width: 100%;
   height: 36px;
   padding: 0 12px 0 36px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   outline: none;
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
 
 .search-input::placeholder {
-  color: #bbb;
+  color: var(--text-tertiary);
 }
 
 .search-input:focus {
-  border-color: #3d8bff;
-  background: #fff;
+  border-color: var(--accent-blue);
+  background: var(--bg-primary);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
 }
 
@@ -655,7 +657,7 @@ onUnmounted(() => {
 }
 
 .toolbar-btn.primary {
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   color: #fff;
 }
 
@@ -665,12 +667,12 @@ onUnmounted(() => {
 }
 
 .toolbar-btn.danger {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-color);
 }
 
 .toolbar-btn.danger:hover {
-  background: #fecaca;
+  background: var(--danger-hover);
 }
 
 /* ========== 分类筛选 ========== */
@@ -688,11 +690,11 @@ onUnmounted(() => {
 
 .category-btn {
   padding: 6px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 16px;
-  background: #fff;
+  background: var(--bg-primary);
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -702,12 +704,12 @@ onUnmounted(() => {
 }
 
 .category-btn:hover {
-  border-color: #3d8bff;
-  color: #3d8bff;
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
 }
 
 .category-btn.active {
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   border-color: transparent;
   color: #fff;
 }
@@ -735,12 +737,12 @@ onUnmounted(() => {
 .empty-text {
   font-size: 14px;
   font-weight: 500;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .empty-hint {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-tertiary);
 }
 
 /* ========== 记录列表 ========== */
@@ -759,29 +761,29 @@ onUnmounted(() => {
 }
 
 .cm-list::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--border-color);
   border-radius: 2px;
 }
 
 .cm-item {
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--border-color);
   margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .cm-item:hover {
-  background: #f9fafb;
-  border-color: #e5e7eb;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .item-content {
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   line-height: 1.5;
   /* 最多显示 3 行 */
   display: -webkit-box;
@@ -797,7 +799,7 @@ onUnmounted(() => {
 
 .item-category {
   font-size: 11px;
-  color: #3d8bff;
+  color: var(--accent-blue);
   background: rgba(61, 139, 255, 0.08);
   padding: 2px 8px;
   border-radius: 10px;
@@ -812,7 +814,7 @@ onUnmounted(() => {
 
 .item-time {
   font-size: 11px;
-  color: #bbb;
+  color: var(--text-tertiary);
 }
 
 .item-actions {
@@ -834,7 +836,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: #bbb;
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -842,17 +844,17 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .delete-btn:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-color);
 }
 
 .translate-action {
-  color: #3d8bff;
+  color: var(--accent-blue);
 }
 
 .translate-action:hover {
@@ -875,11 +877,16 @@ onUnmounted(() => {
 }
 
 .dialog {
-  background: #fff;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   animation: dialog-in 0.2s ease;
 }
 
@@ -908,7 +915,7 @@ onUnmounted(() => {
 .dialog-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -920,7 +927,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  color: #888;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -928,8 +935,8 @@ onUnmounted(() => {
 }
 
 .dialog-close:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .dialog-body {
@@ -955,7 +962,7 @@ onUnmounted(() => {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
@@ -967,10 +974,11 @@ onUnmounted(() => {
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
   outline: none;
   transition: all 0.2s ease;
   box-sizing: border-box;
@@ -984,7 +992,7 @@ onUnmounted(() => {
 
 .form-input:focus,
 .form-textarea:focus {
-  border-color: #3d8bff;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
 }
 
@@ -994,7 +1002,7 @@ onUnmounted(() => {
 
 .confirm-text {
   font-size: 14px;
-  color: #4b5563;
+  color: var(--text-secondary);
   text-align: center;
   margin: 0;
   line-height: 1.6;
@@ -1011,16 +1019,16 @@ onUnmounted(() => {
 }
 
 .dialog-btn.cancel {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 
 .dialog-btn.cancel:hover {
-  background: #e5e7eb;
+  background: var(--border-color);
 }
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   color: #fff;
 }
 
@@ -1034,11 +1042,76 @@ onUnmounted(() => {
 }
 
 .dialog-btn.danger {
-  background: #dc2626;
+  background: var(--danger-color);
   color: #fff;
 }
 
 .dialog-btn.danger:hover {
-  background: #b91c1c;
+  background: var(--danger-color);
+  opacity: 0.9;
+}
+
+/* ========== 骨架屏 ========== */
+.cm-skeleton {
+  flex: 1;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.skeleton-item {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.skeleton-content {
+  height: 40px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-content::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-meta {
+  height: 16px;
+  width: 60px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  margin-top: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-meta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+  animation-delay: 0.1s;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 </style>

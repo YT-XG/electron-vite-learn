@@ -6,6 +6,31 @@
       <p class="page-desc">自定义应用行为和快捷键</p>
     </div>
 
+    <!-- 外观设置 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">外观设置</span>
+        <span class="setting-hint">切换应用的浅色/深色主题模式</span>
+      </div>
+
+      <div class="theme-switcher">
+        <button
+          class="theme-btn"
+          :class="{ active: currentTheme === 'light' }"
+          @click="setTheme('light')"
+        >
+          ☀️ 浅色
+        </button>
+        <button
+          class="theme-btn"
+          :class="{ active: currentTheme === 'dark' }"
+          @click="setTheme('dark')"
+        >
+          🌙 深色
+        </button>
+      </div>
+    </div>
+
     <!-- 全局快捷键 -->
     <div class="setting-card">
       <div class="setting-info">
@@ -133,6 +158,21 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+
+/** 当前主题 */
+const currentTheme = ref<'light' | 'dark'>(
+  (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+)
+
+/**
+ * 设置主题
+ * @param theme - 主题名称
+ */
+const setTheme = (theme: 'light' | 'dark') => {
+  currentTheme.value = theme
+  localStorage.setItem('theme', theme)
+  document.documentElement.setAttribute('data-theme', theme)
+}
 
 /** 录制状态 */
 type State = 'idle' | 'recording'
@@ -405,6 +445,9 @@ function formatAccelerator(accel: string): string[] {
 // ═══════════════════════════════════════════════════════════════
 
 onMounted(async () => {
+  // 初始化主题
+  document.documentElement.setAttribute('data-theme', currentTheme.value)
+
   const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   currentShortcut.value = settings.shortcut
   // 初始化更新服务器：从 UNC 路径反解 IP
@@ -447,20 +490,20 @@ onUnmounted(() => {
 .page-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .page-desc {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   margin: 4px 0 0;
 }
 
 /* ========== 设置卡片 ========== */
 .setting-card {
-  background: #f9fafb;
-  border: 1px solid #f0f0f0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
@@ -476,12 +519,12 @@ onUnmounted(() => {
 .setting-label {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .setting-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 /* ========== 快捷键行 ========== */
@@ -498,8 +541,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color-hover);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -508,13 +551,13 @@ onUnmounted(() => {
 }
 
 .shortcut-keys:hover {
-  border-color: #3d8bff;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
 }
 
 .change-hint {
   font-size: 11px;
-  color: #bbb;
+  color: var(--text-tertiary);
   margin-left: 4px;
 }
 
@@ -524,8 +567,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: #fff;
-  border: 2px solid #3d8bff;
+  background: var(--bg-primary);
+  border: 2px solid var(--accent-blue);
   border-radius: 8px;
   min-height: 36px;
   box-sizing: border-box;
@@ -541,7 +584,7 @@ onUnmounted(() => {
 
 .recording-pulse {
   font-size: 10px;
-  color: #3d8bff;
+  color: var(--accent-blue);
   animation: dot-pulse 1s ease-in-out infinite;
 }
 
@@ -552,7 +595,7 @@ onUnmounted(() => {
 
 .recording-text {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 /* ========== 键帽样式 ========== */
@@ -563,19 +606,19 @@ onUnmounted(() => {
   min-width: 28px;
   height: 26px;
   padding: 0 8px;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color-hover);
   border-radius: 5px;
   font-size: 12px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-family: inherit;
-  box-shadow: 0 1px 0 #bbb;
+  box-shadow: 0 1px 0 var(--text-tertiary);
 }
 
 .keycap.active {
-  background: #3d8bff;
-  border-color: #3d8bff;
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
   color: #fff;
   box-shadow: 0 1px 0 #2563eb;
 }
@@ -604,7 +647,7 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   color: #fff;
 }
 
@@ -619,24 +662,24 @@ onUnmounted(() => {
 }
 
 .btn-outline {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  color: #555;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color-hover);
+  color: var(--text-secondary);
 }
 
 .btn-outline:hover {
-  border-color: #3d8bff;
-  color: #3d8bff;
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
 }
 
 .btn-ghost {
   background: transparent;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .btn-ghost:hover {
-  background: #f3f4f6;
-  color: #555;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 
 /* ========== 更新服务器 ========== */
@@ -650,27 +693,27 @@ onUnmounted(() => {
   width: 180px;
   height: 38px;
   padding: 0 32px 0 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color-hover);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #1a1a1a;
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
+  color: var(--text-primary);
+  background: var(--bg-primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
   outline: none;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px var(--shadow-color);
 }
 
 .server-url-select:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  border-color: var(--border-color-hover);
+  box-shadow: 0 2px 4px var(--shadow-color);
 }
 
 .server-url-select:focus {
-  border-color: #3d8bff;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
 }
 
@@ -678,25 +721,25 @@ onUnmounted(() => {
   flex: 1;
   height: 38px;
   padding: 0 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color-hover);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #1a1a1a;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-primary);
   outline: none;
   transition: all 0.2s ease;
   font-family: 'Consolas', 'Monaco', monospace;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px var(--shadow-color);
 }
 
 .server-url-input:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  border-color: var(--border-color-hover);
+  box-shadow: 0 2px 4px var(--shadow-color);
 }
 
 .server-url-input:focus {
-  border-color: #3d8bff;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
 }
 
@@ -705,10 +748,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   margin: 10px 0 0;
   padding: 6px 10px;
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   border-radius: 6px;
   font-family: 'Consolas', 'Monaco', monospace;
 }
@@ -747,19 +790,19 @@ onUnmounted(() => {
 .form-group label {
   font-size: 12px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .form-input {
   width: 100%;
   height: 38px;
   padding: 0 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color-hover);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #1a1a1a;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-primary);
   outline: none;
   transition: all 0.2s ease;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -767,7 +810,38 @@ onUnmounted(() => {
 }
 
 .form-input:focus {
-  border-color: #3d8bff;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+}
+
+/* ========== 主题切换器 ========== */
+.theme-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.theme-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-btn:hover {
+  color: var(--text-primary);
+}
+
+.theme-btn.active {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
 }
 </style>

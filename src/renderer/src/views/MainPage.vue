@@ -220,7 +220,7 @@ onUnmounted(() => {
 .main-page {
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg-primary);
   border-radius: 16px;
   overflow: hidden;
   display: flex;
@@ -228,7 +228,7 @@ onUnmounted(() => {
   box-shadow:
     0 8px 40px rgba(61, 139, 255, 0.15),
     0 4px 16px rgba(255, 106, 176, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-color);
   backdrop-filter: blur(20px);
   -webkit-app-region: no-drag;
 
@@ -315,19 +315,19 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
 }
 
 .sidebar-toggle:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .app-name {
   font-size: 12px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   letter-spacing: 0.5px;
   user-select: none;
 }
@@ -335,8 +335,8 @@ onUnmounted(() => {
 .app-version {
   font-size: 10px;
   font-weight: 400;
-  color: #999;
-  background: #f3f4f6;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
   padding: 1px 5px;
   border-radius: 4px;
   margin-left: 4px;
@@ -358,13 +358,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
 }
 
 .control-btn:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .close-btn:hover {
@@ -382,7 +382,11 @@ onUnmounted(() => {
 /* ========== 侧边栏 ========== */
 .sidebar {
   width: 140px;
-  border-right: 1px solid #f0f0f0;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-right: 1px solid var(--border-color);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   padding: 8px;
   flex-shrink: 0;
   display: flex;
@@ -419,12 +423,12 @@ onUnmounted(() => {
 }
 
 .nav-item:hover {
-  background: #f5f5f5;
+  background: var(--bg-secondary);
 }
 
 .nav-item.active {
   background: linear-gradient(135deg, rgba(61, 139, 255, 0.08), rgba(255, 106, 176, 0.08));
-  color: #3d8bff;
+  color: var(--accent-blue);
 }
 
 .nav-icon {
@@ -434,11 +438,11 @@ onUnmounted(() => {
 .nav-label {
   font-size: 13px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .nav-item.active .nav-label {
-  color: #3d8bff;
+  color: var(--accent-blue);
   font-weight: 600;
 }
 
@@ -462,29 +466,40 @@ onUnmounted(() => {
 .welcome-icon {
   font-size: 32px;
   margin-bottom: 4px;
-  animation: icon-pulse 2s ease-in-out infinite;
+  animation: float 3s ease-in-out infinite;
 }
 
-@keyframes icon-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 .welcome-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1a1a1a;
+  background: linear-gradient(
+    90deg,
+    var(--accent-blue),
+    var(--accent-pink),
+    var(--accent-blue)
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-sweep 4s ease infinite;
   margin: 0;
+}
+
+@keyframes gradient-sweep {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .welcome-desc {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
   margin: 0;
 }
 </style>

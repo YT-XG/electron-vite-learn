@@ -6,6 +6,19 @@
   </router-view>
 </template>
 
+<script setup lang="ts">
+import { onMounted } from 'vue'
+
+/**
+ * 初始化主题：从 localStorage 读取并应用到 HTML 元素
+ */
+onMounted(() => {
+  const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
+  const theme = savedTheme || 'light'
+  document.documentElement.setAttribute('data-theme', theme)
+})
+</script>
+
 <style>
 .fade-enter-active,
 .fade-leave-active {

@@ -387,25 +387,25 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
 }
 
 .back-btn:hover {
-  background: #e5e7eb;
-  color: #1a1a1a;
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 .translate-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
 }
@@ -425,13 +425,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* ========== 语言选择 ========== */
@@ -446,12 +446,12 @@ onUnmounted(() => {
   flex: 1;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #1a1a1a;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-primary);
   outline: none;
   cursor: pointer;
   appearance: none;
@@ -460,13 +460,13 @@ onUnmounted(() => {
 }
 
 .lang-select:focus {
-  border-color: #3d8bff;
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 10%, transparent);
 }
 
 .lang-arrow {
   font-size: 16px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 /* ========== 输入框 ========== */
@@ -478,11 +478,11 @@ onUnmounted(() => {
   width: 100%;
   min-height: 100px;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   font-size: 14px;
-  color: #1a1a1a;
-  background: #f9fafb;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
   outline: none;
   resize: vertical;
   font-family: inherit;
@@ -492,13 +492,13 @@ onUnmounted(() => {
 }
 
 .text-input:focus {
-  border-color: #3d8bff;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+  border-color: var(--accent-blue);
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 10%, transparent);
 }
 
 .text-input::placeholder {
-  color: #bbb;
+  color: var(--text-tertiary);
 }
 
 .input-footer {
@@ -510,12 +510,12 @@ onUnmounted(() => {
 
 .char-count {
   font-size: 11px;
-  color: #bbb;
+  color: var(--text-tertiary);
 }
 
 .clear-btn {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -525,8 +525,8 @@ onUnmounted(() => {
 }
 
 .clear-btn:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* ========== 翻译按钮 ========== */
@@ -542,17 +542,17 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  color: var(--bg-primary);
   margin-bottom: 16px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(61, 139, 255, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-blue) 30%, transparent);
 }
 
 .translate-btn:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(61, 139, 255, 0.4);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-blue) 40%, transparent);
 }
 
 .translate-btn:disabled {
@@ -564,7 +564,7 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: var(--bg-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -577,8 +577,8 @@ onUnmounted(() => {
 
 /* ========== 结果框 ========== */
 .result-section {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -594,12 +594,12 @@ onUnmounted(() => {
 .result-label {
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .copy-btn {
   font-size: 12px;
-  color: #3d8bff;
+  color: var(--accent-blue);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -609,12 +609,12 @@ onUnmounted(() => {
 }
 
 .copy-btn:hover {
-  background: rgba(61, 139, 255, 0.1);
+  background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
 }
 
 .result-text {
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   line-height: 1.6;
   word-break: break-word;
 }
@@ -636,15 +636,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .history-entry:hover {
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   border-color: #d1d5db;
 }
 
@@ -662,8 +662,8 @@ onUnmounted(() => {
 .history-count {
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  color: var(--bg-primary);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   padding: 1px 6px;
   border-radius: 10px;
   min-width: 18px;
@@ -687,7 +687,7 @@ onUnmounted(() => {
 }
 
 .dialog {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 16px;
   width: 90%;
   max-width: 500px;
@@ -720,7 +720,7 @@ onUnmounted(() => {
 .dialog-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -732,7 +732,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  color: #888;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -740,8 +740,8 @@ onUnmounted(() => {
 }
 
 .dialog-close:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .dialog-body {
@@ -760,7 +760,7 @@ onUnmounted(() => {
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -771,8 +771,8 @@ onUnmounted(() => {
 }
 
 .history-item {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 12px;
   position: relative;
@@ -784,7 +784,7 @@ onUnmounted(() => {
 
 .history-source {
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 6px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -794,7 +794,7 @@ onUnmounted(() => {
 
 .history-result {
   font-size: 13px;
-  color: #3d8bff;
+  color: var(--accent-blue);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -805,7 +805,7 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .history-actions {

@@ -1,3 +1,48 @@
+/* ========================================
+ * 双主题 CSS 变量基础设施
+ * ======================================== */
+
+/* 默认主题变量（亮色） */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-glass: rgba(255, 255, 255, 0.72);
+  --bg-glass-hover: rgba(255, 255, 255, 0.85);
+  --text-primary: #1a1a1a;
+  --text-secondary: #888;
+  --text-tertiary: #bbb;
+  --accent-blue: #3d8bff;
+  --accent-pink: #ff6ab0;
+  --border-color: #f0f0f0;
+  --border-color-hover: #e5e7eb;
+  --shadow-color: rgba(0, 0, 0, 0.04);
+  --danger-bg: #fee2e2;
+  --danger-color: #dc2626;
+  --danger-hover: #fecaca;
+  --success-color: #16a34a;
+}
+
+/* 暗色主题变量 */
+:root[data-theme="dark"] {
+  --bg-primary: #0e1014;
+  --bg-secondary: #1a1d22;
+  --bg-glass: rgba(14, 16, 20, 0.72);
+  --bg-glass-hover: rgba(20, 23, 28, 0.85);
+  --text-primary: #e8ecef;
+  --text-secondary: #8a9099;
+  --text-tertiary: #5a6070;
+  --accent-blue: #5da3ff;
+  --accent-pink: #ff8ac4;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-color-hover: rgba(255, 255, 255, 0.15);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --danger-bg: rgba(220, 38, 38, 0.15);
+  --danger-color: #f87171;
+  --danger-hover: rgba(220, 38, 38, 0.25);
+  --success-color: #4ade80;
+}
+
+/* 保留原有的 Electron-Vite 主题变量 */
 :root {
   --ev-c-white: #ffffff;
   --ev-c-white-soft: #f8f8f8;
@@ -21,9 +66,7 @@
   --ev-button-alt-hover-border: transparent;
   --ev-button-alt-hover-text: var(--ev-c-text-1);
   --ev-button-alt-hover-bg: var(--ev-c-gray-2);
-}
 
-:root {
   --color-background: var(--ev-c-black);
   --color-background-soft: var(--ev-c-black-soft);
   --color-background-mute: var(--ev-c-black-mute);
@@ -65,4 +108,9 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 主题切换平滑过渡 */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
