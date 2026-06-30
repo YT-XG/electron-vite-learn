@@ -18,7 +18,8 @@ electron-vite-learn/
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
 │   │       ├── BallFrame.ts    # 主窗口（悬浮球时钟）
 │   │       ├── NoticeFrame.ts  # 通知窗口
-│   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，5秒自动销毁，支持翻译按钮）
+│   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，支持翻译按钮）
+│   │       ├── NoticeManager.ts    # 通知管理器（多通知堆叠、自定义时长、移动动画）
 │   │       ├── TestFrame.ts    # 测试窗口
 │   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
@@ -104,7 +105,8 @@ electron-vite-learn/
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
   - `BallFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
   - `NoticeFrame.ts` - 剪贴板通知窗口，从右下角弹出显示复制的文字
-  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，5 秒后自动销毁，支持翻译按钮（仅剪贴板通知显示）
+  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，支持翻译按钮（仅剪贴板通知显示），时长由 NoticeManager 管理
+  - `NoticeManager.ts` - 通知管理器，管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画
   - `TestFrame.ts` - 测试窗口
   - `OpenDialogFrame.ts` - 悬浮球展开对话框窗口，鼠标悬停时向左/右侧展开
   - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
@@ -126,14 +128,18 @@ electron-vite-learn/
   // 显示通知
   windowFactory.showNotice('剪贴板内容已更新')
 
-  // 显示通知弹窗（底部居中）
-  const noticeFrame = windowFactory.getNoticeNewFrame()
-  noticeFrame.setMsg('剪贴板内容', true)  // 第二个参数 true 表示显示翻译按钮
-  noticeFrame.showAtBottomCenter()
+  // 显示通知弹窗（底部居中，通过 NoticeManager 管理）
+  windowFactory.getNoticeManager().show({
+    text: '剪贴板内容',
+    showTranslate: true,
+    duration: 5000
+  })
 
   // 显示更新通知（不显示翻译按钮）
-  noticeFrame.setMsg('正在检查更新...')  // 默认 false，不显示翻译按钮
-  noticeFrame.showAtBottomCenter()
+  windowFactory.getNoticeManager().show({
+    text: '正在检查更新...',
+    duration: 3000
+  })
 
   // 显示更新窗口（底部居中弹出）
   windowFactory.showUpdateNew({ version: '1.0.1', description: '修复了一些 bug' })
@@ -194,7 +200,7 @@ electron-vite-learn/
   - 按需创建，不自动启动
   - 带有弹出/收起 CSS 动画
   - 透明无边框窗口，蓝粉渐变胶囊风格
-  - 5 秒后自动销毁
+  - 显示时长由 NoticeManager 管理（可自定义）
   - **翻译按钮**：仅剪贴板复制文字时显示，其他通知（如检查更新）不显示
   - **打开链接按钮**：自动检测文本中是否包含链接，如果包含则显示打开链接按钮（绿色渐变）
 - **IPC 接口**:
@@ -223,6 +229,38 @@ electron-vite-learn/
   // 显示其他通知（不显示翻译按钮和打开链接按钮）
   noticeFrame.setMsg('正在检查更新...')
   noticeFrame.showAtBottomCenter()
+  ```
+
+### 通知管理器 (src/main/frame/NoticeManager.ts)
+- **职责**: 管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画
+- **功能**:
+  - 维护通知实例池（最多 5 个）
+  - 新通知从底部出现，旧通知被向上顶起
+  - 平滑过渡动画（300ms easeOutCubic）
+  - 每个通知可自定义显示时长
+  - 超过上限时自动销毁最早的通知
+- **IPC 接口**: 无（内部管理，不直接暴露 IPC）
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 显示剪贴板通知（显示翻译按钮，5秒后自动销毁）
+  windowFactory.getNoticeManager().show({
+    text: '复制的文本内容',
+    showTranslate: true,
+    duration: 5000
+  })
+
+  // 显示更新通知（3秒后自动销毁）
+  windowFactory.getNoticeManager().show({
+    text: '正在检查更新...',
+    duration: 3000
+  })
+
+  // 显示包含链接的通知（自动检测并显示打开链接按钮）
+  windowFactory.getNoticeManager().show({
+    text: '请访问 https://example.com 查看详情'
+  })
   ```
 
 ### 更新窗口 (src/main/frame/UpdateNewFrame.ts)
@@ -503,7 +541,7 @@ electron-vite-learn/
   - `Home.vue` - 悬浮球时钟，显示当前时间（HH:MM:SS），支持窗口拖拽
   - `About.vue` - 关于页
   - `Notice.vue` - 剪贴板通知窗口，显示复制的文字（最多两行，超出省略），支持拖拽、关闭按钮、10秒自动关闭
-  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示，支持翻译按钮（仅剪贴板通知显示）
+  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示，支持翻译按钮（仅剪贴板通知显示），显示时长由 NoticeManager 管理
   - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
   - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
