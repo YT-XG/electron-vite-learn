@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build_command: build:linux
+          - os: macos-latest
+            build_command: build:mac
+          - os: windows-latest
+            build_command: build:win
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          # 清理 node_modules 和 package-lock.json 以解决原生绑定问题
+          rm -rf node_modules package-lock.json
+          npm i
+
+      - name: Build
+        run: npm run ${{ matrix.build_command }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+          retention-days: 3
