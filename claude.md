@@ -75,6 +75,9 @@ electron-vite-learn/
 │   └── workflows/
 │       └── build.yml           # 多平台构建配置（Linux/macOS/Windows）
 ├── resources/                  # 应用资源（图标等）
+├── .github/
+│   └── workflows/
+│       └── build.yml           # GitHub Actions 自动构建（macOS）
 ├── electron.vite.config.ts     # Electron-Vite 配置
 ├── electron-builder.yml        # 打包配置
 ├── .gitattributes              # Git 行尾符配置

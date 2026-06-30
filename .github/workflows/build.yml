@@ -1,25 +1,12 @@
-name: Build
+name: Build macOS
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    branches: [master]
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            build_command: build:linux
-          - os: macos-latest
-            build_command: build:mac
-          - os: windows-latest
-            build_command: build:win
-
-    runs-on: ${{ matrix.os }}
-
+  build-macos:
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,26 +14,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 18
+          cache: npm
 
       - name: Install dependencies
-        run: |
-          # 清理 node_modules 和 package-lock.json 以解决原生绑定问题
-          rm -rf node_modules package-lock.json
-          npm i
+        run: npm ci
 
-      - name: Build
-        run: npm run ${{ matrix.build_command }}
+      - name: Build macOS
+        run: npm run build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}
+          name: macos-build
           path: |
             dist/*.dmg
             dist/*.zip
-            dist/*.exe
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.rpm
-          retention-days: 3
+          retention-days: 30
