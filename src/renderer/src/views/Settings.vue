@@ -31,6 +31,22 @@
       </div>
     </div>
 
+    <!-- 开机自启 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">开机自启动</span>
+        <span class="setting-hint">系统登录时自动启动应用（后台静默运行）</span>
+      </div>
+
+      <div class="toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="autoStart" @change="saveAutoStart" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">{{ autoStart ? '已开启' : '已关闭' }}</span>
+      </div>
+    </div>
+
     <!-- 全局快捷键 -->
     <div class="setting-card">
       <div class="setting-info">
@@ -164,6 +180,9 @@ const currentTheme = ref<'light' | 'dark'>(
   (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
 )
 
+/** 开机自启动 */
+const autoStart = ref(false)
+
 /**
  * 设置主题
  * @param theme - 主题名称
@@ -172,6 +191,13 @@ const setTheme = (theme: 'light' | 'dark') => {
   currentTheme.value = theme
   localStorage.setItem('theme', theme)
   document.documentElement.setAttribute('data-theme', theme)
+}
+
+/**
+ * 保存开机自启动设置
+ */
+async function saveAutoStart(): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { autoStart: autoStart.value })
 }
 
 /** 录制状态 */
@@ -450,6 +476,7 @@ onMounted(async () => {
 
   const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   currentShortcut.value = settings.shortcut
+  autoStart.value = settings.autoStart ?? false
   // 初始化更新服务器：从 UNC 路径反解 IP
   const ip = extractIpFromUrl(settings.serverUrl)
   selectedIp.value = ip || '10.15.8.28'
@@ -861,5 +888,60 @@ onUnmounted(() => {
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   color: #fff;
   box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
+}
+
+/* ========== 开关 ========== */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-color);
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
 }
 </style>

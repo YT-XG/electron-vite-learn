@@ -19,6 +19,8 @@ export interface AppSettings {
   shortcut: string
   /** 局域网更新服务器 UNC 路径，如 '\\10.15.2.28\dist' */
   serverUrl: string
+  /** 开机自启动 */
+  autoStart: boolean
   /** 翻译 API 地址（可选） */
   translateApiUrl?: string
   /** 翻译 API Key（可选） */
@@ -28,7 +30,8 @@ export interface AppSettings {
 /** 默认设置 */
 const DEFAULT_SETTINGS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+V',
-  serverUrl: '\\\\10.15.8.28\\dist'
+  serverUrl: '\\\\10.15.8.28\\dist',
+  autoStart: false
 }
 
 class SettingsService {
@@ -44,6 +47,7 @@ class SettingsService {
     this.filePath = join(app.getPath('userData'), 'settings.json')
     this.settings = this.#load()
     this.#registerShortcut()
+    this.#applyAutoStart()
     log.info('[Settings] 初始化完成，当前快捷键:', this.settings.shortcut)
   }
 
@@ -64,6 +68,7 @@ class SettingsService {
     this.settings = { ...this.settings, ...partial }
     this.#save()
     this.#registerShortcut()
+    this.#applyAutoStart()
     log.info('[Settings] 已更新，当前快捷键:', this.settings.shortcut)
   }
 
@@ -103,6 +108,18 @@ class SettingsService {
     } catch (err) {
       log.error('[Settings] 保存失败:', err)
     }
+  }
+
+  /**
+   * 应用开机自启动设置
+   * @description 调用 Electron 的 app.setLoginItemSettings 设置开机自启
+   */
+  #applyAutoStart(): void {
+    app.setLoginItemSettings({
+      openAtLogin: this.settings.autoStart,
+      openAsHidden: true
+    })
+    log.info('[Settings] 开机自启:', this.settings.autoStart ? '已开启' : '已关闭')
   }
 
   /**
