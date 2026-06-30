@@ -1,5 +1,5 @@
 import BallFrame from './BallFrame'
-import NoticeNewFrame from './NoticeNewFrame'
+import NoticeManager from './NoticeManager'
 import UpdateNewFrame from './UpdateNewFrame'
 import TestFrame from './TestFrame'
 import OpenDialogFrame from './OpenDialogFrame'
@@ -13,8 +13,8 @@ export default class WindowFactory {
   /** 悬浮球实例 */
   #ballFrame: BallFrame | null = null
 
-  /** 新版通知窗口实例 */
-  #noticeNewFrame: NoticeNewFrame | null = null
+  /** 多通知管理器 */
+  #noticeManager: NoticeManager | null = null
 
   /** 新版更新窗口实例 */
   #updateNewFrame: UpdateNewFrame | null = null
@@ -40,17 +40,22 @@ export default class WindowFactory {
   }
 
   /**
-   * 获取新版通知窗口
-   * @returns NoticeNewFrame 实例
+   * 获取多通知管理器
+   * @returns NoticeManager 实例
    */
-  getNoticeNewFrame(): NoticeNewFrame {
-    if (!this.#noticeNewFrame) {
-      this.#noticeNewFrame = new NoticeNewFrame()
-      this.#noticeNewFrame.onDestroyCallback = () => {
-        this.#noticeNewFrame = null
-      }
+  getNoticeManager(): NoticeManager {
+    if (!this.#noticeManager) {
+      this.#noticeManager = new NoticeManager()
     }
-    return this.#noticeNewFrame
+    return this.#noticeManager
+  }
+
+  /**
+   * 显示通知（便捷方法）
+   * @param options - 通知配置
+   */
+  showNoticeNew(options: import('./NoticeManager').NoticeOptions): void {
+    this.getNoticeManager().show(options)
   }
 
   /**
@@ -114,7 +119,7 @@ export default class WindowFactory {
    */
   destroyAll(): void {
     this.#ballFrame?.destroy()
-    this.#noticeNewFrame?.destroy()
+    this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.destroy()
     this.#testFrame?.destroy()
     this.#openDialogFrame?.destroy()
@@ -126,7 +131,7 @@ export default class WindowFactory {
    */
   closeAll(): void {
     this.#ballFrame?.close()
-    this.#noticeNewFrame?.destroy()
+    this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.hide()
     this.#openDialogFrame?.hide()
     this.#mainPageFrame?.close()
