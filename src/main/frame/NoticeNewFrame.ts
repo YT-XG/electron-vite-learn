@@ -19,8 +19,8 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 窗口底部距屏幕边缘的间距（像素） */
   private static readonly BOTTOM_MARGIN = 60
 
-  /** 自动销毁延迟时间（毫秒） */
-  private static readonly AUTO_DESTROY_DELAY = 5000
+  /** 显示时长（毫秒），默认 5000 */
+  #duration = 5000
 
   /** 待发送的消息 */
   #msg = ''
@@ -89,6 +89,14 @@ export default class NoticeNewFrame extends BaseFrame {
     // 自动检测链接并设置显示打开链接按钮
     this.#showOpenLink = NoticeNewFrame.#containsUrl(data)
     return this
+  }
+
+  /**
+   * 设置显示时长
+   * @param ms - 显示时长（毫秒）
+   */
+  setDuration(ms: number): void {
+    this.#duration = ms
   }
 
   /**
@@ -233,10 +241,58 @@ export default class NoticeNewFrame extends BaseFrame {
     // 显示窗口
     this.window!.show()
 
-    // 启动 5 秒自动销毁定时器
+    // 启动自动销毁定时器（使用实例级 duration）
     this.#destroyTimer = setTimeout(() => {
       this.destroy()
-    }, NoticeNewFrame.AUTO_DESTROY_DELAY)
+    }, this.#duration)
+  }
+
+  /**
+   * 平滑移动窗口到目标 Y 坐标
+   * @param targetY - 目标 Y 坐标
+   * @param animated - 是否使用动画，默认 true
+   */
+  moveTo(targetY: number, animated = true): void {
+    if (!this.isAlive()) return
+
+    if (!animated) {
+      const [x] = this.window!.getPosition()
+      this.window!.setPosition(x, targetY)
+      return
+    }
+
+    const [x, startY] = this.window!.getPosition()
+    if (startY === targetY) return
+
+    const duration = 300
+    const startTime = Date.now()
+
+    const animate = (): void => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      // 缓动函数：easeOutCubic - 先快后慢，自然停止
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+      const currentY = Math.round(startY + (targetY - startY) * easeOutCubic)
+
+      this.window!.setPosition(x, currentY)
+
+      if (progress < 1) {
+        setTimeout(animate, 8)
+      }
+    }
+
+    animate()
+  }
+
+  /**
+   * 获取窗口当前 Y 坐标
+   * @returns Y 坐标，窗口不存在时返回 0
+   */
+  getY(): number {
+    if (!this.isAlive()) return 0
+    const [, y] = this.window!.getPosition()
+    return y
   }
 
   /**
