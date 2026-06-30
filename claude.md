@@ -185,20 +185,25 @@ electron-vite-learn/
   ```
 
 ### 通知弹窗 (src/main/frame/NoticeNewFrame.ts)
-- **职责**: 底部居中弹出的通知提示窗口，支持翻译按钮（仅剪贴板通知显示）
+- **职责**: 底部居中弹出的通知提示窗口，支持翻译按钮和打开链接按钮
 - **功能**:
-  - 屏幕底部居中定位（距底部 60px）
+  - 窗口宽度固定为屏幕宽度（透明背景），给渲染进程更多扩展空间
+  - 通知卡片在窗口内居中显示，宽度根据文字内容自动适应（160px~500px）
+  - 透明区域鼠标穿透，仅卡片区域可交互
+  - 屏幕底部定位（距底部 60px）
   - 按需创建，不自动启动
   - 带有弹出/收起 CSS 动画
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 5 秒后自动销毁
   - **翻译按钮**：仅剪贴板复制文字时显示，其他通知（如检查更新）不显示
+  - **打开链接按钮**：自动检测文本中是否包含链接，如果包含则显示打开链接按钮（绿色渐变）
 - **IPC 接口**:
   - `to-main-NoticeNewFrame:ready` - 渲染进程已就绪，触发消息发送
-  - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（包含 showTranslate 参数）
+  - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（包含 showTranslate、showOpenLink 参数）
   - `to-main-NoticeNewFrame:translate` - 翻译按钮点击，打开翻译页面
+  - `to-main-NoticeNewFrame:openLink` - 打开链接按钮点击，使用系统默认浏览器打开链接
 - **公开方法**:
-  - `setMsg(text, showTranslate?)` - 设置通知消息，showTranslate 默认 false
+  - `setMsg(text, showTranslate?)` - 设置通知消息，自动检测链接并设置 showOpenLink
   - `showAtBottomCenter()` - 在屏幕底部居中显示通知弹窗
 - **使用方式**:
   ```typescript
@@ -211,7 +216,11 @@ electron-vite-learn/
   noticeFrame.setMsg('复制的文本内容', true)
   noticeFrame.showAtBottomCenter()
 
-  // 显示其他通知（不显示翻译按钮）
+  // 显示包含链接的通知（自动显示打开链接按钮）
+  noticeFrame.setMsg('请访问 https://example.com 查看详情')
+  noticeFrame.showAtBottomCenter()
+
+  // 显示其他通知（不显示翻译按钮和打开链接按钮）
   noticeFrame.setMsg('正在检查更新...')
   noticeFrame.showAtBottomCenter()
   ```
