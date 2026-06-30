@@ -142,21 +142,38 @@ export default class MainPageFrame extends BaseFrame {
   }
 
   /**
-   * 最小化窗口让 Windows 自然恢复焦点（用于粘贴场景）
+   * 最小化窗口让系统恢复焦点（用于粘贴场景）
    *
-   * 原理：`minimize()` 比 `hide()` 更能可靠地触发焦点转移。
-   * Windows 最小化一个窗口时，一定会把焦点交给下一个窗口（而非丢到桌面）。
-   * 因为 MainPage 有 skipTaskbar: true，最小化是无动画不可见的。
+   * Windows:
+   *   `minimize()` 比 `hide()` 更能可靠地触发焦点转移。
+   *   Windows 最小化一个窗口时，一定会把焦点交给下一个窗口（而非丢到桌面）。
+   *   因为 MainPage 有 skipTaskbar: true，最小化是无动画不可见的。
    *
-   * 先移除 alwaysOnTop，这样 minimize 时 Windows 从"普通窗口"栈里选焦点窗口，
-   * 焦点会回到用户打开剪贴板之前用的那个窗口。
+   * macOS:
+   *   使用 `hide()` + `app.hide()` 来隐藏应用，让系统焦点回到上一个应用。
+   *   macOS 上 minimize 不会自动恢复焦点，需要隐藏整个应用。
    *
-   * 下次 showCentered() 会自动恢复 alwaysOnTop。
+   * 先移除 alwaysOnTop，下次 showCentered() 会自动恢复。
    */
   minimizeForPaste(): void {
     if (this.window && !this.window.isDestroyed() && this.window.isVisible()) {
       this.window.setAlwaysOnTop(false)
-      this.window.minimize()
+
+      if (process.platform === 'darwin') {
+        // macOS: 隐藏当前窗口 + 隐藏整个应用，让系统恢复焦点
+        this.window.hide()
+        // app.hide() 会隐藏所有窗口，让焦点回到上一个应用
+        app.hide()
+        // 延迟恢复 app 状态，让焦点有时间转移
+        setTimeout(() => {
+          // app.unhide() 但不显示窗口，这样下次 showCentered() 时才显示
+          // 注意：unhide() 是 macOS 特有 API，TypeScript 类型定义可能不包含
+          ;(app as any).unhide()
+        }, 200)
+      } else {
+        // Windows: 使用 minimize，Windows 会自动恢复焦点
+        this.window.minimize()
+      }
     }
   }
 

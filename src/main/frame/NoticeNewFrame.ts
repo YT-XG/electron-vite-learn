@@ -1,6 +1,7 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, screen, shell } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
+import { getBottomMargin } from '../utils/platform'
 
 /**
  * 通知弹窗
@@ -170,8 +171,9 @@ export default class NoticeNewFrame extends BaseFrame {
 
     // 左对齐到屏幕工作区
     const x = workArea.x
-    // 距底部 80px
-    const y = workArea.y + workArea.height - NoticeNewFrame.POPUP_HEIGHT - NoticeNewFrame.BOTTOM_MARGIN
+    // 距底部 60px（macOS 会额外加上 Dock 高度）
+    const bottomMargin = getBottomMargin(NoticeNewFrame.BOTTOM_MARGIN)
+    const y = workArea.y + workArea.height - NoticeNewFrame.POPUP_HEIGHT - bottomMargin
 
     return { x: Math.round(x), y: Math.round(y) }
   }
@@ -191,9 +193,11 @@ export default class NoticeNewFrame extends BaseFrame {
       const startTime = Date.now()
       const [x, startY] = this.window!.getPosition()
 
-      // 目标位置：屏幕底部外
+      // 目标位置：屏幕底部外（考虑 macOS Dock）
       const display = screen.getPrimaryDisplay()
-      const screenHeight = display.workArea.height + display.workArea.y
+      const { workArea, bounds } = display
+      const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
+      const screenHeight = workArea.height + workArea.y + dockHeight
       const targetY = screenHeight + 10
 
       const animate = (): void => {

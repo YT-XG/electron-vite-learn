@@ -5,6 +5,7 @@
  */
 import { BrowserWindowConstructorOptions, screen } from 'electron'
 import BaseFrame from './BaseFrame'
+import { getBottomMargin } from '../utils/platform'
 
 /** Claude Code 状态类型 */
 export type ClaudeCodeStatus =
@@ -116,9 +117,10 @@ export default class ClaudeCodeStatusFrame extends BaseFrame {
 
     // 水平居中
     const x = Math.round(workArea.x + (workArea.width - ClaudeCodeStatusFrame.POPUP_WIDTH) / 2)
-    // 距底部 120px（比普通通知高 60px）
+    // 距底部 120px（比普通通知高 60px，macOS 会额外加上 Dock 高度）
+    const bottomMargin = getBottomMargin(ClaudeCodeStatusFrame.BOTTOM_MARGIN)
     const y = Math.round(
-      workArea.y + workArea.height - ClaudeCodeStatusFrame.POPUP_HEIGHT - ClaudeCodeStatusFrame.BOTTOM_MARGIN
+      workArea.y + workArea.height - ClaudeCodeStatusFrame.POPUP_HEIGHT - bottomMargin
     )
 
     return { x, y }

@@ -2,6 +2,7 @@
 import { screen } from 'electron'
 import NoticeNewFrame from './NoticeNewFrame'
 import ClaudeCodeStatusFrame, { type ClaudeCodeStatus } from './ClaudeCodeStatusFrame'
+import { getBottomMargin } from '../utils/platform'
 
 /** 通知配置选项 */
 export interface NoticeOptions {
@@ -103,8 +104,10 @@ export default class NoticeManager {
   private calcY(index: number): number {
     const display = screen.getPrimaryDisplay()
     const { workArea } = display
+    // macOS 需要额外加上 Dock 高度
+    const bottomMargin = getBottomMargin(this.BOTTOM_MARGIN)
     return Math.round(
-      workArea.y + workArea.height - this.BOTTOM_MARGIN - this.POPUP_HEIGHT - (this.POPUP_HEIGHT + this.GAP) * index
+      workArea.y + workArea.height - bottomMargin - this.POPUP_HEIGHT - (this.POPUP_HEIGHT + this.GAP) * index
     )
   }
 

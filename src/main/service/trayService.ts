@@ -19,6 +19,9 @@ export class TrayService {
   /** 是否正在检查更新（防抖） */
   #isChecking = false
 
+  /** 是否为 macOS 平台 */
+  private readonly isMacOS = process.platform === 'darwin'
+
   /**
    * 构造函数
    */
@@ -49,7 +52,20 @@ export class TrayService {
    * @description 不直接设置到托盘，由 right-click 事件手动弹出
    */
   private buildContextMenu(): void {
-    this.contextMenu = Menu.buildFromTemplate([
+    const template: Electron.MenuItemConstructorOptions[] = []
+
+    // macOS: 添加"显示主窗口"选项（因为左键是弹菜单，需要手动触发显示）
+    if (this.isMacOS) {
+      template.push({
+        label: '显示主窗口',
+        click: () => {
+          windowFactory.getMainPageFrame().showCentered()
+        }
+      })
+      template.push({ type: 'separator' })
+    }
+
+    template.push(
       {
         label: '检查更新',
         click: () => {
@@ -63,20 +79,31 @@ export class TrayService {
           this.quitApp()
         }
       }
-    ])
+    )
+
+    this.contextMenu = Menu.buildFromTemplate(template)
   }
 
   /**
    * 设置事件监听器
-   * @description 左键单击打开/隐藏主页面，右键显示菜单
+   * @description macOS 左键弹出菜单，Windows 左键切换主页面，右键显示菜单
    */
   private setupEventListeners(): void {
-    // Windows 上左键单击托盘图标 —— 切换主页面显示/隐藏
-    this.tray?.on('click', () => {
-      windowFactory.getMainPageFrame().showCentered()
-    })
+    if (this.isMacOS) {
+      // macOS: 左键单击弹出上下文菜单（macOS 菜单栏托盘行为）
+      this.tray?.on('click', () => {
+        if (this.contextMenu) {
+          this.tray?.popUpContextMenu(this.contextMenu)
+        }
+      })
+    } else {
+      // Windows: 左键单击切换主页面显示/隐藏
+      this.tray?.on('click', () => {
+        windowFactory.getMainPageFrame().showCentered()
+      })
+    }
 
-    // 右键单击显示上下文菜单
+    // 右键单击显示上下文菜单（两个平台都需要）
     this.tray?.on('right-click', () => {
       if (this.contextMenu) {
         this.tray?.popUpContextMenu(this.contextMenu)

@@ -7,6 +7,7 @@ import { BrowserWindowConstructorOptions, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 import type { PermissionRequestInfo } from '../service/claudeCodeService'
 import { claudeCodeService } from '../service/claudeCodeService'
+import { getBottomMargin } from '../utils/platform'
 
 export default class PermissionNoticeFrame extends BaseFrame {
   /** 弹窗高度（包含工具信息和按钮） */
@@ -23,6 +24,9 @@ export default class PermissionNoticeFrame extends BaseFrame {
 
   /** 消息是否已发送给渲染进程 */
   #msgSent = false
+
+  /** 隐藏动画定时器 */
+  #hideTimer: ReturnType<typeof setTimeout> | null = null
 
   /** 窗口配置 - 透明无边框气泡 */
   protected readonly options: BrowserWindowConstructorOptions = {
@@ -87,6 +91,11 @@ export default class PermissionNoticeFrame extends BaseFrame {
         this.destroy()
       }
     )
+
+    // 渲染进程请求销毁窗口（隐藏动画完成后）
+    this.recvOne('to-main-PermissionNoticeFrame:destroy', () => {
+      this.destroy()
+    })
   }
 
   /**
@@ -99,8 +108,9 @@ export default class PermissionNoticeFrame extends BaseFrame {
 
     // 水平居中
     const x = Math.round(workArea.x + (workArea.width - PermissionNoticeFrame.POPUP_WIDTH) / 2)
-    // 距底部 60px
-    const y = Math.round(workArea.y + workArea.height - PermissionNoticeFrame.POPUP_HEIGHT - PermissionNoticeFrame.BOTTOM_MARGIN)
+    // 距底部 60px（macOS 会额外加上 Dock 高度）
+    const bottomMargin = getBottomMargin(PermissionNoticeFrame.BOTTOM_MARGIN)
+    const y = Math.round(workArea.y + workArea.height - PermissionNoticeFrame.POPUP_HEIGHT - bottomMargin)
 
     return { x, y }
   }
@@ -147,9 +157,28 @@ export default class PermissionNoticeFrame extends BaseFrame {
   }
 
   /**
+   * 隐藏权限确认窗口（带淡出动画）
+   * @description 供 claudeCodeService 调用，当权限被解决或超时后隐藏窗口
+   */
+  hideWithAnimation(): void {
+    if (this.#hideTimer) {
+      clearTimeout(this.#hideTimer)
+    }
+
+    if (!this.isAlive()) return
+
+    // 通知渲染进程播放淡出动画
+    this.sendOne('to-renderer-PermissionNoticeFrame:hide')
+  }
+
+  /**
    * 销毁窗口
    */
   destroy(): void {
+    if (this.#hideTimer) {
+      clearTimeout(this.#hideTimer)
+      this.#hideTimer = null
+    }
     this.#msgSent = false
     this.#permissionInfo = null
     super.destroy()

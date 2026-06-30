@@ -10,7 +10,7 @@
         <div class="notice-content">
           <div class="notice-header">
             <span class="notice-icon">⚠️</span>
-            <span class="notice-title">Claude Code 请求权限</span>
+            <span class="notice-title">{{ isAskUserQuestion ? 'Claude Code 提问' : 'Claude Code 请求权限' }}</span>
           </div>
           <div class="notice-info">
             <span class="info-label">工具:</span>
@@ -18,7 +18,8 @@
             <span v-if="command" class="info-command">{{ truncateCommand(command) }}</span>
           </div>
         </div>
-        <div class="btn-group">
+        <!-- AskUserQuestion 工具不需要按钮（这是 Claude 向用户提问，不是权限请求） -->
+        <div v-if="!isAskUserQuestion" class="btn-group">
           <button class="btn btn-deny" @click="resolve('deny')" title="拒绝">
             拒绝
           </button>
@@ -35,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 
 /** 权限请求信息 */
 interface PermissionInfo {
@@ -59,6 +60,9 @@ const description = ref('')
 
 /** 是否可见（触发入场缩放动画） */
 const isVisible = ref(false)
+
+/** 是否为 AskUserQuestion 工具（Claude 向用户提问，不需要权限按钮） */
+const isAskUserQuestion = computed(() => toolName.value === 'AskUserQuestion')
 
 /**
  * 截断过长的命令
@@ -117,6 +121,15 @@ onMounted(() => {
       })
     }
   )
+
+  // 监听主进程发送的隐藏窗口指令（权限被解决或超时后）
+  window.electron.ipcRenderer.on('to-renderer-PermissionNoticeFrame:hide', () => {
+    isVisible.value = false
+    // 动画完成后通知主进程销毁窗口
+    setTimeout(() => {
+      window.electron.ipcRenderer.send('to-main-PermissionNoticeFrame:destroy')
+    }, 300)
+  })
 })
 </script>
 

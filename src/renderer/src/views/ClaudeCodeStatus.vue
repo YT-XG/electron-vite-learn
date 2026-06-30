@@ -2,7 +2,7 @@
   <div class="status-container" :class="{ 'fade-in': isVisible, 'fade-out': isHiding }">
     <div class="status-card">
       <div class="status-inner">
-        <span class="status-icon">{{ icon }}</span>
+<!--        <span class="status-icon">{{ icon }}</span>-->
         <span class="status-text">{{ displayText }}</span>
       </div>
     </div>

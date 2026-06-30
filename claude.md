@@ -28,6 +28,8 @@ electron-vite-learn/
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
+│   │   └── utils/              # 主进程工具函数
+│   │       └── platform.ts     # 平台相关工具函数（macOS/Windows 差异处理）
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
 │   │   └── index.d.ts          # 类型定义
@@ -99,9 +101,10 @@ electron-vite-learn/
 - **职责**: 管理应用生命周期、创建窗口、处理系统级操作
 - **关键文件**:
   - `index.ts` - 主进程入口，应用生命周期管理
-  - `trayService.ts` - 系统托盘服务
+  - `trayService.ts` - 系统托盘服务（支持 macOS 菜单栏和 Windows 托盘）
   - `clipboardService.ts` - 剪贴板历史服务（sql.js SQLite 持久化）
   - `inputService.ts` - 模拟输入服务（跨平台键盘模拟，支持自动粘贴）
+  - `utils/platform.ts` - 平台工具函数（macOS/Windows 差异处理，如 Dock 高度计算）
 - **依赖**: electron, @electron-toolkit/utils, sql.js, @nut-tree/nut-js
 
 ### 窗口框架 (src/main/frame/)
@@ -286,7 +289,7 @@ electron-vite-learn/
 ### 更新窗口 (src/main/frame/UpdateNewFrame.ts)
 - **职责**: 底部居中弹出的更新提示窗口，包含完整的局域网更新逻辑
 - **功能**:
-  - 屏幕底部居中定位（距底部 60px）
+  - 屏幕底部居中定位（距底部 60px，macOS 自动适配 Dock 高度）
   - 按需创建，不自动启动
   - 带有弹出/收起 CSS 动画
   - 透明无边框窗口，玻璃拟态卡片风格
@@ -297,6 +300,8 @@ electron-vite-learn/
   - 本地缓存检查：优先检查本地是否已下载该版本
   - 下载进度实时显示
   - 下载完成后显示安装按钮
+  - **跨平台安装**：Windows 启动 `.exe`，macOS 支持 `.dmg`（挂载）和 `.app`（直接启动）
+  - **跨平台路径验证**：自动检测平台，提供友好的错误提示（macOS 提示挂载共享文件夹）
 - **IPC 接口**:
   - `update-new:ready` - 渲染进程已就绪，触发检查更新
   - `update-new:download` - 渲染进程请求下载更新
@@ -307,8 +312,10 @@ electron-vite-learn/
   - `lan-update-downloaded` - 主进程发送下载完成通知
   - `lan-update-error` - 主进程发送错误信息
 - **配置方式**:
-  - 设置页面: 用户可在「设置 → 更新服务器」中手动修改 UNC 路径
-  - 默认值: `\\10.15.2.28\dist`（在 settingsService 中配置）
+  - 设置页面: 用户可在「设置 → 更新服务器」中修改路径
+  - Windows 默认值: `\\10.15.8.28\dist`（UNC 路径）
+  - macOS 默认值: `/Volumes/dist`（需先在 Finder 中挂载 SMB 共享）
+  - macOS 挂载方法: Finder → 前往 → 连接服务器（⌘K）→ 输入 `smb://10.15.8.28/dist`
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
@@ -333,6 +340,9 @@ electron-vite-learn/
   - 入场动画：scale + opacity 弹性过渡
   - 侧边栏布局：左侧菜单栏（支持收缩/展开） + 右侧内容区
   - **翻译跳转**：支持从通知弹窗跳转到翻译页面并自动填充文本
+  - **跨平台焦点恢复**：
+    - Windows: `minimize()` 自动恢复焦点到上一个窗口
+    - macOS: `hide()` + `app.hide()` 隐藏应用，让系统焦点回到上一个应用
 - **IPC 接口**:
   - `main-page:minimize` - 最小化窗口
   - `main-page:ready` - 渲染进程已就绪，触发版本号发送
@@ -419,17 +429,24 @@ electron-vite-learn/
 - **功能**:
   - 设置持久化到 userData/settings.json
   - 支持快捷键自定义（跨平台 CommandOrControl 格式）
-  - 支持局域网更新服务器 UNC 路径配置
+  - 支持局域网更新服务器路径配置（**跨平台自动适配**）
   - 支持翻译 API 地址和 Key 配置（可选，用于自定义翻译服务）
   - 支持开机自启动（通过 Electron app.setLoginItemSettings 实现）
   - 热重载：update() 后立即重新注册全局快捷键和开机自启
   - 边界处理：文件损坏/不存在时自动返回默认值
+  - **跨平台路径自动修正**：加载配置时自动检测并修正不匹配当前平台的 serverUrl
 - **配置项**:
   - `shortcut` - 全局快捷键（默认 `CommandOrControl+Alt+V`）
-  - `serverUrl` - 局域网更新服务器 UNC 路径（默认 `\\10.15.2.28\dist`）
+  - `serverUrl` - 局域网更新服务器路径（**跨平台默认值**）
+    - Windows 默认: `\\10.15.8.28\dist`（UNC 路径）
+    - macOS 默认: `/Volumes/dist`（**macOS 用户只需挂载共享文件夹，无需手动填写路径**）
   - `autoStart` - 开机自启动（默认 `false`）
   - `translateApiUrl` - 翻译 API 地址（可选，默认使用 MyMemory 免费 API）
   - `translateApiKey` - 翻译 API Key（可选，用于自定义翻译服务认证）
+- **macOS 使用方法**:
+  1. 在 Finder 中挂载共享文件夹（⌘K → 输入 `smb://10.15.8.28/dist`）
+  2. 挂载成功后路径自动为 `/Volumes/dist`，**无需手动填写**
+  3. 应用会自动从挂载的共享文件夹检查更新
 - **IPC 接口**:
   - `settings:get` - 获取所有设置
   - `settings:update` - 更新设置（合并写入）
@@ -443,8 +460,11 @@ electron-vite-learn/
   // 获取设置
   const settings = settingsService.getAll()
 
-  // 更新设置
+  // 更新设置（Windows）
   settingsService.update({ serverUrl: '\\\\192.168.1.100\\dist' })
+
+  // 更新设置（macOS，通常不需要手动调用，默认值已正确）
+  settingsService.update({ serverUrl: '/Volumes/dist' })
   ```
 
 ### 翻译服务 (src/main/service/translateService.ts)
@@ -531,13 +551,16 @@ electron-vite-learn/
 - **职责**: 底部居中弹出的权限确认窗口，用于 Claude Code 权限请求交互
 - **功能**:
   - 显示工具名称、命令内容
-  - 提供拒绝/同意/全部同意三个按钮
+  - 提供拒绝/同意/全部同意三个按钮（**AskUserQuestion 工具不显示按钮**）
   - 点击按钮后通过 IPC 通知主进程，主进程写回 HTTP 响应
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 支持鼠标穿透（透明区域可点击）
+  - **自动隐藏**：权限被解决或超时后，窗口自动淡出隐藏
 - **IPC 接口**:
   - `to-renderer-PermissionNoticeFrame:show` - 显示权限确认窗口（主进程发送）
+  - `to-renderer-PermissionNoticeFrame:hide` - 隐藏窗口（主进程发送，权限解决后）
   - `to-main-PermissionNoticeFrame:resolve` - 用户点击按钮（渲染进程发送）
+  - `to-main-PermissionNoticeFrame:destroy` - 销毁窗口（渲染进程发送，动画完成后）
   - `to-main-PermissionNoticeFrame:mouse-enter-card` - 鼠标进入卡片区域
   - `to-main-PermissionNoticeFrame:mouse-leave-card` - 鼠标离开卡片区域
 - **使用方式**:
@@ -610,7 +633,8 @@ electron-vite-learn/
 - **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
 - **功能**:
   - 创建系统托盘图标
-  - 左键单击：切换主页面显示/隐藏
+  - **Windows**: 左键单击切换主页面显示/隐藏，右键弹出菜单
+  - **macOS**: 左键单击弹出菜单（菜单栏托盘行为），菜单包含"显示主窗口"选项
   - 右键菜单：检查更新、退出
   - 点击"检查更新"：打开更新窗口
   - 点击"退出"菜单才真正退出应用
@@ -624,6 +648,14 @@ electron-vite-learn/
   // 退出时销毁
   trayService.destroy()
   ```
+
+### 主进程工具函数 (src/main/utils/)
+- **职责**: 封装主进程通用工具函数
+- **关键文件**:
+  - `platform.ts` - 平台相关工具函数（macOS/Windows 差异处理）
+- **主要函数**:
+  - `getBottomMargin(baseMargin)` - 获取屏幕底部安全间距（macOS 自动加上 Dock 高度）
+  - `isMacOS()` - 判断是否为 macOS 平台
 
 ### 预加载脚本 (src/preload/)
 - **职责**: 在主进程和渲染进程之间建立安全的桥梁
@@ -675,6 +707,9 @@ electron-vite-learn/
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
   - `ClipboardManager.vue` - 剪贴板管理（历史记录 + 收藏）
   - `Translate.vue` - 翻译页面，支持多语言文本翻译和历史记录
+  - `Settings.vue` - 设置页面，支持外观主题、开机自启、全局快捷键、更新服务器、翻译 API 配置
+    - **跨平台更新服务器**：Windows 显示 UNC 路径选择器，macOS 显示 SMB 挂载路径输入框
+    - **macOS 挂载帮助**：可展开的步骤说明，指导用户如何在 Finder 中挂载共享文件夹
   - `Test.vue` - 测试页面
 
 ## 开发命令

@@ -629,6 +629,12 @@ class ClaudeCodeService {
       // 响应已结束，忽略
     }
 
+    // 隐藏权限确认窗口（带淡出动画）
+    const noticeFrame = windowFactory.getPermissionNoticeFrame()
+    if (noticeFrame.isAlive()) {
+      noticeFrame.hideWithAnimation()
+    }
+
     log.info(`[ClaudeCode] 权限决策已写回: session=${sessionId}, decision=${decision}`)
     return true
   }
