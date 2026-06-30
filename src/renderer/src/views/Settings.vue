@@ -94,12 +94,63 @@
       </Transition>
     </div>
 
-    <!-- 局域网更新服务器 -->
+    <!-- 更新源选择 -->
     <div class="setting-card">
       <div class="setting-info">
-        <span class="setting-label">更新服务器</span>
-        <span class="setting-hint">选择或输入服务器 IP，检查更新时会从该地址读取 latest.yml</span>
+        <span class="setting-label">更新源</span>
+        <span class="setting-hint">选择应用检查更新的来源</span>
       </div>
+
+      <div class="update-source-row">
+        <label class="radio-option" :class="{ active: updateSource === 'lan' }">
+          <input type="radio" v-model="updateSource" value="lan" @change="saveUpdateSource" />
+          <div class="radio-content">
+            <span class="radio-title">📂 局域网更新</span>
+            <span class="radio-desc">从共享文件夹检查更新（需要在同一网络）</span>
+          </div>
+        </label>
+
+        <label class="radio-option" :class="{ active: updateSource === 'github' }">
+          <input type="radio" v-model="updateSource" value="github" @change="saveUpdateSource" />
+          <div class="radio-content">
+            <span class="radio-title">🌐 GitHub 更新</span>
+            <span class="radio-desc">从 GitHub Releases 检查更新（需要网络连接）</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- GitHub 仓库地址（仅 GitHub 模式显示） -->
+      <Transition name="fade">
+        <div v-if="updateSource === 'github'" class="github-config">
+          <div class="form-group">
+            <label>仓库地址（owner/repo）</label>
+            <input
+              v-model="githubRepo"
+              type="text"
+              class="form-input"
+              placeholder="YT-XG/electron-vite-learn"
+              spellcheck="false"
+              @input="onGithubRepoInput"
+            />
+          </div>
+          <button class="btn btn-primary" @click="saveGithubRepo" :disabled="!isGithubRepoDirty">
+            ✅ 保存
+          </button>
+        </div>
+      </Transition>
+
+      <Transition name="fade">
+        <p v-if="showUpdateSourceTip" class="save-tip">✅ 更新源已保存</p>
+      </Transition>
+    </div>
+
+    <!-- 局域网更新服务器（仅局域网模式显示） -->
+    <Transition name="fade">
+      <div v-if="updateSource === 'lan'" class="setting-card">
+        <div class="setting-info">
+          <span class="setting-label">更新服务器</span>
+          <span class="setting-hint">选择或输入服务器 IP，检查更新时会从该地址读取 latest.yml</span>
+        </div>
 
       <!-- Windows: UNC 路径选择器 -->
       <template v-if="!isMacOS">
@@ -172,7 +223,8 @@
       <Transition name="fade">
         <p v-if="showServerUrlTip" class="save-tip">✅ 更新服务器地址已保存</p>
       </Transition>
-    </div>
+      </div>
+    </Transition>
 
     <!-- 翻译 API 配置 -->
     <div class="setting-card">
@@ -273,6 +325,17 @@ const serverUrlOrig = ref('')
 
 /** macOS 服务器路径 */
 const macServerPath = ref('')
+
+/** 更新源配置 */
+const updateSource = ref<'lan' | 'github'>('lan')
+const githubRepo = ref('')
+const showUpdateSourceTip = ref(false)
+const githubRepoOrig = ref('')
+
+/** GitHub 仓库地址是否有改动 */
+const isGithubRepoDirty = computed(() => {
+  return githubRepo.value !== '' && githubRepo.value !== githubRepoOrig.value
+})
 
 /** 翻译 API 配置 */
 const translateApiUrl = ref('')
@@ -485,6 +548,39 @@ async function saveServerUrl(): Promise<void> {
 }
 
 /**
+ * 保存更新源
+ */
+async function saveUpdateSource(): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', {
+    updateSource: updateSource.value
+  })
+  showUpdateSourceTip.value = true
+  setTimeout(() => {
+    showUpdateSourceTip.value = false
+  }, 3000)
+}
+
+/**
+ * 保存 GitHub 仓库地址
+ */
+async function saveGithubRepo(): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', {
+    githubRepo: githubRepo.value
+  })
+  githubRepoOrig.value = githubRepo.value
+  showUpdateSourceTip.value = true
+  setTimeout(() => {
+    showUpdateSourceTip.value = false
+  }, 3000)
+}
+
+/** GitHub 仓库地址输入 */
+function onGithubRepoInput(): void {
+  // 确保输入格式正确
+  githubRepo.value = githubRepo.value.trim()
+}
+
+/**
  * 保存翻译 API 配置
  */
 async function saveTranslateApi(): Promise<void> {
@@ -552,6 +648,11 @@ onMounted(async () => {
     }
   }
   serverUrlOrig.value = settings.serverUrl
+
+  // 初始化更新源配置
+  updateSource.value = settings.updateSource || 'lan'
+  githubRepo.value = settings.githubRepo || 'YT-XG/electron-vite-learn'
+  githubRepoOrig.value = githubRepo.value
 
   // 初始化翻译 API 配置
   translateApiUrl.value = settings.translateApiUrl || ''
@@ -1079,6 +1180,68 @@ onUnmounted(() => {
 .form-input:focus {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+}
+
+/* ========== 更新源选择 ========== */
+.update-source-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color-hover);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.radio-option:hover {
+  border-color: var(--accent-blue);
+}
+
+.radio-option.active {
+  border-color: var(--accent-blue);
+  background: rgba(61, 139, 255, 0.05);
+}
+
+.radio-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
+.radio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radio-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.radio-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.github-config {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* ========== 主题切换器 ========== */

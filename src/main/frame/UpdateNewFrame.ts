@@ -14,6 +14,7 @@ import log from 'electron-log'
 import * as yaml from 'js-yaml'
 import semver from 'semver'
 import { settingsService } from '../service/settingsService'
+import { githubUpdateService, GitHubUpdateInfo } from '../service/githubUpdateService'
 import { getBottomMargin, isMacOS } from '../utils/platform'
 
 /** 更新信息接口 */
@@ -257,11 +258,83 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 检查是否有可用更新
-   * @description 先检查本地缓存，再检查远程服务器（带超时控制，避免 UNC 路径不可达时阻塞）
+   * @description 根据设置选择更新源（局域网或 GitHub）
    * @returns 更新信息，如果没有更新返回 null
    */
   async checkForUpdates(): Promise<UpdateInfo | null> {
     console.log('进入检测更新状态')
+    const settings = settingsService.getAll()
+
+    // 根据设置选择更新源
+    if (settings.updateSource === 'github') {
+      return this.checkGitHubUpdates()
+    }
+    return this.checkLanUpdates()
+  }
+
+  /**
+   * 检查 GitHub 更新
+   * @description 从 GitHub Releases 检查更新
+   */
+  private async checkGitHubUpdates(): Promise<UpdateInfo | null> {
+    try {
+      const settings = settingsService.getAll()
+      const repo = settings.githubRepo
+
+      log.info('[UpdateNew] 检查 GitHub 更新，仓库:', repo)
+
+      const githubInfo = await githubUpdateService.checkForUpdates(repo)
+      if (!githubInfo) {
+        await this.destroy()
+        return { file: '', sha512: '', size: 0, version: '', msg: '已是最新版本' }
+      }
+
+      // 转换为统一的 UpdateInfo 格式
+      const updateInfo: UpdateInfo = {
+        version: githubInfo.version,
+        file: githubInfo.file,
+        size: githubInfo.size,
+        sha512: '',
+        releaseNotes: githubInfo.releaseNotes,
+        releaseDate: githubInfo.releaseDate
+      }
+
+      log.info('[UpdateNew] GitHub 发现新版本:', updateInfo)
+
+      // 保存更新信息供下载和安装使用
+      this.currentUpdateInfo = updateInfo
+
+      // 检查本地缓存是否已有该版本的安装包
+      const cachedPath = this.findCachedUpdate(githubInfo.version)
+      if (cachedPath) {
+        log.info('[UpdateNew] 本地已缓存该版本，直接显示安装按钮')
+        this.currentDownloadPath = cachedPath
+        // 通知渲染进程：已下载完成，可直接安装
+        this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
+      }
+
+      // 显示更新窗口
+      await this.showUpdate({ version: githubInfo.version, updateInfo })
+      return updateInfo
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      log.error('[UpdateNew] GitHub 更新检查失败:', errorMessage)
+      return {
+        file: '',
+        sha512: '',
+        size: 0,
+        version: '',
+        msg: `检查更新失败: ${errorMessage}`
+      }
+    }
+  }
+
+  /**
+   * 检查局域网更新
+   * @description 从共享文件夹检查更新（保留原有逻辑）
+   */
+  private async checkLanUpdates(): Promise<UpdateInfo | null> {
+    console.log('进入检测更新状态（局域网）')
     try {
       // 验证服务器路径
       const validationError = this.#validateServerUrl()
@@ -386,72 +459,17 @@ export default class UpdateNewFrame extends BaseFrame {
     }
 
     this.isDownloading = true
+    const settings = settingsService.getAll()
 
     try {
-      // 构建远程文件路径
-      const remoteFilePath = join(this.config.serverUrl, info.file)
-      log.info('[LanUpdate] 服务器地址:', this.config.serverUrl)
-      log.info('[LanUpdate] 文件名:', info.file)
-      log.info('[LanUpdate] 完整路径:', remoteFilePath)
-      // 带超时检查文件是否存在（避免访问不可达 UNC 路径时长时间阻塞）
-      log.info('[LanUpdate] 检查源文件是否存在...')
-      const srcExists = await this.checkFileExistsWithTimeout(remoteFilePath)
-      log.info('[LanUpdate] 源文件存在:', srcExists)
-      if (!srcExists) {
-        throw new Error(`更新文件不存在或访问超时: ${remoteFilePath}`)
+      // 根据更新源选择下载方式
+      if (settings.updateSource === 'github') {
+        return await this.downloadGitHubUpdate(info)
       }
-
-      // 构建本地保存路径
-      const localFileName = `update-${info.version}-${info.file}`
-      const localFilePath = join(this.config.cacheDir, localFileName)
-      this.currentDownloadPath = localFilePath
-
-      log.info('[LanUpdate] 保存到:', localFilePath)
-
-      // 确保目标目录存在
-      log.info('[LanUpdate] 创建缓存目录...')
-      mkdirSync(this.config.cacheDir, { recursive: true })
-      log.info('[LanUpdate] 缓存目录就绪')
-
-      // 报告 0% 进度
-      this.sendOne('to-renderer-UpdateNewFrame:progress', {
-        transferred: 0,
-        total: info.size,
-        bytesPerSecond: 0,
-        percent: 0
-      })
-
-      // 使用 copyFileSync 复制文件（支持 UNC 网络路径）
-      log.info('[LanUpdate] 开始复制文件...')
-      const startTime = Date.now()
-      copyFileSync(remoteFilePath, localFilePath)
-      const elapsed = (Date.now() - startTime) / 1000
-
-      log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
-
-      // 报告 100% 进度
-      this.sendOne('to-renderer-UpdateNewFrame:progress', {
-        transferred: info.size,
-        total: info.size,
-        bytesPerSecond: 0,
-        percent: 100
-      })
-
-      // 验证文件大小
-      log.info('[LanUpdate] 验证下载文件...')
-      const downloadedSize = statSync(localFilePath).size
-      log.info(`[LanUpdate] 预期大小: ${info.size}, 实际大小: ${downloadedSize}`)
-      if (info.size > 0 && downloadedSize !== info.size) {
-        log.warn(`[LanUpdate] 文件大小不匹配: 预期 ${info.size}, 实际 ${downloadedSize}`)
-      }
-
-      log.info('[LanUpdate] 下载完成:', localFilePath)
-      this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: localFilePath })
-
-      return localFilePath
+      return await this.downloadLanUpdate(info)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      log.error('[LanUpdate] 下载失败:', errorMessage)
+      log.error('[UpdateNew] 下载失败:', errorMessage)
 
       // 清理失败的下载文件
       if (this.currentDownloadPath && existsSync(this.currentDownloadPath)) {
@@ -467,6 +485,118 @@ export default class UpdateNewFrame extends BaseFrame {
     } finally {
       this.isDownloading = false
     }
+  }
+
+  /**
+   * 从 GitHub 下载更新包
+   * @param info - 更新信息
+   */
+  private async downloadGitHubUpdate(info: UpdateInfo): Promise<string> {
+    log.info('[UpdateNew] 从 GitHub 下载更新:', info.file)
+
+    // 构建 GitHub 更新信息
+    const githubInfo: GitHubUpdateInfo = {
+      version: info.version,
+      releaseNotes: info.releaseNotes || '',
+      releaseDate: info.releaseDate || '',
+      file: info.file,
+      size: info.size,
+      downloadUrl: `https://github.com/${settingsService.getAll().githubRepo}/releases/download/v${info.version}/${info.file}`
+    }
+
+    // 报告 0% 进度
+    this.sendOne('to-renderer-UpdateNewFrame:progress', {
+      transferred: 0,
+      total: info.size,
+      bytesPerSecond: 0,
+      percent: 0
+    })
+
+    // 下载文件
+    const localPath = await githubUpdateService.downloadUpdate(githubInfo, (percent) => {
+      this.sendOne('to-renderer-UpdateNewFrame:progress', {
+        transferred: Math.round((info.size * percent) / 100),
+        total: info.size,
+        bytesPerSecond: 0,
+        percent
+      })
+    })
+
+    this.currentDownloadPath = localPath
+    log.info('[UpdateNew] GitHub 下载完成:', localPath)
+
+    // 通知渲染进程下载完成
+    this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: localPath })
+
+    return localPath
+  }
+
+  /**
+   * 从局域网下载更新包
+   * @param info - 更新信息
+   */
+  private async downloadLanUpdate(info: UpdateInfo): Promise<string> {
+    // 构建远程文件路径
+    const remoteFilePath = join(this.config.serverUrl, info.file)
+    log.info('[LanUpdate] 服务器地址:', this.config.serverUrl)
+    log.info('[LanUpdate] 文件名:', info.file)
+    log.info('[LanUpdate] 完整路径:', remoteFilePath)
+    // 带超时检查文件是否存在（避免访问不可达 UNC 路径时长时间阻塞）
+    log.info('[LanUpdate] 检查源文件是否存在...')
+    const srcExists = await this.checkFileExistsWithTimeout(remoteFilePath)
+    log.info('[LanUpdate] 源文件存在:', srcExists)
+    if (!srcExists) {
+      throw new Error(`更新文件不存在或访问超时: ${remoteFilePath}`)
+    }
+
+    // 构建本地保存路径
+    const localFileName = `update-${info.version}-${info.file}`
+    const localFilePath = join(this.config.cacheDir, localFileName)
+    this.currentDownloadPath = localFilePath
+
+    log.info('[LanUpdate] 保存到:', localFilePath)
+
+    // 确保目标目录存在
+    log.info('[LanUpdate] 创建缓存目录...')
+    mkdirSync(this.config.cacheDir, { recursive: true })
+    log.info('[LanUpdate] 缓存目录就绪')
+
+    // 报告 0% 进度
+    this.sendOne('to-renderer-UpdateNewFrame:progress', {
+      transferred: 0,
+      total: info.size,
+      bytesPerSecond: 0,
+      percent: 0
+    })
+
+    // 使用 copyFileSync 复制文件（支持 UNC 网络路径）
+    log.info('[LanUpdate] 开始复制文件...')
+    const startTime = Date.now()
+    copyFileSync(remoteFilePath, localFilePath)
+    const elapsed = (Date.now() - startTime) / 1000
+
+    log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
+
+    // 报告 100% 进度
+    this.sendOne('to-renderer-UpdateNewFrame:progress', {
+      transferred: info.size,
+      total: info.size,
+      bytesPerSecond: 0,
+      percent: 100
+    })
+
+    // 验证文件大小
+    log.info('[LanUpdate] 验证下载文件...')
+    const downloadedSize = statSync(localFilePath).size
+    log.info(`[LanUpdate] 预期大小: ${info.size}, 实际大小: ${downloadedSize}`)
+    if (info.size > 0 && downloadedSize !== info.size) {
+      log.warn(`[LanUpdate] 文件大小不匹配: 预期 ${info.size}, 实际 ${downloadedSize}`)
+    }
+
+    log.info('[LanUpdate] 下载完成:', localFilePath)
+    this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: localFilePath })
+
+    return localFilePath
   }
 
   /**

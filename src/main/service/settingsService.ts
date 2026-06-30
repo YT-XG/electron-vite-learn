@@ -29,6 +29,10 @@ export interface AppSettings {
   translateApiUrl?: string
   /** 翻译 API Key（可选） */
   translateApiKey?: string
+  /** 更新源：lan（局域网）或 github */
+  updateSource: 'lan' | 'github'
+  /** GitHub 仓库地址（格式：owner/repo） */
+  githubRepo: string
 }
 
 /**
@@ -50,7 +54,9 @@ function getDefaultServerUrl(): string {
 const DEFAULT_SETTINGS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+V',
   serverUrl: getDefaultServerUrl(),
-  autoStart: false
+  autoStart: false,
+  updateSource: 'github',
+  githubRepo: 'YT-XG/electron-vite-learn'
 }
 
 class SettingsService {

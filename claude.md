@@ -13,7 +13,8 @@ electron-vite-learn/
 │   │   │   ├── inputService.ts    # 模拟输入服务（键盘模拟，跨平台粘贴）
 │   │   │   ├── settingsService.ts # 应用设置服务（持久化到 settings.json）
 │   │   │   ├── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
-│   │   │   └── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
+│   │   │   ├── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
+│   │   │   └── githubUpdateService.ts # GitHub 更新服务（从 GitHub Releases 检查和下载更新）
 │   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -439,6 +440,7 @@ electron-vite-learn/
   - 热重载：update() 后立即重新注册全局快捷键和开机自启
   - 边界处理：文件损坏/不存在时自动返回默认值
   - **跨平台路径自动修正**：加载配置时自动检测并修正不匹配当前平台的 serverUrl
+  - **更新源切换**：支持局域网更新和 GitHub 更新两种模式
 - **配置项**:
   - `shortcut` - 全局快捷键（默认 `CommandOrControl+Alt+V`）
   - `serverUrl` - 局域网更新服务器路径（**跨平台默认值**）
@@ -447,6 +449,10 @@ electron-vite-learn/
   - `autoStart` - 开机自启动（默认 `false`）
   - `translateApiUrl` - 翻译 API 地址（可选，默认使用 MyMemory 免费 API）
   - `translateApiKey` - 翻译 API Key（可选，用于自定义翻译服务认证）
+  - `updateSource` - 更新源选择（默认 `lan`）
+    - `lan`: 局域网更新（从共享文件夹检查更新）
+    - `github`: GitHub 更新（从 GitHub Releases 检查更新）
+  - `githubRepo` - GitHub 仓库地址（默认 `YT-XG/electron-vite-learn`，格式：owner/repo）
 - **macOS 使用方法**:
   1. 在 Finder 中挂载共享文件夹（⌘K → 输入 `smb://10.15.8.28/dist`）
   2. 挂载成功后路径自动为 `/Volumes/dist`，**无需手动填写**
@@ -469,6 +475,12 @@ electron-vite-learn/
 
   // 更新设置（macOS，通常不需要手动调用，默认值已正确）
   settingsService.update({ serverUrl: '/Volumes/dist' })
+
+  // 切换到 GitHub 更新源
+  settingsService.update({
+    updateSource: 'github',
+    githubRepo: 'YT-XG/electron-vite-learn'
+  })
   ```
 
 ### 翻译服务 (src/main/service/translateService.ts)
@@ -616,6 +628,34 @@ electron-vite-learn/
 
   // 销毁状态通知
   windowFactory.getNoticeManager().destroyClaudeCodeStatus()
+  ```
+
+### GitHub 更新服务 (src/main/service/githubUpdateService.ts)
+- **职责**: 从 GitHub Releases 检查和下载应用更新
+- **功能**:
+  - 从 GitHub Releases API 获取最新版本信息
+  - 比较本地版本与远程版本
+  - **跨平台支持**：自动根据当前平台选择对应的安装包
+    - macOS: `.dmg` 文件
+    - Windows: `-setup.exe` 或 `.exe` 文件
+  - 支持下载进度回调
+  - 本地缓存已下载的更新（避免重复下载）
+- **依赖**: electron net 模块（无需额外依赖）
+- **IPC 接口**: 无（内部服务，由 UpdateNewFrame 调用）
+- **使用方式**:
+  ```typescript
+  import { githubUpdateService } from './service/githubUpdateService'
+
+  // 检查更新
+  const updateInfo = await githubUpdateService.checkForUpdates('YT-XG/electron-vite-learn')
+  if (updateInfo) {
+    console.log('发现新版本:', updateInfo.version)
+  }
+
+  // 下载更新
+  const localPath = await githubUpdateService.downloadUpdate(updateInfo, (percent) => {
+    console.log('下载进度:', percent + '%')
+  })
   ```
 
 ### 剪贴板管理页面 (src/renderer/src/views/ClipboardManager.vue)
