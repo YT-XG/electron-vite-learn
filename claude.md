@@ -206,6 +206,8 @@ electron-vite-learn/
 - **IPC 接口**:
   - `to-main-NoticeNewFrame:ready` - 渲染进程已就绪，触发消息发送
   - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（包含 showTranslate、showOpenLink 参数）
+  - `to-main-NoticeNewFrame:mouse-enter-card` - 鼠标进入通知卡片区域（关闭鼠标穿透）
+  - `to-main-NoticeNewFrame:mouse-leave-card` - 鼠标离开通知卡片区域（恢复鼠标穿透）
   - `to-main-NoticeNewFrame:translate` - 翻译按钮点击，打开翻译页面
   - `to-main-NoticeNewFrame:openLink` - 打开链接按钮点击，使用系统默认浏览器打开链接
 - **公开方法**:
@@ -395,17 +397,19 @@ electron-vite-learn/
   ```
 
 ### 应用设置服务 (src/main/service/settingsService.ts)
-- **职责**: 管理 settings.json 中的用户配置，支持全局快捷键、更新服务器地址和翻译 API 配置
+- **职责**: 管理 settings.json 中的用户配置，支持全局快捷键、更新服务器地址、翻译 API 配置和开机自启
 - **功能**:
   - 设置持久化到 userData/settings.json
   - 支持快捷键自定义（跨平台 CommandOrControl 格式）
   - 支持局域网更新服务器 UNC 路径配置
   - 支持翻译 API 地址和 Key 配置（可选，用于自定义翻译服务）
-  - 热重载：update() 后立即重新注册全局快捷键
+  - 支持开机自启动（通过 Electron app.setLoginItemSettings 实现）
+  - 热重载：update() 后立即重新注册全局快捷键和开机自启
   - 边界处理：文件损坏/不存在时自动返回默认值
 - **配置项**:
   - `shortcut` - 全局快捷键（默认 `CommandOrControl+Alt+V`）
   - `serverUrl` - 局域网更新服务器 UNC 路径（默认 `\\10.15.2.28\dist`）
+  - `autoStart` - 开机自启动（默认 `false`）
   - `translateApiUrl` - 翻译 API 地址（可选，默认使用 MyMemory 免费 API）
   - `translateApiKey` - 翻译 API Key（可选，用于自定义翻译服务认证）
 - **IPC 接口**:
