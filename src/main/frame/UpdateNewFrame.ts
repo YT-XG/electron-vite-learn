@@ -634,7 +634,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 清理更新缓存目录
-   * @description 删除 update-cache 目录下的所有文件，释放磁盘空间
+   * @description 按修改时间排序，保留最新的 2 个安装包，删除其余旧文件
    */
   private clearUpdateCache(): void {
     try {
@@ -643,21 +643,42 @@ export default class UpdateNewFrame extends BaseFrame {
       }
 
       const files = readdirSync(this.config.cacheDir)
+      if (files.length <= 2) {
+        log.info(`[UpdateNew] 缓存文件仅 ${files.length} 个，无需清理`)
+        return
+      }
+
+      // 按修改时间倒序排列（最新的在前）
+      const filesWithStat = files
+        .map((file) => {
+          try {
+            const filePath = join(this.config.cacheDir, file)
+            const stat = statSync(filePath)
+            return { file, filePath, mtime: stat.mtimeMs }
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean) as { file: string; filePath: string; mtime: number }[]
+
+      filesWithStat.sort((a, b) => b.mtime - a.mtime)
+
+      // 保留最新的 2 个，删除其余
+      const toDelete = filesWithStat.slice(2)
       let clearedCount = 0
 
-      for (const file of files) {
-        const filePath = join(this.config.cacheDir, file)
+      for (const { filePath, file } of toDelete) {
         try {
           unlinkSync(filePath)
           clearedCount++
-          log.info('[UpdateNew] 已删除缓存文件:', file)
+          log.info('[UpdateNew] 已删除旧缓存:', file)
         } catch (err) {
           log.warn('[UpdateNew] 删除缓存文件失败:', file, err)
         }
       }
 
       if (clearedCount > 0) {
-        log.info(`[UpdateNew] 共清理 ${clearedCount} 个缓存文件`)
+        log.info(`[UpdateNew] 共清理 ${clearedCount} 个旧缓存，保留 ${filesWithStat.length - clearedCount} 个`)
       }
     } catch (error) {
       log.warn('[UpdateNew] 清理缓存目录失败:', error)
