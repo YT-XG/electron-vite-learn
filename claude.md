@@ -307,6 +307,7 @@ electron-vite-learn/
   - 下载完成后显示安装按钮
   - **跨平台安装**：Windows 启动 `.exe`，macOS 支持 `.dmg`（挂载）和 `.app`（直接启动）
   - **跨平台路径验证**：自动检测平台，提供友好的错误提示（macOS 提示挂载共享文件夹）
+  - **自动清理缓存**：安装前自动清理 `update-cache` 目录下的旧安装包，释放磁盘空间
 - **IPC 接口**:
   - `update-new:ready` - 渲染进程已就绪，触发检查更新
   - `update-new:download` - 渲染进程请求下载更新
@@ -352,6 +353,7 @@ electron-vite-learn/
   - `main-page:minimize` - 最小化窗口
   - `main-page:ready` - 渲染进程已就绪，触发版本号发送
   - `main-page:version` - 主进程发送应用版本号
+  - `to-main-MainPage:openTranslate` - 从剪贴板历史记录跳转到翻译页面
   - `to-renderer-MainPage:setPage` - 主进程发送页面切换指令
   - `close-window` - 关闭/隐藏窗口（继承自 BaseFrame）
 - **公开方法**:

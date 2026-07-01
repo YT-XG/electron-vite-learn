@@ -600,6 +600,38 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
+   * 清理更新缓存目录
+   * @description 删除 update-cache 目录下的所有文件，释放磁盘空间
+   */
+  private clearUpdateCache(): void {
+    try {
+      if (!existsSync(this.config.cacheDir)) {
+        return
+      }
+
+      const files = readdirSync(this.config.cacheDir)
+      let clearedCount = 0
+
+      for (const file of files) {
+        const filePath = join(this.config.cacheDir, file)
+        try {
+          unlinkSync(filePath)
+          clearedCount++
+          log.info('[UpdateNew] 已删除缓存文件:', file)
+        } catch (err) {
+          log.warn('[UpdateNew] 删除缓存文件失败:', file, err)
+        }
+      }
+
+      if (clearedCount > 0) {
+        log.info(`[UpdateNew] 共清理 ${clearedCount} 个缓存文件`)
+      }
+    } catch (error) {
+      log.warn('[UpdateNew] 清理缓存目录失败:', error)
+    }
+  }
+
+  /**
    * 安装更新
    * @param installerPath - 安装包路径
    */
@@ -607,6 +639,9 @@ export default class UpdateNewFrame extends BaseFrame {
     if (!existsSync(installerPath)) {
       throw new Error(`安装包不存在: ${installerPath}`)
     }
+
+    // 安装前清理缓存目录，释放磁盘空间
+    this.clearUpdateCache()
 
     log.info('[LanUpdate] 启动安装程序:', installerPath)
 

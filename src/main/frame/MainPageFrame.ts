@@ -233,5 +233,10 @@ export default class MainPageFrame extends BaseFrame {
       // 发送应用版本号到渲染进程
       this.sendOne('to-renderer-MainPage:version', app.getVersion())
     })
+
+    // 从剪贴板历史记录跳转到翻译页面
+    this.recvOne('to-main-MainPage:openTranslate', (_event, text: string) => {
+      this.showAndTranslate(text)
+    })
   }
 }
