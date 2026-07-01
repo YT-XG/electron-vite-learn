@@ -51,7 +51,7 @@
 
     <!-- 翻译按钮 -->
     <button
-      class="translate-btn"
+      class="translate-btn btn btn-primary btn-lg btn-block"
       @click="doTranslate"
       :disabled="!inputText.trim() || isTranslating"
     >
@@ -532,26 +532,11 @@ onUnmounted(() => {
 /* ========== 翻译按钮 ========== */
 .translate-btn {
   width: 100%;
-  height: 44px;
-  border: none;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
-  color: var(--bg-primary);
   margin-bottom: 16px;
-  transition: all 0.2s ease;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-blue) 30%, transparent);
 }
 
 .translate-btn:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-blue) 40%, transparent);
 }
 
@@ -621,13 +606,13 @@ onUnmounted(() => {
 
 /* ========== 错误提示 ========== */
 .error-message {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: color-mix(in srgb, var(--accent-pink) 10%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--accent-pink) 30%, transparent);
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 16px;
   font-size: 13px;
-  color: #dc2626;
+  color: var(--accent-pink);
 }
 
 /* ========== 历史入口 ========== */
@@ -645,7 +630,7 @@ onUnmounted(() => {
 
 .history-entry:hover {
   background: var(--bg-secondary);
-  border-color: #d1d5db;
+  border-color: color-mix(in srgb, var(--accent-blue) 30%, transparent);
 }
 
 .history-icon {
@@ -655,7 +640,7 @@ onUnmounted(() => {
 .history-text {
   font-size: 13px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-primary);
   flex: 1;
 }
 
@@ -842,26 +827,22 @@ onUnmounted(() => {
 }
 
 .delete-btn:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: color-mix(in srgb, var(--accent-pink) 15%, transparent);
+  color: var(--accent-pink);
 }
 
+/* Translate 页面小按钮覆盖 */
 .btn {
   padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
   font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .btn-danger {
-  background: #dc2626;
-  color: #fff;
+  background: var(--accent-pink);
+  color: var(--bg-primary);
 }
 
 .btn-danger:hover {
-  background: #b91c1c;
+  background: color-mix(in srgb, var(--accent-pink) 85%, black);
 }
 </style>

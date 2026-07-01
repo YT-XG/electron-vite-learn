@@ -40,7 +40,7 @@
         </div>
         <button
           v-if="historyList.length > 0"
-          class="toolbar-btn danger"
+          class="btn toolbar-btn danger"
           @click="confirmClearHistory"
           title="清空历史记录"
         >
@@ -69,7 +69,7 @@
             <span class="cat-count">{{ cat.count }}</span>
           </button>
         </div>
-        <button class="toolbar-btn primary" @click="showAddDialog = true" title="手动添加收藏">
+        <button class="btn toolbar-btn primary" @click="showAddDialog = true" title="手动添加收藏">
           ➕ 添加
         </button>
       </div>
@@ -188,8 +188,8 @@
           </div>
         </div>
         <div class="dialog-footer">
-          <button class="dialog-btn cancel" @click="closeDialog">取消</button>
-          <button class="dialog-btn confirm" @click="saveFavorite" :disabled="!formData.content">
+          <button class="btn dialog-btn cancel" @click="closeDialog">取消</button>
+          <button class="btn dialog-btn confirm" @click="saveFavorite" :disabled="!formData.content">
             {{ editingFavorite ? '保存' : '添加' }}
           </button>
         </div>
@@ -203,8 +203,8 @@
           <p class="confirm-text">确定要清空所有历史记录吗？此操作不可恢复。</p>
         </div>
         <div class="dialog-footer">
-          <button class="dialog-btn cancel" @click="showClearConfirm = false">取消</button>
-          <button class="dialog-btn danger" @click="clearAllHistory">确定清空</button>
+          <button class="btn dialog-btn cancel" @click="showClearConfirm = false">取消</button>
+          <button class="btn dialog-btn danger" @click="clearAllHistory">确定清空</button>
         </div>
       </div>
     </div>
@@ -641,34 +641,28 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
 }
 
+/* 工具栏按钮：继承共享 .btn 基类 */
 .toolbar-btn {
-  height: 36px;
+  height: var(--btn-height);
   padding: 0 12px;
-  border: none;
-  border-radius: 8px;
   font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
 }
 
 .toolbar-btn.primary {
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   color: #fff;
+  box-shadow: var(--btn-shadow-primary);
 }
 
 .toolbar-btn.primary:hover {
-  opacity: 0.9;
+  box-shadow: var(--btn-shadow-primary-hover);
   transform: translateY(-1px);
 }
 
 .toolbar-btn.danger {
   background: var(--danger-bg);
   color: var(--danger-color);
+  box-shadow: none;
 }
 
 .toolbar-btn.danger:hover {
@@ -1008,19 +1002,15 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+/* 对话框按钮：继承共享 .btn 基类 */
 .dialog-btn {
   padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .dialog-btn.cancel {
   background: var(--bg-secondary);
   color: var(--text-secondary);
+  box-shadow: none;
 }
 
 .dialog-btn.cancel:hover {
@@ -1030,25 +1020,31 @@ onUnmounted(() => {
 .dialog-btn.confirm {
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
   color: #fff;
+  box-shadow: var(--btn-shadow-primary);
 }
 
 .dialog-btn.confirm:hover {
-  opacity: 0.9;
+  box-shadow: var(--btn-shadow-primary-hover);
+  transform: translateY(-1px);
 }
 
 .dialog-btn.confirm:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .dialog-btn.danger {
   background: var(--danger-color);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
 }
 
 .dialog-btn.danger:hover {
   background: var(--danger-color);
-  opacity: 0.9;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+  transform: translateY(-1px);
 }
 
 /* ========== 骨架屏 ========== */

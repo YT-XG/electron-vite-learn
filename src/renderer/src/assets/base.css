@@ -114,3 +114,151 @@ body {
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
+
+/* ========================================
+ * 共享按钮设计系统
+ * ======================================== */
+
+:root {
+  /* 按钮圆角 */
+  --btn-radius: 10px;
+  --btn-radius-pill: 20px;
+
+  /* 按钮高度 */
+  --btn-height: 36px;
+  --btn-height-sm: 30px;
+  --btn-height-lg: 42px;
+
+  /* 按钮阴影 */
+  --btn-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --btn-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --btn-shadow-primary: 0 2px 8px rgba(61, 139, 255, 0.25);
+  --btn-shadow-primary-hover: 0 6px 20px rgba(61, 139, 255, 0.35);
+
+  /* 按钮字体 */
+  --btn-font-size: 13px;
+  --btn-font-weight: 500;
+}
+
+:root[data-theme="dark"] {
+  --btn-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --btn-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --btn-shadow-primary: 0 2px 8px rgba(93, 163, 255, 0.2);
+  --btn-shadow-primary-hover: 0 6px 20px rgba(93, 163, 255, 0.3);
+}
+
+/* 基础按钮 */
+.btn {
+  height: var(--btn-height);
+  padding: 0 18px;
+  border: none;
+  border-radius: var(--btn-radius);
+  font-size: var(--btn-font-size);
+  font-weight: var(--btn-font-weight);
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--btn-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+/* 主要按钮 - 品牌蓝粉渐变 */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  color: #fff;
+  box-shadow: var(--btn-shadow-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: var(--btn-shadow-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 次要按钮 - 柔和背景 */
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--border-color);
+  color: var(--text-primary);
+  border-color: var(--border-color-hover);
+}
+
+/* 幽灵按钮 - 透明背景 */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* 危险按钮 */
+.btn-danger {
+  background: var(--danger-color);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* 胶囊按钮 */
+.btn-pill {
+  border-radius: var(--btn-radius-pill);
+}
+
+/* 小尺寸 */
+.btn-sm {
+  height: var(--btn-height-sm);
+  padding: 0 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+/* 大尺寸 */
+.btn-lg {
+  height: var(--btn-height-lg);
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+/* 全宽按钮 */
+.btn-block {
+  width: 100%;
+}

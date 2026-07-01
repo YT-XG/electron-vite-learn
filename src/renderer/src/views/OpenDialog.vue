@@ -153,18 +153,18 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   font-size: 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .dialog-body {

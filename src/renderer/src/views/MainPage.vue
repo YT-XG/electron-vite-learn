@@ -83,19 +83,21 @@
 
       <!-- 右侧内容区 -->
       <main class="content">
-        <!-- 首页 -->
-        <div v-show="currentPage === 'home'" class="home-page">
-          <div class="welcome-icon">✦</div>
-          <h2 class="welcome-title">妙妙屋</h2>
-          <p class="welcome-desc">你的桌面效率工具</p>
-        </div>
+        <Transition name="page-fade" mode="out-in">
+          <!-- 首页 -->
+          <div v-if="currentPage === 'home'" key="home" class="home-page">
+            <div class="welcome-icon">✦</div>
+            <h2 class="welcome-title">妙妙屋</h2>
+            <p class="welcome-desc">你的桌面效率工具</p>
+          </div>
 
-        <!-- 剪贴板管理 -->
-        <ClipboardManager v-if="currentPage === 'clipboard'" />
-        <!-- 设置 -->
-        <Settings v-else-if="currentPage === 'settings'" />
-        <!-- 翻译 -->
-        <Translate v-else-if="currentPage === 'translate'" @goBack="currentPage = 'home'" />
+          <!-- 剪贴板管理 -->
+          <ClipboardManager v-else-if="currentPage === 'clipboard'" key="clipboard" />
+          <!-- 设置 -->
+          <Settings v-else-if="currentPage === 'settings'" key="settings" />
+          <!-- 翻译 -->
+          <Translate v-else-if="currentPage === 'translate'" key="translate" @goBack="currentPage = 'home'" />
+        </Transition>
       </main>
     </div>
   </div>
@@ -225,11 +227,7 @@ onUnmounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow:
-    0 8px 40px rgba(61, 139, 255, 0.15),
-    0 4px 16px rgba(255, 106, 176, 0.1);
   border: 1px solid var(--border-color);
-  backdrop-filter: blur(20px);
   -webkit-app-region: no-drag;
 
   /* 初始状态：缩小 */
@@ -265,6 +263,22 @@ onUnmounted(() => {
     transform: scale(0.85);
     opacity: 0;
   }
+}
+
+/* ========== 页面切换动画 ========== */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 /* ========== 渐变色条 ========== */
@@ -368,8 +382,8 @@ onUnmounted(() => {
 }
 
 .close-btn:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-color);
 }
 
 /* ========== 主体布局 ========== */

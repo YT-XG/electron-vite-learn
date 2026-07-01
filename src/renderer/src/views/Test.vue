@@ -239,7 +239,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #3d8bff 0%, #5b9dff 100%);
+  background: linear-gradient(135deg, var(--accent-blue) 0%, #5b9dff 100%);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -249,7 +249,7 @@ onUnmounted(() => {
 }
 
 .btn-update:hover {
-  background: linear-gradient(135deg, #2d7af0 0%, #4b8def 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-blue) 85%, black) 0%, #4b8def 100%);
   box-shadow: 0 2px 8px rgba(61, 139, 255, 0.4);
   transform: translateY(-0.5px);
 }
@@ -263,9 +263,9 @@ onUnmounted(() => {
   padding: 3px 12px;
   font-size: 11px;
   font-weight: 500;
-  color: #888;
+  color: var(--text-secondary);
   background: transparent;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color-hover);
   border-radius: 6px;
   cursor: pointer;
   line-height: 1.3;
@@ -273,9 +273,9 @@ onUnmounted(() => {
 }
 
 .btn-later:hover {
-  color: #555;
-  border-color: #ccc;
-  background: #f5f5f5;
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+  background: var(--bg-secondary);
 }
 </style>
 

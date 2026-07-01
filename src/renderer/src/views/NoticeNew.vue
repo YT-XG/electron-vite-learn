@@ -222,7 +222,7 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--success-color), #059669);
   border-radius: 50%;
   cursor: pointer;
   display: flex;

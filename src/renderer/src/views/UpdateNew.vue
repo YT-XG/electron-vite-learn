@@ -372,53 +372,14 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* 更新窗口按钮：继承共享 .btn 基类，覆盖布局 */
 .btn {
   flex: 1;
-  padding: 9px 0;
-  border: none;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
-}
-
-.btn-secondary {
-  background: rgba(0, 0, 0, 0.04);
-  color: #888;
-}
-
-.btn-secondary:hover {
-  background: rgba(0, 0, 0, 0.07);
-  color: #555;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #3d8bff 0%, #5a9dff 100%);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.25);
-}
-
-.btn-primary:hover {
-  box-shadow: 0 4px 14px rgba(61, 139, 255, 0.35);
-  transform: translateY(-1px);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 /* 安装按钮 - 渐变绿色，区分下载按钮 */
 .btn-install {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  background: linear-gradient(135deg, var(--success-color), #15803d);
   color: #fff;
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
 }

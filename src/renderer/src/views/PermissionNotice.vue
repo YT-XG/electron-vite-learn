@@ -277,17 +277,12 @@ onMounted(() => {
   margin-left: 12px;
 }
 
-/* 按钮基础样式 */
+/* 按钮基础样式：继承共享 .btn，覆盖尺寸和交互 */
 .btn {
   width: 80px;
-  height: 30px;
-  border: none;
-  border-radius: 15px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
+  height: var(--btn-height-sm);
+  border-radius: var(--btn-radius-pill);
   color: #fff;
-  transition: all 0.2s ease;
 }
 
 .btn:hover {
@@ -295,7 +290,7 @@ onMounted(() => {
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 /* 拒绝按钮 - 红色渐变 */
@@ -309,7 +304,7 @@ onMounted(() => {
 
 /* 同意按钮 - 蓝色渐变 */
 .btn-allow {
-  background: linear-gradient(135deg, #3d8bff, #2563eb);
+  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
 }
 
 .btn-allow:hover {
@@ -318,7 +313,7 @@ onMounted(() => {
 
 /* 全部同意按钮 - 绿色渐变 */
 .btn-always {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--success-color), #059669);
 }
 
 .btn-always:hover {

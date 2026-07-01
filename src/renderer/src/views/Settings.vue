@@ -74,7 +74,7 @@
 
         <!-- 操作按钮 -->
         <div class="shortcut-actions">
-          <button v-if="state === 'idle'" class="btn btn-outline" @click="startRecording">
+          <button v-if="state === 'idle'" class="btn btn-secondary" @click="startRecording">
             ✏️ 录制
           </button>
           <template v-if="state === 'recording'">
@@ -843,58 +843,6 @@ onUnmounted(() => {
   display: flex;
   gap: 6px;
   align-items: center;
-}
-
-.btn {
-  height: 38px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.btn-primary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn-outline {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color-hover);
-  color: var(--text-secondary);
-}
-
-.btn-outline:hover {
-  border-color: var(--accent-blue);
-  color: var(--accent-blue);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.btn-ghost:hover {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
 }
 
 /* ========== 更新服务器 ========== */
