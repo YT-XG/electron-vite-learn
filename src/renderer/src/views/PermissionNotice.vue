@@ -18,8 +18,14 @@
             <span v-if="command" class="info-command">{{ truncateCommand(command) }}</span>
           </div>
         </div>
-        <!-- AskUserQuestion 工具不需要按钮（这是 Claude 向用户提问，不是权限请求） -->
-        <div v-if="!isAskUserQuestion" class="btn-group">
+        <!-- AskUserQuestion 工具：显示关闭按钮（用户在 Claude Code 中回答后手动关闭） -->
+        <div v-if="isAskUserQuestion" class="btn-group">
+          <button class="btn btn-close" @click="closeNotice" title="关闭">
+            关闭
+          </button>
+        </div>
+        <!-- 权限请求工具：显示拒绝/同意/全部同意按钮 -->
+        <div v-else class="btn-group">
           <button class="btn btn-deny" @click="resolve('deny')" title="拒绝">
             拒绝
           </button>
@@ -84,6 +90,14 @@ const resolve = (decision: 'allow' | 'always' | 'deny') => {
     sessionId.value,
     decision
   )
+}
+
+/**
+ * 关闭通知弹窗（用于 AskUserQuestion）
+ * @description 用户在 Claude Code 中回答问题后，手动关闭弹窗
+ */
+const closeNotice = () => {
+  window.electron.ipcRenderer.send('to-main-PermissionNoticeFrame:destroy')
 }
 
 /**
@@ -309,6 +323,17 @@ onMounted(() => {
 
 .btn-always:hover {
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+/* 关闭按钮 - 渐变样式（用于 AskUserQuestion） */
+.btn-close {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  width: 100%;
+}
+
+.btn-close:hover {
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+  background: linear-gradient(135deg, #9b6ff7, #8b5cf6);
 }
 </style>
 

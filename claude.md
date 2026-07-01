@@ -569,11 +569,12 @@ electron-vite-learn/
 - **职责**: 底部居中弹出的权限确认窗口，用于 Claude Code 权限请求交互
 - **功能**:
   - 显示工具名称、命令内容
-  - 提供拒绝/同意/全部同意三个按钮（**AskUserQuestion 工具不显示按钮**）
+  - 提供拒绝/同意/全部同意三个按钮（**AskUserQuestion 工具显示关闭按钮**）
   - 点击按钮后通过 IPC 通知主进程，主进程写回 HTTP 响应
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 支持鼠标穿透（透明区域可点击）
   - **自动隐藏**：权限被解决或超时后，窗口自动淡出隐藏
+  - **AskUserQuestion 处理**：Claude 向用户提问时显示关闭按钮，用户在 Claude Code 中回答后弹窗自动关闭（检测到 PreToolUse/PostToolUse 事件时触发）
 - **IPC 接口**:
   - `to-renderer-PermissionNoticeFrame:show` - 显示权限确认窗口（主进程发送）
   - `to-renderer-PermissionNoticeFrame:hide` - 隐藏窗口（主进程发送，权限解决后）

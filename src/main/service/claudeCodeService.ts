@@ -431,13 +431,35 @@ class ClaudeCodeService {
         // 权限请求：暂存响应，等待用户决策
         if (eventName === 'PermissionRequest') {
           this.respondPermission(sessionId, null) // 清理同会话的旧等待
+
+          // 提取权限请求信息并显示确认窗口
+          const permissionInfo = this.extractPermissionInfo(event)
+
+          // AskUserQuestion：设置自动关闭定时器（用户在 Claude Code 中回答后自动关闭）
+          if (permissionInfo.toolName === 'AskUserQuestion') {
+            log.info(`[ClaudeCode] AskUserQuestion 工具，设置自动关闭定时器`)
+            const autoCloseTimer = setTimeout(() => {
+              log.info(`[ClaudeCode] AskUserQuestion 自动关闭`)
+              this.respondPermission(sessionId, null)
+            }, 30000) // 30 秒后自动关闭
+
+            this.permissionWaiters.set(sessionId, { response, timer: autoCloseTimer, event })
+
+            // 显示"等待权限"状态
+            windowFactory.getNoticeManager().showClaudeCodeStatus(
+              'waiting_permission',
+              `⏳ 等待回答: ${permissionInfo.command || 'Claude 提问'}`
+            )
+
+            this.showPermissionNotice(permissionInfo)
+            return
+          }
+
+          // 普通权限请求：等待用户手动决策
           const timer = setTimeout(() => {
             this.respondPermission(sessionId, null)
           }, PERMISSION_WAIT_TIMEOUT_MS)
           this.permissionWaiters.set(sessionId, { response, timer, event })
-
-          // 提取权限请求信息并显示确认窗口
-          const permissionInfo = this.extractPermissionInfo(event)
 
           // 显示"等待权限"状态
           windowFactory.getNoticeManager().showClaudeCodeStatus(
@@ -542,6 +564,11 @@ class ClaudeCodeService {
   private showEventNotification(event: ClaudeCodeHookEvent): void {
     const noticeManager = windowFactory.getNoticeManager()
 
+    // 检测是否有等待中的 AskUserQuestion，如果有则自动关闭
+    if (event.eventName === 'PreToolUse' || event.eventName === 'PostToolUse') {
+      this.closeAskUserQuestionNoticeIfExists()
+    }
+
     switch (event.eventName) {
       case 'SessionStart':
         this.sessionCount++
@@ -610,6 +637,27 @@ class ClaudeCodeService {
       default:
         // 其他事件不处理
         return
+    }
+  }
+
+  /**
+   * 关闭等待中的 AskUserQuestion 弹窗
+   * @description 当收到 PreToolUse/PostToolUse 事件时，说明用户已在 Claude Code 中回答完毕
+   */
+  private closeAskUserQuestionNoticeIfExists(): void {
+    // 遍历所有等待器，找到 AskUserQuestion 并关闭
+    for (const [sessionId, waiter] of this.permissionWaiters.entries()) {
+      const toolName = waiter.event.toolName
+      if (toolName === 'AskUserQuestion') {
+        log.info(`[ClaudeCode] 检测到用户已回答 AskUserQuestion，自动关闭弹窗`)
+        this.respondPermission(sessionId, null)
+        // 关闭弹窗
+        const noticeFrame = windowFactory.getPermissionNoticeFrame()
+        if (noticeFrame.isAlive()) {
+          noticeFrame.hideWithAnimation()
+        }
+        break // 只关闭一个
+      }
     }
   }
 
