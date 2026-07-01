@@ -564,9 +564,9 @@ class ClaudeCodeService {
   private showEventNotification(event: ClaudeCodeHookEvent): void {
     const noticeManager = windowFactory.getNoticeManager()
 
-    // 检测是否有等待中的 AskUserQuestion，如果有则自动关闭
+    // 检测是否有等待中的权限请求弹窗，如果有则自动关闭
     if (event.eventName === 'PreToolUse' || event.eventName === 'PostToolUse') {
-      this.closeAskUserQuestionNoticeIfExists()
+      this.closePermissionNoticeIfExists()
     }
 
     switch (event.eventName) {
@@ -580,6 +580,10 @@ class ClaudeCodeService {
           text: '🟢 Claude Code 会话已开始',
           duration: 3000
         })
+        // 5 秒后自动隐藏状态通知
+        this.hideTimer = setTimeout(() => {
+          noticeManager.hideClaudeCodeStatus()
+        }, 5000)
         break
 
       case 'SessionEnd':
@@ -641,23 +645,21 @@ class ClaudeCodeService {
   }
 
   /**
-   * 关闭等待中的 AskUserQuestion 弹窗
-   * @description 当收到 PreToolUse/PostToolUse 事件时，说明用户已在 Claude Code 中回答完毕
+   * 关闭等待中的权限请求弹窗
+   * @description 当收到 PreToolUse/PostToolUse 事件时，说明用户已在 Claude Code 中完成了操作，
+   *              此时如果权限请求弹窗还在显示，则自动隐藏
    */
-  private closeAskUserQuestionNoticeIfExists(): void {
-    // 遍历所有等待器，找到 AskUserQuestion 并关闭
+  private closePermissionNoticeIfExists(): void {
+    // 遍历所有等待器，关闭所有权限请求弹窗
     for (const [sessionId, waiter] of this.permissionWaiters.entries()) {
-      const toolName = waiter.event.toolName
-      if (toolName === 'AskUserQuestion') {
-        log.info(`[ClaudeCode] 检测到用户已回答 AskUserQuestion，自动关闭弹窗`)
-        this.respondPermission(sessionId, null)
-        // 关闭弹窗
-        const noticeFrame = windowFactory.getPermissionNoticeFrame()
-        if (noticeFrame.isAlive()) {
-          noticeFrame.hideWithAnimation()
-        }
-        break // 只关闭一个
-      }
+      log.info(`[ClaudeCode] 检测到工具执行事件，自动关闭权限弹窗: ${waiter.event.toolName || 'unknown'}`)
+      this.respondPermission(sessionId, null)
+    }
+
+    // 关闭弹窗
+    const noticeFrame = windowFactory.getPermissionNoticeFrame()
+    if (noticeFrame.isAlive()) {
+      noticeFrame.hideWithAnimation()
     }
   }
 

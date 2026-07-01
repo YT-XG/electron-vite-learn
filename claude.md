@@ -537,7 +537,7 @@ electron-vite-learn/
   ```
   应用启动 → 自动安装 Hook → 启动 HTTP 服务器
   Claude Code CLI → Hook 脚本 → HTTP POST → 主进程 HTTP 服务器
-      → SessionStart: 显示"会话运行中"状态
+      → SessionStart: 显示"会话运行中"状态，5 秒后自动隐藏
       → PermissionRequest: 更新为"等待权限: 工具名"
       → Stop/StopFailure: 短暂显示"任务完成"
       → SessionEnd: 延迟 3 秒隐藏状态通知
@@ -574,7 +574,7 @@ electron-vite-learn/
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 支持鼠标穿透（透明区域可点击）
   - **自动隐藏**：权限被解决或超时后，窗口自动淡出隐藏
-  - **AskUserQuestion 处理**：Claude 向用户提问时显示关闭按钮，用户在 Claude Code 中回答后弹窗自动关闭（检测到 PreToolUse/PostToolUse 事件时触发）
+  - **自动关闭**：当收到 PreToolUse/PostToolUse 事件时，如果权限请求弹窗还在显示，则自动隐藏（适用于 AskUserQuestion 和普通权限请求）
 - **IPC 接口**:
   - `to-renderer-PermissionNoticeFrame:show` - 显示权限确认窗口（主进程发送）
   - `to-renderer-PermissionNoticeFrame:hide` - 隐藏窗口（主进程发送，权限解决后）
