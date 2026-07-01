@@ -41,6 +41,9 @@
         <h2 class="update-title">发现新版本</h2>
         <p class="update-version">v{{ version }}</p>
 
+        <!-- 错误提示 -->
+        <p v-if="errorMsg" class="update-error">{{ errorMsg }}</p>
+
         <!-- 下载进度条 -->
         <div v-if="downloadStatus === 'downloading'" class="progress-wrap">
           <div class="progress-bar">
@@ -108,6 +111,9 @@ const downloadStatus = ref<DownloadStatus>('idle')
 /** 下载进度 */
 const progress = ref(0)
 
+/** 错误信息 */
+const errorMsg = ref('')
+
 /** 页面入场动画状态 */
 const isVisible = ref(false)
 
@@ -119,6 +125,7 @@ const handleDownload = (): void => {
   if (downloadStatus.value !== 'idle') return
   downloadStatus.value = 'downloading'
   progress.value = 0
+  errorMsg.value = ''
   window.electron.ipcRenderer.send('to-main-UpdateNewFrame:download')
 }
 
@@ -178,6 +185,7 @@ const handleDownloaded = (
 
 /**
  * 监听下载错误
+ * @description 在更新窗口内显示错误信息，不弹出系统错误框
  */
 const handleError = (
   _event: Electron.IpcRendererEvent,
@@ -186,6 +194,13 @@ const handleError = (
   console.error('下载失败:', data.message)
   downloadStatus.value = 'idle'
   progress.value = 0
+  errorMsg.value = data.message.includes('连接已断开') || data.message.includes('网络连接失败')
+    ? '下载失败，请检查网络连接后重试'
+    : `更新失败: ${data.message}`
+  // 5 秒后自动清除错误信息
+  setTimeout(() => {
+    errorMsg.value = ''
+  }, 5000)
 }
 
 /**
@@ -333,6 +348,19 @@ onUnmounted(() => {
   margin: 0 0 20px;
   text-align: center;
   line-height: 1.5;
+}
+
+/* ─── 错误提示 ─── */
+.update-error {
+  font-size: 12px;
+  color: var(--danger-color, #dc2626);
+  margin: 0 0 12px;
+  text-align: center;
+  line-height: 1.5;
+  padding: 6px 12px;
+  background: var(--danger-bg, #fee2e2);
+  border-radius: 8px;
+  animation: fadeIn 0.3s ease;
 }
 
 /* ─── 进度条 ─── */

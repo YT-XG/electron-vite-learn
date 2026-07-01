@@ -9,6 +9,15 @@ import { claudeCodeService } from './service/claudeCodeService'
 import './service/inputService'
 import log from 'electron-log'
 
+// 抑制 Electron 默认错误弹窗（网络错误等已知异常由各模块自行处理）
+process.on('uncaughtException', (error) => {
+  log.error('[App] 未捕获异常:', error.message)
+})
+
+process.on('unhandledRejection', (reason) => {
+  log.error('[App] 未处理的 Promise 拒绝:', reason)
+})
+
 // 配置 electron-log：日志写入文件
 log.transports.file.level = 'info'
 log.transports.console.level = 'info'

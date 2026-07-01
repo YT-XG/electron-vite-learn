@@ -2,7 +2,8 @@ import { BaseFrame } from './index'
 import { app, BrowserWindowConstructorOptions, screen } from 'electron'
 import { join } from 'path'
 import {
-  copyFileSync,
+  createReadStream,
+  createWriteStream,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -535,7 +536,7 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
-   * 从局域网下载更新包
+   * 从局域网下载更新包（流式复制，支持实时进度）
    * @param info - 更新信息
    */
   private async downloadLanUpdate(info: UpdateInfo): Promise<string> {
@@ -544,7 +545,8 @@ export default class UpdateNewFrame extends BaseFrame {
     log.info('[LanUpdate] 服务器地址:', this.config.serverUrl)
     log.info('[LanUpdate] 文件名:', info.file)
     log.info('[LanUpdate] 完整路径:', remoteFilePath)
-    // 带超时检查文件是否存在（避免访问不可达 UNC 路径时长时间阻塞）
+
+    // 带超时检查文件是否存在
     log.info('[LanUpdate] 检查源文件是否存在...')
     const srcExists = await this.checkFileExistsWithTimeout(remoteFilePath)
     log.info('[LanUpdate] 源文件存在:', srcExists)
@@ -572,9 +574,7 @@ export default class UpdateNewFrame extends BaseFrame {
     log.info('[LanUpdate] 保存到:', localFilePath)
 
     // 确保目标目录存在
-    log.info('[LanUpdate] 创建缓存目录...')
     mkdirSync(this.config.cacheDir, { recursive: true })
-    log.info('[LanUpdate] 缓存目录就绪')
 
     // 报告 0% 进度
     this.sendOne('to-renderer-UpdateNewFrame:progress', {
@@ -584,26 +584,69 @@ export default class UpdateNewFrame extends BaseFrame {
       percent: 0
     })
 
-    // 使用 copyFileSync 复制文件（支持 UNC 网络路径）
-    log.info('[LanUpdate] 开始复制文件...')
+    // 流式复制文件，支持实时进度报告
+    log.info('[LanUpdate] 开始流式复制文件...')
     const startTime = Date.now()
+    let transferred = 0
+    let lastReportTime = 0
+
     try {
-      copyFileSync(remoteFilePath, localFilePath)
+      await new Promise<void>((resolve, reject) => {
+        const readStream = createReadStream(remoteFilePath)
+        const writeStream = createWriteStream(localFilePath)
+
+        readStream.on('data', (chunk: Buffer) => {
+          transferred += chunk.length
+          // 每 300ms 报告一次进度，避免频繁 IPC 通信
+          const now = Date.now()
+          if (now - lastReportTime > 300 && totalSize > 0) {
+            lastReportTime = now
+            const percent = Math.min(Math.round((transferred / totalSize) * 100), 99)
+            this.sendOne('to-renderer-UpdateNewFrame:progress', {
+              transferred,
+              total: totalSize,
+              bytesPerSecond: 0,
+              percent
+            })
+          }
+        })
+
+        readStream.on('error', (err) => {
+          // 清理失败的文件
+          try {
+            writeStream.destroy()
+            if (existsSync(localFilePath)) {
+              unlinkSync(localFilePath)
+            }
+          } catch {
+            // 忽略清理错误
+          }
+          reject(err)
+        })
+
+        writeStream.on('error', (err) => {
+          try {
+            readStream.destroy()
+            if (existsSync(localFilePath)) {
+              unlinkSync(localFilePath)
+            }
+          } catch {
+            // 忽略清理错误
+          }
+          reject(err)
+        })
+
+        writeStream.on('finish', () => resolve())
+
+        readStream.pipe(writeStream)
+      })
     } catch (copyError) {
       const errMsg = copyError instanceof Error ? copyError.message : String(copyError)
-      log.error('[LanUpdate] 文件复制失败（网络可能已断开）:', errMsg)
-      // 清理失败的文件
-      try {
-        if (existsSync(localFilePath)) {
-          unlinkSync(localFilePath)
-        }
-      } catch {
-        // 忽略清理错误
-      }
+      log.error('[LanUpdate] 流式复制失败（网络可能已断开）:', errMsg)
       throw new Error(`下载失败，连接已断开: ${errMsg}`)
     }
-    const elapsed = (Date.now() - startTime) / 1000
 
+    const elapsed = (Date.now() - startTime) / 1000
     log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
 
     // 报告 100% 进度
@@ -615,7 +658,6 @@ export default class UpdateNewFrame extends BaseFrame {
     })
 
     // 验证文件大小
-    log.info('[LanUpdate] 验证下载文件...')
     try {
       const downloadedSize = statSync(localFilePath).size
       log.info(`[LanUpdate] 预期大小: ${totalSize}, 实际大小: ${downloadedSize}`)

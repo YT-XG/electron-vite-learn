@@ -194,7 +194,14 @@ class GitHubUpdateService {
     log.info('[GitHubUpdate] 开始下载:', info.downloadUrl)
 
     return new Promise((resolve, reject) => {
-      let resolved = false
+      let settled = false
+
+      const settle = (fn: () => void) => {
+        if (!settled) {
+          settled = true
+          fn()
+        }
+      }
 
       const request = net.request({
         url: info.downloadUrl,
@@ -205,10 +212,7 @@ class GitHubUpdateService {
 
       request.on('response', (response) => {
         if (response.statusCode !== 200 && response.statusCode !== 302) {
-          if (!resolved) {
-            resolved = true
-            reject(new Error(`下载失败: HTTP ${response.statusCode}`))
-          }
+          settle(() => reject(new Error(`下载失败: HTTP ${response.statusCode}`)))
           return
         }
 
@@ -230,38 +234,35 @@ class GitHubUpdateService {
         })
 
         response.on('end', () => {
-          if (resolved) return
-          resolved = true
-          try {
-            const buffer = Buffer.concat(chunks)
-            fs.writeFileSync(localPath, buffer)
-            log.info('[GitHubUpdate] 下载完成:', localPath)
-            onProgress?.(100)
-            resolve(localPath)
-          } catch (writeError) {
-            reject(
-              new Error(
-                `写入文件失败: ${writeError instanceof Error ? writeError.message : String(writeError)}`
+          settle(() => {
+            try {
+              const buffer = Buffer.concat(chunks)
+              fs.writeFileSync(localPath, buffer)
+              log.info('[GitHubUpdate] 下载完成:', localPath)
+              onProgress?.(100)
+              resolve(localPath)
+            } catch (writeError) {
+              reject(
+                new Error(
+                  `写入文件失败: ${writeError instanceof Error ? writeError.message : String(writeError)}`
+                )
               )
-            )
-          }
+            }
+          })
         })
       })
 
       request.on('error', (err) => {
         log.error('[GitHubUpdate] 网络请求错误:', err.message)
-        if (!resolved) {
-          resolved = true
-          // 清理失败的下载文件
-          try {
-            if (fs.existsSync(localPath)) {
-              fs.unlinkSync(localPath)
-            }
-          } catch {
-            // 忽略清理错误
+        // 清理失败的下载文件
+        try {
+          if (fs.existsSync(localPath)) {
+            fs.unlinkSync(localPath)
           }
-          reject(new Error(`网络连接失败: ${err.message}`))
+        } catch {
+          // 忽略清理错误
         }
+        settle(() => reject(new Error(`网络连接失败: ${err.message}`)))
       })
 
       request.end()
