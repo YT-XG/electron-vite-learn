@@ -714,7 +714,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dialog-header h3 {
@@ -750,9 +750,28 @@ onUnmounted(() => {
   flex: 1;
 }
 
+/* 自定义滚动条样式 */
+.dialog-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dialog-body::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.dialog-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-blue) 50%, transparent), color-mix(in srgb, var(--accent-pink) 50%, transparent));
+  border-radius: 3px;
+}
+
+.dialog-body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-blue), var(--accent-pink));
+}
+
 .dialog-footer {
   padding: 12px 20px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
 }
