@@ -157,9 +157,11 @@ const handleUpdateInfo = (
 
 /**
  * 监听下载进度
+ * @description 安全处理进度值，clamp 到 0-100 范围
  */
 const handleProgress = (_event: Electron.IpcRendererEvent, data: { percent: number }): void => {
-  progress.value = Math.round(data.percent)
+  const p = Math.round(data.percent)
+  progress.value = Math.max(0, Math.min(100, isNaN(p) ? 0 : p))
 }
 
 /**

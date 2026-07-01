@@ -512,15 +512,16 @@ export default class UpdateNewFrame extends BaseFrame {
       percent: 0
     })
 
-    // 下载文件
+    // 下载文件（githubUpdateService 内部已处理网络错误）
     const localPath = await githubUpdateService.downloadUpdate(githubInfo, (percent) => {
-      // 计算已下载字节数，如果 info.size 为 0 或无效，则只发送百分比
-      const transferred = info.size > 0 ? Math.round((info.size * percent) / 100) : 0
+      // 安全计算已下载字节数，确保 percent 在 0-100 范围内
+      const safePercent = Math.max(0, Math.min(100, percent))
+      const transferred = info.size > 0 ? Math.round((info.size * safePercent) / 100) : 0
       this.sendOne('to-renderer-UpdateNewFrame:progress', {
         transferred,
         total: info.size,
         bytesPerSecond: 0,
-        percent
+        percent: safePercent
       })
     })
 
@@ -551,6 +552,18 @@ export default class UpdateNewFrame extends BaseFrame {
       throw new Error(`更新文件不存在或访问超时: ${remoteFilePath}`)
     }
 
+    // 获取实际文件大小（修复 latest.yml 中 size 缺失或为 0 的问题）
+    let totalSize = info.size
+    try {
+      const srcStat = statSync(remoteFilePath)
+      if (srcStat.size > 0) {
+        totalSize = srcStat.size
+        log.info('[LanUpdate] 从源文件获取实际大小:', totalSize)
+      }
+    } catch (e) {
+      log.warn('[LanUpdate] 无法获取源文件大小:', e)
+    }
+
     // 构建本地保存路径
     const localFileName = `update-${info.version}-${info.file}`
     const localFilePath = join(this.config.cacheDir, localFileName)
@@ -566,7 +579,7 @@ export default class UpdateNewFrame extends BaseFrame {
     // 报告 0% 进度
     this.sendOne('to-renderer-UpdateNewFrame:progress', {
       transferred: 0,
-      total: info.size,
+      total: totalSize,
       bytesPerSecond: 0,
       percent: 0
     })
@@ -574,25 +587,43 @@ export default class UpdateNewFrame extends BaseFrame {
     // 使用 copyFileSync 复制文件（支持 UNC 网络路径）
     log.info('[LanUpdate] 开始复制文件...')
     const startTime = Date.now()
-    copyFileSync(remoteFilePath, localFilePath)
+    try {
+      copyFileSync(remoteFilePath, localFilePath)
+    } catch (copyError) {
+      const errMsg = copyError instanceof Error ? copyError.message : String(copyError)
+      log.error('[LanUpdate] 文件复制失败（网络可能已断开）:', errMsg)
+      // 清理失败的文件
+      try {
+        if (existsSync(localFilePath)) {
+          unlinkSync(localFilePath)
+        }
+      } catch {
+        // 忽略清理错误
+      }
+      throw new Error(`下载失败，连接已断开: ${errMsg}`)
+    }
     const elapsed = (Date.now() - startTime) / 1000
 
     log.info(`[LanUpdate] 复制完成，耗时 ${elapsed.toFixed(1)}s`)
 
     // 报告 100% 进度
     this.sendOne('to-renderer-UpdateNewFrame:progress', {
-      transferred: info.size,
-      total: info.size,
+      transferred: totalSize,
+      total: totalSize,
       bytesPerSecond: 0,
       percent: 100
     })
 
     // 验证文件大小
     log.info('[LanUpdate] 验证下载文件...')
-    const downloadedSize = statSync(localFilePath).size
-    log.info(`[LanUpdate] 预期大小: ${info.size}, 实际大小: ${downloadedSize}`)
-    if (info.size > 0 && downloadedSize !== info.size) {
-      log.warn(`[LanUpdate] 文件大小不匹配: 预期 ${info.size}, 实际 ${downloadedSize}`)
+    try {
+      const downloadedSize = statSync(localFilePath).size
+      log.info(`[LanUpdate] 预期大小: ${totalSize}, 实际大小: ${downloadedSize}`)
+      if (totalSize > 0 && downloadedSize !== totalSize) {
+        log.warn(`[LanUpdate] 文件大小不匹配: 预期 ${totalSize}, 实际 ${downloadedSize}`)
+      }
+    } catch (e) {
+      log.warn('[LanUpdate] 无法验证文件大小:', e)
     }
 
     log.info('[LanUpdate] 下载完成:', localFilePath)
