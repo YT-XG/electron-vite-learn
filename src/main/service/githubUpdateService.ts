@@ -220,10 +220,17 @@ class GitHubUpdateService {
         let downloaded = 0
         const chunks: Buffer[] = []
 
-        // 优先使用 content-length，其次使用 info.size（GitHub API 返回的文件大小）
-        const totalSize = contentLength > 0 ? contentLength : info.size > 0 ? info.size : 0
+        // 302 重定向响应的 content-length 是重定向页面大小（通常只有几字节），
+        // 不是实际文件大小。只有 200 响应的 content-length 才可信。
+        // 优先使用 info.size（GitHub API 返回的真实文件大小）。
+        const totalSize =
+          response.statusCode === 302
+            ? info.size
+            : contentLength > 0
+              ? contentLength
+              : info.size
         log.info(
-          `[GitHubUpdate] content-length: ${contentLength}, info.size: ${info.size}, totalSize: ${totalSize}`
+          `[GitHubUpdate] status: ${response.statusCode}, content-length: ${contentLength}, info.size: ${info.size}, totalSize: ${totalSize}`
         )
 
         response.on('data', (chunk) => {
