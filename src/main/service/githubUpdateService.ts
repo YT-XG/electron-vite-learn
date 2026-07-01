@@ -220,15 +220,22 @@ class GitHubUpdateService {
         let downloaded = 0
         const chunks: Buffer[] = []
 
-        // 如果没有 content-length，使用 info.size 作为备用
-        const totalSize =
-          contentLength > 0 ? contentLength : info.size > 0 ? info.size : 0
+        // 优先使用 content-length，其次使用 info.size（GitHub API 返回的文件大小）
+        const totalSize = contentLength > 0 ? contentLength : info.size > 0 ? info.size : 0
+        log.info(
+          `[GitHubUpdate] content-length: ${contentLength}, info.size: ${info.size}, totalSize: ${totalSize}`
+        )
 
         response.on('data', (chunk) => {
           chunks.push(chunk)
           downloaded += chunk.length
           if (totalSize > 0) {
             const percent = Math.min(Math.round((downloaded / totalSize) * 100), 100)
+            onProgress?.(percent)
+          } else {
+            // 未知文件大小时，按已下载字节数估算进度（假设最大 200MB）
+            const estimatedMax = 200 * 1024 * 1024
+            const percent = Math.min(Math.round((downloaded / estimatedMax) * 100), 99)
             onProgress?.(percent)
           }
         })
