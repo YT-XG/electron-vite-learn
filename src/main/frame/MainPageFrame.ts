@@ -28,6 +28,7 @@ export default class MainPageFrame extends BaseFrame {
     minWidth: MainPageFrame.MIN_WIDTH,
     minHeight: MainPageFrame.MIN_HEIGHT,
     transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
     show: false,
     resizable: true,
