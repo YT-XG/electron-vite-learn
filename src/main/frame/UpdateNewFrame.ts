@@ -514,8 +514,10 @@ export default class UpdateNewFrame extends BaseFrame {
 
     // 下载文件
     const localPath = await githubUpdateService.downloadUpdate(githubInfo, (percent) => {
+      // 计算已下载字节数，如果 info.size 为 0 或无效，则只发送百分比
+      const transferred = info.size > 0 ? Math.round((info.size * percent) / 100) : 0
       this.sendOne('to-renderer-UpdateNewFrame:progress', {
-        transferred: Math.round((info.size * percent) / 100),
+        transferred,
         total: info.size,
         bytesPerSecond: 0,
         percent

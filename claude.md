@@ -641,7 +641,7 @@ electron-vite-learn/
   - **跨平台支持**：自动根据当前平台选择对应的安装包
     - macOS: `.dmg` 文件
     - Windows: `-setup.exe` 或 `.exe` 文件
-  - 支持下载进度回调
+  - 支持下载进度回调（使用 content-length 或文件大小作为备用）
   - 本地缓存已下载的更新（避免重复下载）
 - **依赖**: electron net 模块（无需额外依赖）
 - **IPC 接口**: 无（内部服务，由 UpdateNewFrame 调用）
@@ -791,6 +791,12 @@ npm run lint
 3. 在修改代码后必须要编译检查是否有报错，不需要启动应用
 4. **【重要】模块业务逻辑、数据库结构都发生更改后必须要更新相关 md 文件**
 5. 在遇到用户需求模糊时必须要向用户提问，不要自己猜
+6. **【重要】跨平台兼容性**：此项目同时支持 Windows 和 macOS，写代码前必须评估兼容性：
+   - 使用 `process.platform` 检测平台差异
+   - 路径处理：Windows 使用 `\` 或 UNC 路径，macOS 使用 `/` 或 SMB 挂载路径
+   - 焦点管理：Windows 使用 `minimize()`，macOS 使用 `hide()` + `app.hide()`
+   - 快捷键：Windows 使用 `Ctrl`，macOS 使用 `Command`
+   - 文件操作：注意跨平台路径分隔符和权限差异
 
 ### 窗口框架规范（必须遵守）
 1. **创建窗口时必须继承 BaseFrame**：新增窗口类时，必须继承 `BaseFrame` 基类，复用其通用逻辑（窗口创建、IPC 注册、生命周期管理等）

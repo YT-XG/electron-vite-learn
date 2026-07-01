@@ -211,11 +211,14 @@ class GitHubUpdateService {
         let downloaded = 0
         const chunks: Buffer[] = []
 
+        // 如果没有 content-length，使用 info.size 作为备用
+        const totalSize = contentLength > 0 ? contentLength : info.size
+
         response.on('data', (chunk) => {
           chunks.push(chunk)
           downloaded += chunk.length
-          if (contentLength > 0) {
-            const percent = Math.round((downloaded / contentLength) * 100)
+          if (totalSize > 0) {
+            const percent = Math.min(Math.round((downloaded / totalSize) * 100), 100)
             onProgress?.(percent)
           }
         })
@@ -224,6 +227,8 @@ class GitHubUpdateService {
           const buffer = Buffer.concat(chunks)
           fs.writeFileSync(localPath, buffer)
           log.info('[GitHubUpdate] 下载完成:', localPath)
+          // 下载完成时确保进度为 100%
+          onProgress?.(100)
           resolve(localPath)
         })
       })
