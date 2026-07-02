@@ -495,6 +495,10 @@ export default class UpdateNewFrame extends BaseFrame {
   private async downloadGitHubUpdate(info: UpdateInfo): Promise<string> {
     log.info('[UpdateNew] 从 GitHub 下载更新:', info.file)
 
+    // 构建 GitHub 下载链接，使用 gh-proxy 代理加速
+    const githubRepo = settingsService.getAll().githubRepo
+    const downloadUrl = `https://github.com/${githubRepo}/releases/download/v${info.version}/${info.file}`
+
     // 构建 GitHub 更新信息
     const githubInfo: GitHubUpdateInfo = {
       version: info.version,
@@ -502,7 +506,7 @@ export default class UpdateNewFrame extends BaseFrame {
       releaseDate: info.releaseDate || '',
       file: info.file,
       size: info.size,
-      downloadUrl: `https://github.com/${settingsService.getAll().githubRepo}/releases/download/v${info.version}/${info.file}`
+      downloadUrl
     }
 
     // 报告 0% 进度

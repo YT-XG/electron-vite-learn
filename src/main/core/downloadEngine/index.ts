@@ -6,6 +6,8 @@ import { randomUUID } from 'crypto'
 import { existsSync } from 'fs'
 import { mkdir, open, rename, rm, stat, unlink } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
+import { net } from 'electron'
+import log from 'electron-log'
 import { EMIT_INTERVAL_MS } from './config'
 import {
   buildChunks,
@@ -230,13 +232,23 @@ export class MultiThreadDownloadEngine {
   cancelDownload(taskId: string): boolean {
     const task = this.tasks.get(taskId)
     if (!task) return false
-    if (task.status !== 'downloading') return false
+    // 支持取消 downloading 和 paused 状态的任务
+    if (task.status !== 'downloading' && task.status !== 'paused') return false
 
     task.status = 'canceled'
     task.updatedAt = Date.now()
-    task.abortControllers.forEach((controller) => controller.abort())
+    // 中止所有正在进行的请求
+    task.abortControllers.forEach((controller) => {
+      try {
+        controller.abort()
+      } catch {
+        // ignore
+      }
+    })
     task.abortControllers.clear()
     this.emitTask(task, true)
+    void this.cleanupTaskFiles(task)
+    log.info(`[DownloadEngine] 任务已取消: ${taskId}`)
     return true
   }
 
@@ -254,9 +266,17 @@ export class MultiThreadDownloadEngine {
     task.speedBytesPerSecond = 0
     task.estimatedFinishAt = null
     task.updatedAt = Date.now()
-    task.abortControllers.forEach((controller) => controller.abort())
+    // 中止所有正在进行的请求
+    task.abortControllers.forEach((controller) => {
+      try {
+        controller.abort()
+      } catch {
+        // ignore
+      }
+    })
     task.abortControllers.clear()
     this.emitTask(task, true)
+    log.info(`[DownloadEngine] 任务已暂停: ${taskId}`)
     return true
   }
 
@@ -274,8 +294,23 @@ export class MultiThreadDownloadEngine {
       throw new Error('仅可继续已暂停的任务')
     }
 
+    log.info(`[DownloadEngine] 恢复下载任务: ${taskId}`)
+
     const now = Date.now()
-    const probe = await this.probeRemoteFile(new URL(task.url))
+
+    // 尝试探测远程文件，失败时使用已知信息继续下载
+    let probe: DownloadProbeResult
+    try {
+      probe = await this.probeRemoteFile(new URL(task.url))
+    } catch (error) {
+      log.warn('[DownloadEngine] 探测文件失败，使用已知信息继续下载:', error)
+      // 使用任务已知信息继续下载
+      probe = {
+        fileName: task.fileName,
+        totalBytes: task.totalBytes,
+        supportsRange: task.supportsRange,
+      }
+    }
 
     const canResume =
       probe.supportsRange && probe.totalBytes > 0 && probe.totalBytes === task.totalBytes
@@ -333,19 +368,50 @@ export class MultiThreadDownloadEngine {
     let supportsRange = false
 
     try {
-      const headResponse = await fetch(url.toString(), { method: 'HEAD' })
-      if (headResponse.ok) {
-        const contentLength = headResponse.headers.get('content-length')
+      log.info(`[DownloadEngine] 探测文件: ${url.toString()}`)
+
+      // 使用 Electron net 模块（Chromium 网络栈）
+      const response = await new Promise<Electron.IncomingMessage>((resolve, reject) => {
+        const request = net.request({
+          url: url.toString(),
+          method: 'HEAD',
+        })
+
+        request.on('response', (response) => {
+          resolve(response)
+        })
+
+        request.on('error', (error) => {
+          reject(error)
+        })
+
+        // 设置 30 秒超时
+        setTimeout(() => {
+          request.abort()
+          reject(new Error('HEAD 请求超时'))
+        }, 30000)
+
+        request.end()
+      })
+
+      log.info(`[DownloadEngine] 探测响应: ${response.statusCode}`)
+
+      if (response.statusCode === 200) {
+        const contentLength = response.headers['content-length']
         totalBytes = Number(contentLength || 0) || 0
-        const acceptRanges = (headResponse.headers.get('accept-ranges') || '').toLowerCase()
+        const acceptRangesHeader = response.headers['accept-ranges']
+        const acceptRanges = (Array.isArray(acceptRangesHeader) ? acceptRangesHeader[0] : acceptRangesHeader || '').toLowerCase()
         supportsRange = acceptRanges.includes('bytes')
-        const disposition = headResponse.headers.get('content-disposition') || ''
-        const dispositionName = parseContentDispositionFileName(disposition)
+        const disposition = response.headers['content-disposition'] || ''
+        const dispositionName = parseContentDispositionFileName(
+          Array.isArray(disposition) ? disposition[0] : disposition
+        )
         if (dispositionName) {
           fileName = dispositionName
         }
       }
-    } catch {
+    } catch (error) {
+      log.error('[DownloadEngine] 探测文件失败:', error)
       // ignore head errors
     }
 
@@ -362,7 +428,17 @@ export class MultiThreadDownloadEngine {
    * @param probe - 探测结果
    */
   private async executeDownload(task: InternalTask, probe: DownloadProbeResult): Promise<void> {
-    const useMultiThread = probe.supportsRange && probe.totalBytes > 0 && task.threads > 1
+    // 如果是代理链接（gh-proxy），不支持 Range 请求，强制单线程
+    const isProxy = task.url.includes('gh-proxy.org') || task.url.includes('ghproxy')
+    const useMultiThread = !isProxy && probe.supportsRange && probe.totalBytes > 0 && task.threads > 1
+
+    log.info(`[DownloadEngine] 开始下载: URL=${task.url}`)
+    log.info(`[DownloadEngine] 探测结果: totalBytes=${probe.totalBytes}, supportsRange=${probe.supportsRange}, threads=${task.threads}`)
+    log.info(`[DownloadEngine] 使用模式: ${useMultiThread ? '多线程' : '单线程'}`)
+
+    if (isProxy) {
+      log.info('[DownloadEngine] 检测到代理链接，强制使用单线程下载')
+    }
 
     if (useMultiThread) {
       const chunks = buildChunks(probe.totalBytes, task.threads, task.tempDir)
@@ -421,10 +497,30 @@ export class MultiThreadDownloadEngine {
     }
     await rename(task.tempOutputPath, task.savePath)
 
-    if (task.totalBytes <= 0) {
-      task.totalBytes = task.downloadedBytes
+    // 校验下载文件大小
+    try {
+      const finalStat = await stat(task.savePath)
+      const finalSize = finalStat.size
+
+      log.info(`[DownloadEngine] 下载完成: 文件=${task.savePath}, 大小=${finalSize}, 预期=${task.totalBytes}`)
+
+      // 如果已知文件大小，校验是否完整
+      if (task.totalBytes > 0 && finalSize !== task.totalBytes) {
+        log.error(`[DownloadEngine] 文件大小校验失败: 预期 ${task.totalBytes}, 实际 ${finalSize}`)
+        // 删除损坏的文件
+        await unlink(task.savePath).catch(() => {})
+        throw new Error(`下载不完整: 预期 ${task.totalBytes} 字节, 实际 ${finalSize} 字节`)
+      }
+
+      task.downloadedBytes = finalSize
+      task.totalBytes = finalSize
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('下载不完整')) {
+        throw error
+      }
+      // stat 失败时忽略，使用已有值
     }
-    task.downloadedBytes = Math.max(task.downloadedBytes, task.totalBytes)
+
     task.progress = 1
     task.speedBytesPerSecond = 0
     task.estimatedFinishAt = null
@@ -460,36 +556,75 @@ export class MultiThreadDownloadEngine {
         headers['Range'] = `bytes=${existingSize}-`
       }
 
-      const response = await fetch(task.url, { signal: controller.signal, headers })
-      if (existingSize > 0 && response.status !== 206) {
+      log.info(`[DownloadEngine] 单线程下载: ${task.url}`)
+
+      // 使用 Electron net 模块（Chromium 网络栈）
+      const response = await new Promise<Electron.IncomingMessage>((resolve, reject) => {
+        const request = net.request({
+          url: task.url,
+          method: 'GET',
+          headers,
+        })
+
+        request.on('response', (response) => {
+          resolve(response)
+        })
+
+        request.on('error', (error) => {
+          reject(error)
+        })
+
+        // 监听中止信号
+        controller.signal.addEventListener('abort', () => {
+          request.abort()
+        })
+
+        request.end()
+      })
+
+      log.info(`[DownloadEngine] 下载响应: ${response.statusCode}`)
+
+      if (existingSize > 0 && response.statusCode !== 206) {
         // Server doesn't support range for this request, restart
         existingSize = 0
         task.downloadedBytes = 0
       }
-      if (!existingSize && !response.ok) {
-        throw new Error(`下载请求失败: HTTP ${response.status}`)
+      if (!existingSize && response.statusCode !== 200 && response.statusCode !== 206) {
+        throw new Error(`下载请求失败: HTTP ${response.statusCode}`)
       }
-      if (!response.body) {
-        throw new Error(`下载请求失败: HTTP ${response.status}`)
-      }
-      const contentLength = Number(response.headers.get('content-length') || 0) || 0
+
+      const contentLength = Number(response.headers['content-length'] || 0) || 0
       if (task.totalBytes <= 0 && contentLength > 0) {
         task.totalBytes = existingSize + contentLength
       }
 
       const fileHandle = await open(task.tempOutputPath, existingSize > 0 ? 'a' : 'w')
       try {
-        const reader = response.body.getReader()
-        while (true) {
-          const result = await reader.read()
-          if (result.done) break
-          const chunk = result.value
-          if (chunk && chunk.byteLength > 0) {
-            await fileHandle.write(chunk)
-            task.downloadedBytes += chunk.byteLength
-            this.updateTaskProgress(task)
-          }
-        }
+        // 使用 Node.js 流处理
+        await new Promise<void>((resolve, reject) => {
+          let writeQueue = Promise.resolve()
+
+          response.on('data', (chunk: Buffer) => {
+            if (chunk && chunk.length > 0) {
+              // 将写入操作加入队列，确保顺序执行
+              writeQueue = writeQueue.then(async () => {
+                await fileHandle.write(chunk)
+                task.downloadedBytes += chunk.length
+                this.updateTaskProgress(task)
+              })
+            }
+          })
+
+          response.on('end', async () => {
+            // 等待所有写入操作完成
+            await writeQueue
+            resolve()
+          })
+
+          response.on('error', (error: Error) => {
+            reject(error)
+          })
+        })
       } finally {
         await fileHandle.close()
       }
@@ -524,29 +659,67 @@ export class MultiThreadDownloadEngine {
     task.abortControllers.add(controller)
     try {
       const rangeStart = chunk.start + existingSize
-      const response = await fetch(task.url, {
-        signal: controller.signal,
-        headers: {
-          Range: `bytes=${rangeStart}-${chunk.end}`,
-        },
+      log.info(`[DownloadEngine] 分片下载: ${task.url} [${rangeStart}-${chunk.end}]`)
+
+      // 使用 Electron net 模块（Chromium 网络栈）
+      const response = await new Promise<Electron.IncomingMessage>((resolve, reject) => {
+        const request = net.request({
+          url: task.url,
+          method: 'GET',
+          headers: {
+            Range: `bytes=${rangeStart}-${chunk.end}`,
+          },
+        })
+
+        request.on('response', (response) => {
+          resolve(response)
+        })
+
+        request.on('error', (error) => {
+          reject(error)
+        })
+
+        // 监听中止信号
+        controller.signal.addEventListener('abort', () => {
+          request.abort()
+        })
+
+        request.end()
       })
-      if ((response.status !== 206 && response.status !== 200) || !response.body) {
-        throw new Error(`分片下载失败: HTTP ${response.status}`)
+
+      log.info(`[DownloadEngine] 分片响应: ${response.statusCode}`)
+
+      if (response.statusCode !== 206 && response.statusCode !== 200) {
+        throw new Error(`分片下载失败: HTTP ${response.statusCode}`)
       }
 
       const fileHandle = await open(chunk.partPath, existingSize > 0 ? 'a' : 'w')
       try {
-        const reader = response.body.getReader()
-        while (true) {
-          const result = await reader.read()
-          if (result.done) break
-          const bytes = result.value
-          if (bytes && bytes.byteLength > 0) {
-            await fileHandle.write(bytes)
-            task.downloadedBytes += bytes.byteLength
-            this.updateTaskProgress(task)
-          }
-        }
+        // 使用 Node.js 流处理
+        await new Promise<void>((resolve, reject) => {
+          let writeQueue = Promise.resolve()
+
+          response.on('data', (dataChunk: Buffer) => {
+            if (dataChunk && dataChunk.length > 0) {
+              // 将写入操作加入队列，确保顺序执行
+              writeQueue = writeQueue.then(async () => {
+                await fileHandle.write(dataChunk)
+                task.downloadedBytes += dataChunk.length
+                this.updateTaskProgress(task)
+              })
+            }
+          })
+
+          response.on('end', async () => {
+            // 等待所有写入操作完成
+            await writeQueue
+            resolve()
+          })
+
+          response.on('error', (error: Error) => {
+            reject(error)
+          })
+        })
       } finally {
         await fileHandle.close()
       }
@@ -624,6 +797,7 @@ export class MultiThreadDownloadEngine {
    * @param error - 错误对象
    */
   private handleTaskFailure(task: InternalTask, error: unknown): void {
+    log.error('[DownloadEngine] 下载失败:', error)
     if (task.status === 'paused') {
       task.speedBytesPerSecond = 0
       task.estimatedFinishAt = null

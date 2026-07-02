@@ -2,9 +2,18 @@
   <div class="download-manager">
     <div class="header">
       <h2 class="title">📥 下载管理</h2>
-      <button class="add-btn" @click="showAddDialog = true" title="添加下载">
-        <span>+</span>
-      </button>
+      <div class="header-actions">
+        <!-- 线程数设置 -->
+        <div class="threads-setting">
+          <span class="threads-label">线程数:</span>
+          <select v-model="downloadThreads" class="threads-select" @change="saveThreads">
+            <option v-for="n in 16" :key="n" :value="n">{{ n }}</option>
+          </select>
+        </div>
+        <button class="add-btn" @click="showAddDialog = true" title="添加下载">
+          <span>+</span>
+        </button>
+      </div>
     </div>
 
     <!-- 添加下载对话框 -->
@@ -78,10 +87,12 @@
           <template v-if="task.status === 'downloading'">
             <button class="action-btn pause-btn" @click="pauseTask(task.id)">暂停</button>
             <button class="action-btn cancel-btn" @click="cancelTask(task.id)">取消</button>
+            <button class="action-btn remove-btn" @click="removeTask(task.id)">移除</button>
           </template>
           <template v-else-if="task.status === 'paused'">
             <button class="action-btn resume-btn" @click="resumeTask(task.id)">继续</button>
             <button class="action-btn cancel-btn" @click="cancelTask(task.id)">取消</button>
+            <button class="action-btn remove-btn" @click="removeTask(task.id)">移除</button>
           </template>
           <template v-else-if="task.status === 'completed'">
             <button class="action-btn open-btn" @click="openFile(task.savePath)">打开文件</button>
@@ -134,6 +145,12 @@ const downloadUrl = ref('')
 /** URL 输入框引用 */
 const urlInput = ref<HTMLInputElement | null>(null)
 
+/** 是否正在添加下载（防抖） */
+const isAdding = ref(false)
+
+/** 下载线程数 */
+const downloadThreads = ref(8)
+
 /**
  * 获取状态文本
  * @param status - 任务状态
@@ -182,15 +199,33 @@ const formatRemainingTime = (estimatedFinishAt: number): string => {
  */
 const confirmAddDownload = async (): Promise<void> => {
   const url = downloadUrl.value.trim()
-  if (!url) return
+  if (!url || isAdding.value) return
 
-  const result = await window.electron.ipcRenderer.invoke('download:start', { url })
-  if (!result.ok) {
-    alert(`下载失败: ${result.message}`)
-  } else {
+  isAdding.value = true
+  try {
+    // 立即关闭弹窗，提升响应速度
     showAddDialog.value = false
     downloadUrl.value = ''
+
+    const result = await window.electron.ipcRenderer.invoke('download:start', {
+      url,
+      threads: downloadThreads.value
+    })
+    if (!result.ok) {
+      alert(`下载失败: ${result.message}`)
+    }
+  } finally {
+    isAdding.value = false
   }
+}
+
+/**
+ * 保存线程数设置
+ */
+const saveThreads = async (): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('settings:update', {
+    downloadThreads: downloadThreads.value
+  })
 }
 
 // 监听对话框显示，自动聚焦输入框
@@ -286,6 +321,12 @@ onMounted(async () => {
   const existingTasks = await window.electron.ipcRenderer.invoke('download:list')
   tasks.value = existingTasks || []
 
+  // 加载线程数设置
+  const settings = await window.electron.ipcRenderer.invoke('settings:get')
+  if (settings?.downloadThreads) {
+    downloadThreads.value = settings.downloadThreads
+  }
+
   // 监听任务更新
   window.electron.ipcRenderer.on('download:task-updated', onTaskUpdated)
 })
@@ -319,6 +360,39 @@ onUnmounted(() => {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.threads-setting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.threads-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.threads-select {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.threads-select:focus {
+  border-color: var(--accent-blue);
 }
 
 .add-btn {

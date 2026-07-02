@@ -7,7 +7,7 @@
  * - 热重载：update() 后立即重新注册全球快捷键
  * - 边界处理：文件损坏/不存在时自动返回默认值
  */
-import { app, globalShortcut } from 'electron'
+import { app, globalShortcut, ipcMain } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
@@ -33,6 +33,8 @@ export interface AppSettings {
   updateSource: 'lan' | 'github'
   /** GitHub 仓库地址（格式：owner/repo） */
   githubRepo: string
+  /** 下载线程数（1-16） */
+  downloadThreads: number
 }
 
 /**
@@ -56,7 +58,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   serverUrl: getDefaultServerUrl(),
   autoStart: false,
   updateSource: 'github',
-  githubRepo: 'YT-XG/electron-vite-learn'
+  githubRepo: 'YT-XG/electron-vite-learn',
+  downloadThreads: 8
 }
 
 class SettingsService {
@@ -73,6 +76,7 @@ class SettingsService {
     this.settings = this.#load()
     this.#registerShortcut()
     this.#applyAutoStart()
+    this.#registerIPC()
     log.info('[Settings] 初始化完成，当前快捷键:', this.settings.shortcut)
   }
 
@@ -103,6 +107,22 @@ class SettingsService {
   destroy(): void {
     globalShortcut.unregisterAll()
     log.info('[Settings] 已清理全局快捷键')
+  }
+
+  /**
+   * 注册 IPC 处理器
+   */
+  #registerIPC(): void {
+    // 获取所有设置
+    ipcMain.handle('settings:get', () => {
+      return this.getAll()
+    })
+
+    // 更新设置
+    ipcMain.handle('settings:update', (_event, partial: Partial<AppSettings>) => {
+      this.update(partial)
+      return { ok: true }
+    })
   }
 
   /**
