@@ -17,6 +17,11 @@ export const AppRoutes = [
     component: () => import('@renderer/views/OpenDialog.vue')
   },
   {
+    path: '/downloadManager',
+    name: '下载管理',
+    component: () => import('@renderer/views/DownloadManager.vue')
+  },
+  {
     path: '/test',
     name: '测试',
     component: () => import('@renderer/views/Test.vue')
