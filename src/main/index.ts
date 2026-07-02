@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, shell } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
 import { TrayService } from './service/trayService'
@@ -54,6 +54,11 @@ app.whenReady().then(async () => {
   // 初始化下载服务（多线程下载）
   downloadService.init()
 
+  // 注册全局快捷键 Ctrl+K 呼出搜索框
+  globalShortcut.register('CommandOrControl+K', () => {
+    windowFactory.getSearchBoxFrame().toggle()
+  })
+
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
     clipboard.writeText(text)
@@ -108,4 +113,6 @@ app.on('before-quit', () => {
   translateService.destroy()
   claudeCodeService.destroy()
   trayService?.destroy()
+  // 注销所有全局快捷键
+  globalShortcut.unregisterAll()
 })
