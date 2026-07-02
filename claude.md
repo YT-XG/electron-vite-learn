@@ -15,7 +15,8 @@ electron-vite-learn/
 │   │   │   ├── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
 │   │   │   ├── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
 │   │   │   ├── githubUpdateService.ts # GitHub 更新服务（从 GitHub Releases 检查和下载更新）
-│   │   │   └── downloadService.ts  # 下载服务（多线程分片下载、任务持久化）
+│   │   │   ├── downloadService.ts  # 下载服务（多线程分片下载、任务持久化）
+│   │   │   └── searchService.ts   # 搜索服务（工具、剪贴板、应用搜索）
 │   │   ├── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -29,6 +30,8 @@ electron-vite-learn/
 │   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
+│   │       ├── SearchBoxFrame.ts  # 搜索框窗口（全局搜索，快捷键呼出）
+│   │       ├── MarkdownPreviewFrame.ts # Markdown 预览窗口（多标签页分屏预览）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   │   ├── core/              # 核心功能模块
 │   │   │   └── downloadEngine/  # 多线程下载引擎
@@ -68,11 +71,16 @@ electron-vite-learn/
 │           │   ├── Translate.vue    # 翻译页面
 │           │   ├── PermissionNotice.vue # 权限确认弹窗（Claude Code 权限请求交互）
 │           │   ├── ClaudeCodeStatus.vue # Claude Code 状态通知（常驻状态条）
-│           │   └── Test.vue   # 测试页面
+│           │   ├── SearchBox.vue    # 搜索框组件（全局搜索）
+│           │   ├── MarkdownPreview.vue # Markdown 预览组件（多标签页分屏）
+│           │   ├── Test.vue   # 测试页面
+│           │   └── tools/      # 工具页面
+│           │       └── Toolbox.vue  # 工具箱页面
 │           ├── components/     # 可复用组件
 │           │   └── Versions.vue
 │           ├── utils/          # 工具函数
-│           │   └── request.ts  # HTTP 请求工具
+│           │   ├── request.ts  # HTTP 请求工具
+│           │   └── pinyinSearch.ts # 拼音首字母搜索工具
 │           └── assets/         # 静态资源（CSS、图片）
 │               ├── base.css
 │               ├── main.css
@@ -706,6 +714,82 @@ electron-vite-learn/
   - IPC 接口：download:start, download:pause, download:resume, download:cancel, download:remove, download:list, download:get, download:pick-save-path
   - 进度广播到所有可见窗口
 - **依赖**: downloadEngine
+
+### 搜索服务 (src/main/service/searchService.ts)
+- **职责**: 统一管理工具、剪贴板、应用的搜索逻辑
+- **功能**:
+  - 搜索工具（支持拼音首字母模糊匹配）
+  - 搜索剪贴板历史
+  - 打开文件/网页
+  - 执行工具动作
+- **IPC 接口**:
+  - `to-main-SearchBox:searchTools` - 搜索工具
+  - `to-main-SearchBox:searchClipboard` - 搜索剪贴板
+  - `to-main-SearchBox:executeTool` - 执行工具
+  - `to-main-SearchBox:openFile` - 打开文件
+  - `to-main-SearchBox:openUrl` - 打开网页
+  - `to-main-SearchBox:copyClipboard` - 复制剪贴板内容
+  - `to-main-SearchBox:hide` - 隐藏搜索框
+- **使用方式**:
+  ```typescript
+  import { searchService } from './service/searchService'
+
+  // 搜索工具
+  const results = searchService.searchTools('yl')
+
+  // 搜索剪贴板
+  const clipboardResults = await searchService.searchClipboard('关键词')
+
+  // 执行工具
+  searchService.executeTool('markdown-preview')
+  ```
+
+### 搜索框窗口 (src/main/frame/SearchBoxFrame.ts)
+- **职责**: 全局搜索框，快捷键呼出，支持工具搜索、剪贴板搜索
+- **功能**:
+  - 屏幕居中显示，毛玻璃效果
+  - 快捷键 `Ctrl+K` / `⌘K` 呼出/隐藏
+  - 支持拼音首字母搜索
+  - 搜索工具、剪贴板历史、应用、文件、网页
+- **IPC 接口**:
+  - `to-main-SearchBox:searchTools` - 搜索工具
+  - `to-main-SearchBox:searchClipboard` - 搜索剪贴板
+  - `to-main-SearchBox:executeTool` - 执行工具
+  - `to-main-SearchBox:hide` - 隐藏搜索框
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 显示搜索框
+  windowFactory.getSearchBoxFrame().show()
+
+  // 隐藏搜索框
+  windowFactory.getSearchBoxFrame().hide()
+
+  // 切换显示/隐藏
+  windowFactory.getSearchBoxFrame().toggle()
+  ```
+
+### Markdown 预览窗口 (src/main/frame/MarkdownPreviewFrame.ts)
+- **职责**: 多标签页实时分屏预览 Markdown
+- **功能**:
+  - 左右分屏：编辑区 + 预览区
+  - 多标签页支持
+  - 拖入 .md 文件
+  - 保存功能 (Ctrl+S)
+- **IPC 接口**:
+  - `to-main-MarkdownPreview:readFile` - 读取文件
+  - `to-main-MarkdownPreview:saveFile` - 保存文件
+  - `to-main-MarkdownPreview:minimize` - 最小化窗口
+  - `to-main-MarkdownPreview:toggleMaximize` - 切换最大化
+  - `to-main-MarkdownPreview:close` - 关闭窗口
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 创建并显示 Markdown 预览窗口
+  windowFactory.createMarkdownPreviewFrame().show()
+  ```
 
 ### 系统托盘 (src/main/trayService.ts)
 - **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
