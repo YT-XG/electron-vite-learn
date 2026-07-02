@@ -15,7 +15,7 @@ electron-vite-learn/
 │   │   │   ├── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
 │   │   │   ├── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
 │   │   │   └── githubUpdateService.ts # GitHub 更新服务（从 GitHub Releases 检查和下载更新）
-│   │   └── frame/              # 窗口框架（封装所有窗口逻辑）
+│   │   ├── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
 │   │       ├── BallFrame.ts    # 主窗口（悬浮球时钟）
@@ -29,6 +29,10 @@ electron-vite-learn/
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
+│   │   ├── core/              # 核心功能模块
+│   │   │   └── downloadEngine/  # 多线程下载引擎
+│   │   │       └── config/      # 下载引擎配置
+│   │   │           └── index.ts # 配置常量（线程数、进度推送间隔、分片大小）
 │   │   └── utils/              # 主进程工具函数
 │   │       └── platform.ts     # 平台相关工具函数（macOS/Windows 差异处理）
 │   ├── preload/                 # 预加载脚本
@@ -675,6 +679,19 @@ electron-vite-learn/
   - 空状态提示
   - 监听主进程推送，实时更新列表
   - 时间智能显示（刚刚、X分钟前、X小时前、具体日期）
+
+### 下载引擎配置 (src/main/core/downloadEngine/config/index.ts)
+- **职责**: 定义多线程下载引擎的配置常量
+- **配置项**:
+  - `DEFAULT_THREADS` - 默认下载线程数（8）
+  - `MAX_THREADS` - 最大下载线程数（16）
+  - `MIN_THREADS` - 最小下载线程数（1）
+  - `EMIT_INTERVAL_MS` - 进度推送间隔（160ms）
+  - `MIN_CHUNK_BYTES` - 最小分片大小（1MB）
+- **使用方式**:
+  ```typescript
+  import { DEFAULT_THREADS, MAX_THREADS, MIN_THREADS, EMIT_INTERVAL_MS, MIN_CHUNK_BYTES } from './core/downloadEngine/config'
+  ```
 
 ### 系统托盘 (src/main/trayService.ts)
 - **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
