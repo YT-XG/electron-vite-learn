@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, shell } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { windowFactory } from './frame'
 import { TrayService } from './service/trayService'
@@ -66,6 +66,15 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('to-service-SettingsService:update', (_event, partial: Record<string, unknown>) => {
     settingsService.update(partial)
+  })
+
+  // Shell 相关 IPC（打开文件/文件夹）
+  ipcMain.handle('shell:openPath', (_event, filePath: string) => {
+    return shell.openPath(filePath)
+  })
+
+  ipcMain.handle('shell:showItemInFolder', (_event, fullPath: string) => {
+    return shell.showItemInFolder(fullPath)
   })
 
   // 应用激活时重新创建窗口（macOS）
