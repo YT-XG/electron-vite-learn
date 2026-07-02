@@ -219,11 +219,19 @@ class SearchService {
     }
 
     let result = ''
+    let lastChar = ''
     for (const char of str) {
       if (pinyinMap[char]) {
         result += pinyinMap[char]
+        lastChar = char
       } else if (/[a-zA-Z0-9]/.test(char)) {
-        result += char.toLowerCase()
+        // 英文字母：如果是新单词的开头，取首字母
+        if (!lastChar || !/[a-zA-Z]/.test(lastChar)) {
+          result += char.toLowerCase()
+        }
+        lastChar = char
+      } else {
+        lastChar = char
       }
     }
     return result

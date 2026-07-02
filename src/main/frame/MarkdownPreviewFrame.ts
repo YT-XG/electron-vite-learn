@@ -1,4 +1,4 @@
-import { BrowserWindowConstructorOptions } from 'electron'
+import { BrowserWindowConstructorOptions, ipcMain } from 'electron'
 import BaseFrame from './BaseFrame'
 
 /**
@@ -40,21 +40,29 @@ export default class MarkdownPreviewFrame extends BaseFrame {
   /** 文件路径到内容的映射 */
   #fileContents: Map<string, string> = new Map()
 
+  /** 是否已注册 IPC */
+  static #ipcRegistered = false
+
   /**
    * 注册 IPC 监听器
    */
   protected registerIPC(): void {
     super.registerIPC()
 
+    // 只注册一次 IPC
+    if (MarkdownPreviewFrame.#ipcRegistered) {
+      return
+    }
+
     // 最小化窗口
-    this.recvOne('to-main-MarkdownPreview:minimize', () => {
+    ipcMain.on('to-main-MarkdownPreview:minimize', () => {
       if (this.isAlive()) {
         this.window!.minimize()
       }
     })
 
     // 最大化/还原窗口
-    this.recvOne('to-main-MarkdownPreview:toggleMaximize', () => {
+    ipcMain.on('to-main-MarkdownPreview:toggleMaximize', () => {
       if (this.isAlive()) {
         if (this.window!.isMaximized()) {
           this.window!.unmaximize()
@@ -65,12 +73,12 @@ export default class MarkdownPreviewFrame extends BaseFrame {
     })
 
     // 关闭窗口
-    this.recvOne('to-main-MarkdownPreview:close', () => {
-      this.destroy()
+    ipcMain.on('to-main-MarkdownPreview:close', () => {
+      this.close()
     })
 
     // 读取文件
-    this.recvTwo('to-main-MarkdownPreview:readFile', async (_event, filePath: string) => {
+    ipcMain.handle('to-main-MarkdownPreview:readFile', async (_event, filePath: string) => {
       try {
         const fs = require('fs/promises')
         const content = await fs.readFile(filePath, 'utf-8')
@@ -82,7 +90,7 @@ export default class MarkdownPreviewFrame extends BaseFrame {
     })
 
     // 保存文件
-    this.recvTwo('to-main-MarkdownPreview:saveFile', async (_event, filePath: string, content: string) => {
+    ipcMain.handle('to-main-MarkdownPreview:saveFile', async (_event, filePath: string, content: string) => {
       try {
         const fs = require('fs/promises')
         await fs.writeFile(filePath, content, 'utf-8')
@@ -92,5 +100,7 @@ export default class MarkdownPreviewFrame extends BaseFrame {
         return { success: false, error: (error as Error).message }
       }
     })
+
+    MarkdownPreviewFrame.#ipcRegistered = true
   }
 }

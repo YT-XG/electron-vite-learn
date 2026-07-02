@@ -68,6 +68,7 @@
 import { ref, computed, onMounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import 'highlight.js/styles/github-dark.css'
 
 // 初始化 markdown-it
 const md = new MarkdownIt({
@@ -249,7 +250,15 @@ const close = () => {
 }
 
 onMounted(() => {
-  // 设置窗口可拖拽区域
+  // 阻止默认拖拽行为（Electron 安全限制）
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  })
+  document.addEventListener('drop', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  })
 })
 </script>
 
