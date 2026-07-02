@@ -2,6 +2,7 @@ import { app, net } from 'electron'
 import * as fs from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
+import { downloadService } from './downloadService'
 
 /** GitHub Release 资源接口 */
 interface GitHubAsset {
@@ -193,93 +194,35 @@ class GitHubUpdateService {
 
     log.info('[GitHubUpdate] 开始下载:', info.downloadUrl)
 
+    // 使用多线程下载服务
+    const task = await downloadService.startDownload({
+      url: info.downloadUrl,
+      savePath: localPath,
+      threads: 4, // 更新下载用 4 线程即可
+      defaultDir: this.cacheDir
+    })
+
+    // 等待下载完成
     return new Promise((resolve, reject) => {
-      let settled = false
-
-      const settle = (fn: () => void) => {
-        if (!settled) {
-          settled = true
-          fn()
-        }
-      }
-
-      const request = net.request({
-        url: info.downloadUrl,
-        headers: {
-          'User-Agent': `ElectronApp/${this.currentVersion}`
-        }
-      })
-
-      request.on('response', (response) => {
-        if (response.statusCode !== 200 && response.statusCode !== 302) {
-          settle(() => reject(new Error(`下载失败: HTTP ${response.statusCode}`)))
+      const checkInterval = setInterval(() => {
+        const currentTask = downloadService.getTask(task.id)
+        if (!currentTask) {
+          clearInterval(checkInterval)
+          reject(new Error('任务不存在'))
           return
         }
 
-        const contentLength = parseInt(response.headers['content-length']?.[0] || '0', 10)
-        let downloaded = 0
-        const chunks: Buffer[] = []
-
-        // 302 重定向响应的 content-length 是重定向页面大小（通常只有几字节），
-        // 不是实际文件大小。只有 200 响应的 content-length 才可信。
-        // 优先使用 info.size（GitHub API 返回的真实文件大小）。
-        const totalSize =
-          response.statusCode === 302
-            ? info.size
-            : contentLength > 0
-              ? contentLength
-              : info.size
-        log.info(
-          `[GitHubUpdate] status: ${response.statusCode}, content-length: ${contentLength}, info.size: ${info.size}, totalSize: ${totalSize}`
-        )
-
-        response.on('data', (chunk) => {
-          chunks.push(chunk)
-          downloaded += chunk.length
-          if (totalSize > 0) {
-            const percent = Math.min(Math.round((downloaded / totalSize) * 100), 100)
-            onProgress?.(percent)
-          } else {
-            // 未知文件大小时，按已下载字节数估算进度（假设最大 200MB）
-            const estimatedMax = 200 * 1024 * 1024
-            const percent = Math.min(Math.round((downloaded / estimatedMax) * 100), 99)
-            onProgress?.(percent)
-          }
-        })
-
-        response.on('end', () => {
-          settle(() => {
-            try {
-              const buffer = Buffer.concat(chunks)
-              fs.writeFileSync(localPath, buffer)
-              log.info('[GitHubUpdate] 下载完成:', localPath)
-              onProgress?.(100)
-              resolve(localPath)
-            } catch (writeError) {
-              reject(
-                new Error(
-                  `写入文件失败: ${writeError instanceof Error ? writeError.message : String(writeError)}`
-                )
-              )
-            }
-          })
-        })
-      })
-
-      request.on('error', (err) => {
-        log.error('[GitHubUpdate] 网络请求错误:', err.message)
-        // 清理失败的下载文件
-        try {
-          if (fs.existsSync(localPath)) {
-            fs.unlinkSync(localPath)
-          }
-        } catch {
-          // 忽略清理错误
+        if (currentTask.status === 'completed') {
+          clearInterval(checkInterval)
+          onProgress?.(100)
+          resolve(localPath)
+        } else if (currentTask.status === 'failed' || currentTask.status === 'canceled') {
+          clearInterval(checkInterval)
+          reject(new Error(currentTask.errorMessage || '下载失败'))
+        } else if (currentTask.status === 'downloading') {
+          onProgress?.(Math.round(currentTask.progress * 100))
         }
-        settle(() => reject(new Error(`网络连接失败: ${err.message}`)))
-      })
-
-      request.end()
+      }, 500)
     })
   }
 
