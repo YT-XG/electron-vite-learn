@@ -2,9 +2,28 @@
   <div class="download-manager">
     <div class="header">
       <h2 class="title">📥 下载管理</h2>
-      <button class="add-btn" @click="addDownload" title="添加下载">
+      <button class="add-btn" @click="showAddDialog = true" title="添加下载">
         <span>+</span>
       </button>
+    </div>
+
+    <!-- 添加下载对话框 -->
+    <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
+      <div class="dialog">
+        <h3 class="dialog-title">添加下载</h3>
+        <input
+          v-model="downloadUrl"
+          class="dialog-input"
+          type="url"
+          placeholder="请输入下载地址"
+          @keyup.enter="confirmAddDownload"
+          ref="urlInput"
+        />
+        <div class="dialog-actions">
+          <button class="dialog-btn cancel" @click="showAddDialog = false">取消</button>
+          <button class="dialog-btn confirm" @click="confirmAddDownload" :disabled="!downloadUrl.trim()">确定</button>
+        </div>
+      </div>
     </div>
 
     <!-- 空状态 -->
@@ -83,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 
 /** 下载任务接口 */
 interface DownloadTask {
@@ -105,6 +124,15 @@ interface DownloadTask {
 
 /** 任务列表 */
 const tasks = ref<DownloadTask[]>([])
+
+/** 是否显示添加下载对话框 */
+const showAddDialog = ref(false)
+
+/** 下载地址输入 */
+const downloadUrl = ref('')
+
+/** URL 输入框引用 */
+const urlInput = ref<HTMLInputElement | null>(null)
 
 /**
  * 获取状态文本
@@ -150,17 +178,28 @@ const formatRemainingTime = (estimatedFinishAt: number): string => {
 }
 
 /**
- * 添加下载
+ * 确认添加下载
  */
-const addDownload = async (): Promise<void> => {
-  const url = prompt('请输入下载地址：')
+const confirmAddDownload = async (): Promise<void> => {
+  const url = downloadUrl.value.trim()
   if (!url) return
 
   const result = await window.electron.ipcRenderer.invoke('download:start', { url })
   if (!result.ok) {
     alert(`下载失败: ${result.message}`)
+  } else {
+    showAddDialog.value = false
+    downloadUrl.value = ''
   }
 }
+
+// 监听对话框显示，自动聚焦输入框
+watch(showAddDialog, async (newVal) => {
+  if (newVal) {
+    await nextTick()
+    urlInput.value?.focus()
+  }
+})
 
 /**
  * 暂停任务
@@ -517,5 +556,98 @@ onUnmounted(() => {
 .remove-btn:hover {
   background: rgba(244, 67, 54, 0.1);
   color: #f44336;
+}
+
+/* 对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  padding: 20px;
+  width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.dialog-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.dialog-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.dialog-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dialog-btn.cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.dialog-btn.cancel:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.dialog-btn.confirm {
+  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  color: white;
+}
+
+.dialog-btn.confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
+}
+
+.dialog-btn.confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 </style>
