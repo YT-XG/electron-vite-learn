@@ -50,5 +50,10 @@ export const AppRoutes = [
     path: '/markdownPreview',
     name: 'Markdown 预览',
     component: () => import('@renderer/views/MarkdownPreview.vue')
+  },
+  {
+    path: '/contextMenu',
+    name: '右键菜单',
+    component: () => import('@renderer/views/ContextMenu.vue')
   }
 ]

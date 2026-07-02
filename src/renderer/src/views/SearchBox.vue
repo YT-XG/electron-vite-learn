@@ -2,7 +2,10 @@
   <div class="search-box" @mousedown.stop>
     <!-- 搜索输入框 -->
     <div class="search-input-wrapper">
-      <span class="search-icon">🔍</span>
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
       <input
         ref="inputRef"
         v-model="query"
@@ -13,7 +16,10 @@
         @keydown="onKeydown"
         autofocus
       />
-      <span class="shortcut-hint">ESC</span>
+      <div class="input-actions">
+        <span v-if="isLoading" class="loading-spinner"></span>
+        <kbd class="shortcut-hint">ESC</kbd>
+      </div>
     </div>
 
     <!-- 搜索结果 -->
@@ -31,14 +37,27 @@
           <span class="result-name">{{ result.name }}</span>
           <span class="result-desc">{{ result.description }}</span>
         </div>
-        <span class="result-category">{{ getCategoryLabel(result.category) }}</span>
+        <span class="result-category" :class="result.category">{{ getCategoryLabel(result.category) }}</span>
       </div>
     </div>
 
     <!-- 空状态 -->
     <div class="empty-state" v-else-if="query && !isLoading">
-      <span class="empty-icon">🔍</span>
+      <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
       <span class="empty-text">未找到匹配结果</span>
+      <span class="empty-hint">试试其他关键词</span>
+    </div>
+
+    <!-- 底部提示 -->
+    <div class="search-footer" v-if="results.length > 0">
+      <span class="footer-hint">
+        <kbd>↑</kbd><kbd>↓</kbd> 导航
+        <kbd>↵</kbd> 选择
+      </span>
     </div>
   </div>
 </template>
@@ -148,33 +167,74 @@ const getCategoryLabel = (category: string): string => {
 }
 
 onMounted(() => {
+  // 监听清空消息
+  window.electron.ipcRenderer.on('to-renderer-SearchBox:clear', () => {
+    query.value = ''
+    results.value = []
+    selectedIndex.value = 0
+    inputRef.value?.focus()
+  })
+
   inputRef.value?.focus()
 })
 </script>
 
 <style scoped>
+/* ========================================
+ * 搜索框 - 跟随主题的毛玻璃风格
+ * ======================================== */
+
 .search-box {
   width: 100%;
   height: 100%;
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 12px;
+  /* 亮色：实心白底；暗色：实心深底 */
+  background: var(--bg-primary);
+  border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+  box-shadow:
+    0 24px 68px -12px var(--shadow-color),
+    0 0 0 1px var(--border-color) inset;
 }
+
+/* ========== 输入区域 ========== */
 
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 16px 20px;
+  gap: 14px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+/* 输入框底部发光线条 */
+.search-input-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.search-input-wrapper:focus-within::after {
+  opacity: 0.5;
 }
 
 .search-icon {
-  font-size: 18px;
-  margin-right: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.search-input-wrapper:focus-within .search-icon {
+  color: var(--accent-blue);
 }
 
 .search-input {
@@ -182,45 +242,115 @@ onMounted(() => {
   background: transparent;
   border: none;
   outline: none;
-  color: #fff;
-  font-size: 16px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  caret-color: var(--accent-blue);
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .shortcut-hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 3px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
 }
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== 搜索结果 ========== */
 
 .search-results {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.search-results::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.search-results::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color-hover);
 }
 
 .result-item {
   display: flex;
   align-items: center;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 12px;
 }
 
-.result-item:hover,
+.result-item:hover {
+  background: var(--bg-secondary);
+}
+
 .result-item.active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(61, 139, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(61, 139, 255, 0.15) inset;
+}
+
+.result-item.active .result-icon {
+  transform: scale(1.1);
 }
 
 .result-icon {
-  font-size: 20px;
-  margin-right: 12px;
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.result-item.active .result-icon {
+  background: rgba(61, 139, 255, 0.12);
 }
 
 .result-info {
@@ -228,26 +358,47 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .result-name {
-  color: #fff;
-  font-size: 14px;
+  color: var(--text-primary);
+  font-size: 13.5px;
   font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .result-desc {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .result-category {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 3px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
+
+/* 分类标签颜色 */
+.result-category.tool {
+  color: var(--accent-blue);
+  background: rgba(61, 139, 255, 0.1);
+}
+
+.result-category.clipboard {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+/* ========== 空状态 ========== */
 
 .empty-state {
   flex: 1;
@@ -255,16 +406,51 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .empty-icon {
-  font-size: 32px;
-  opacity: 0.3;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+  opacity: 0.4;
 }
 
 .empty-text {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
+}
+
+.empty-hint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* ========== 底部提示 ========== */
+
+.search-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+}
+
+.footer-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-hint kbd {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--text-secondary);
 }
 </style>

@@ -7,6 +7,7 @@ import MainPageFrame from './MainPageFrame'
 import PermissionNoticeFrame from './PermissionNoticeFrame'
 import SearchBoxFrame from './SearchBoxFrame'
 import MarkdownPreviewFrame from './MarkdownPreviewFrame'
+import ContextMenuFrame from './ContextMenuFrame'
 
 /**
  * 窗口工厂
@@ -39,6 +40,9 @@ export default class WindowFactory {
 
   /** Markdown 预览窗口 */
   #markdownPreviewFrame: MarkdownPreviewFrame | null = null
+
+  /** 右键菜单窗口 */
+  #contextMenuFrame: ContextMenuFrame | null = null
 
   /**
    * 获取主窗口（悬浮球时钟）
@@ -179,6 +183,44 @@ export default class WindowFactory {
   }
 
   /**
+   * 获取右键菜单窗口
+   * @returns ContextMenuFrame 实例
+   */
+  getContextMenuFrame(): ContextMenuFrame {
+    if (!this.#contextMenuFrame) {
+      this.#contextMenuFrame = new ContextMenuFrame()
+      this.#contextMenuFrame.onDestroyCallback = () => {
+        this.#contextMenuFrame = null
+      }
+    }
+    return this.#contextMenuFrame
+  }
+
+  /**
+   * 显示右键菜单
+   * @param x - 鼠标 X 坐标
+   * @param y - 鼠标 Y 坐标
+   * @param items - 菜单项列表
+   */
+  showContextMenu(
+    x: number,
+    y: number,
+    items: Array<{
+      icon: string
+      label: string
+      shortcut?: string
+      separator?: boolean
+      action?: string
+    }>
+  ): void {
+    const frame = this.getContextMenuFrame()
+    if (!frame.isAlive()) {
+      frame.create()
+    }
+    frame.showMenu(x, y, items)
+  }
+
+  /**
    * 创建悬浮球窗口
    * @returns 主窗口实例
    */
@@ -201,6 +243,7 @@ export default class WindowFactory {
     this.#permissionNoticeFrame?.destroy()
     this.#searchBoxFrame?.destroy()
     this.#markdownPreviewFrame?.destroy()
+    this.#contextMenuFrame?.destroy()
   }
 
   /**
@@ -215,6 +258,7 @@ export default class WindowFactory {
     this.#permissionNoticeFrame?.destroy()
     this.#searchBoxFrame?.hide()
     this.#markdownPreviewFrame?.destroy()
+    this.#contextMenuFrame?.hideMenu()
   }
 }
 

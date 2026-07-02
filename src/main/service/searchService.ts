@@ -42,12 +42,20 @@ class SearchService {
       category: 'tool',
       icon: '📝',
       description: '实时 Markdown 分屏预览',
-      action: function () { windowFactory.createMarkdownPreviewFrame().show() }
+      action: function () {
+        // 先隐藏主界面，再显示 Markdown 预览窗口
+        const mainPage = windowFactory.getMainPageFrame()
+        if (mainPage.isAlive()) {
+          // 使用 close() 方法隐藏窗口（BaseFrame 会调用 window.hide()）
+          mainPage.close()
+        }
+        windowFactory.createMarkdownPreviewFrame().show()
+      }
     },
     {
       id: 'clipboard-manager',
       name: '剪贴板管理',
-      aliases: ['cb', '剪贴板', '复制'],
+      aliases: ['cb', '剪贴板', '复制', 'jqb'],
       category: 'tool',
       icon: '📋',
       description: '查看和管理剪贴板历史',
@@ -61,6 +69,46 @@ class SearchService {
       icon: '🌐',
       description: '多语言文本翻译',
       action: function () { windowFactory.getMainPageFrame().showAndPage('translate') }
+    },
+    {
+      id: 'download-manager',
+      name: '下载管理',
+      aliases: ['xiazai', '下载', 'download'],
+      category: 'tool',
+      icon: '📥',
+      description: '查看和管理下载任务',
+      action: function () { windowFactory.getMainPageFrame().showAndPage('download') }
+    },
+    {
+      id: 'check-update',
+      name: '检查更新',
+      aliases: ['gx', '更新', 'update'],
+      category: 'tool',
+      icon: '🔄',
+      description: '检查应用是否有新版本',
+      action: function () {
+        // 显示检查更新通知
+        windowFactory.getNoticeManager().show({
+          text: '正在检查更新...',
+          duration: 3000
+        })
+        // 调用 UpdateNewFrame 检查更新
+        windowFactory
+          .getUpdateNewFrame()
+          .checkForUpdates()
+          .then((res) => {
+            windowFactory.getNoticeManager().show({
+              text: res?.msg || '检查更新完成',
+              duration: 5000
+            })
+          })
+          .catch((err) => {
+            windowFactory.getNoticeManager().show({
+              text: '检查更新失败: ' + (err.message || '未知错误'),
+              duration: 5000
+            })
+          })
+      }
     },
     {
       id: 'settings',
@@ -96,6 +144,7 @@ class SearchService {
       const name = tool.name.toLowerCase()
       const pinyin = this.getPinyinInitials(tool.name).toLowerCase()
       const aliases = tool.aliases.map(a => a.toLowerCase())
+      const description = tool.description.toLowerCase()
 
       let score = 0
       let matchType: SearchResultItem['matchType'] = 'fuzzy'
@@ -109,6 +158,11 @@ class SearchService {
       else if (name.startsWith(lowerQuery)) {
         score = 80
         matchType = 'prefix'
+      }
+      // 别名精确匹配
+      else if (aliases.some(a => a === lowerQuery)) {
+        score = 75
+        matchType = 'exact'
       }
       // 别名前缀匹配
       else if (aliases.some(a => a.startsWith(lowerQuery))) {
@@ -125,15 +179,36 @@ class SearchService {
         score = 40
         matchType = 'fuzzy'
       }
+      // 别名包含匹配
+      else if (aliases.some(a => a.includes(lowerQuery))) {
+        score = 35
+        matchType = 'fuzzy'
+      }
       // 拼音包含匹配
       else if (pinyin.includes(lowerQuery)) {
         score = 30
         matchType = 'fuzzy'
       }
+      // 拼音模糊匹配（按顺序包含所有字符）
+      else if (this.isPinyinFuzzyMatch(pinyin, lowerQuery)) {
+        score = 25
+        matchType = 'fuzzy'
+      }
+      // 描述包含匹配
+      else if (description.includes(lowerQuery)) {
+        score = 20
+        matchType = 'fuzzy'
+      }
 
       if (score > 0) {
+        // 注意：不返回 action 函数（函数无法通过 IPC 序列化）
         results.push({
-          ...tool,
+          id: tool.id,
+          name: tool.name,
+          aliases: tool.aliases,
+          category: tool.category,
+          icon: tool.icon,
+          description: tool.description,
           score,
           matchType
         })
@@ -200,6 +275,26 @@ class SearchService {
     if (tool) {
       tool.action()
     }
+  }
+
+  /**
+   * 拼音模糊匹配：查询词的每个字符按顺序出现在拼音中
+   * @param pinyin - 目标拼音
+   * @param query - 查询词
+   * @returns 是否匹配
+   */
+  private isPinyinFuzzyMatch(pinyin: string, query: string): boolean {
+    let pinyinIndex = 0
+    for (let i = 0; i < query.length; i++) {
+      const char = query[i]
+      // 在拼音中查找这个字符
+      const found = pinyin.indexOf(char, pinyinIndex)
+      if (found === -1) {
+        return false
+      }
+      pinyinIndex = found + 1
+    }
+    return true
   }
 
   /**

@@ -32,6 +32,7 @@ electron-vite-learn/
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       ├── SearchBoxFrame.ts  # 搜索框窗口（全局搜索，快捷键呼出）
 │   │       ├── MarkdownPreviewFrame.ts # Markdown 预览窗口（多标签页分屏预览）
+│   │       ├── ContextMenuFrame.ts # 右键菜单窗口（Markdown 编辑器菜单）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   │   ├── core/              # 核心功能模块
 │   │   │   └── downloadEngine/  # 多线程下载引擎
@@ -73,6 +74,7 @@ electron-vite-learn/
 │           │   ├── ClaudeCodeStatus.vue # Claude Code 状态通知（常驻状态条）
 │           │   ├── SearchBox.vue    # 搜索框组件（全局搜索）
 │           │   ├── MarkdownPreview.vue # Markdown 预览组件（多标签页分屏）
+│           │   ├── ContextMenu.vue  # 右键菜单组件（Markdown 编辑器菜单）
 │           │   ├── Test.vue   # 测试页面
 │           │   └── tools/      # 工具页面
 │           │       └── Toolbox.vue  # 工具箱页面
@@ -230,6 +232,7 @@ electron-vite-learn/
   - 带有弹出/收起 CSS 动画
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 显示时长由 NoticeManager 管理（可自定义）
+  - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
   - **翻译按钮**：仅剪贴板复制文字时显示，其他通知（如检查更新）不显示
   - **打开链接按钮**：自动检测文本中是否包含链接，如果包含则显示打开链接按钮（绿色渐变）
 - **IPC 接口**:
@@ -589,6 +592,7 @@ electron-vite-learn/
   - 点击按钮后通过 IPC 通知主进程，主进程写回 HTTP 响应
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 支持鼠标穿透（透明区域可点击）
+  - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
   - **自动隐藏**：权限被解决或超时后，窗口自动淡出隐藏
   - **自动关闭**：当收到 PreToolUse/PostToolUse 事件时，如果权限请求弹窗还在显示，则自动隐藏（适用于 AskUserQuestion 和普通权限请求）
 - **IPC 接口**:
@@ -620,6 +624,7 @@ electron-vite-learn/
   - 不设置自动销毁定时器，持续显示直到手动隐藏
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 支持鼠标穿透（透明区域可点击）
+  - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
   - 支持淡入/淡出动画
 - **状态类型**:
   - `running` - 🟢 会话运行中
@@ -718,10 +723,29 @@ electron-vite-learn/
 ### 搜索服务 (src/main/service/searchService.ts)
 - **职责**: 统一管理工具、剪贴板、应用的搜索逻辑
 - **功能**:
-  - 搜索工具（支持拼音首字母模糊匹配）
+  - 搜索工具（支持多维度匹配：名称、别名、拼音首字母、描述）
   - 搜索剪贴板历史
   - 打开文件/网页
   - 执行工具动作
+- **内置工具**：
+  | 工具 ID | 名称 | 别名 | 说明 |
+  |---------|------|------|------|
+  | `markdown-preview` | Markdown 预览 | md, 预览, markdown | 打开 Markdown 预览窗口 |
+  | `clipboard-manager` | 剪贴板管理 | cb, 剪贴板, 复制 | 打开剪贴板管理页面 |
+  | `translate` | 翻译 | fy, 翻译, translate | 打开翻译页面 |
+  | `download-manager` | 下载管理 | xiazai, 下载, download | 打开下载管理页面 |
+  | `check-update` | 检查更新 | gx, 更新, update | 检查应用更新 |
+  | `settings` | 设置 | sz, 设置, settings | 打开设置页面 |
+- **搜索匹配方式**（按优先级排序）：
+  - 精确匹配：工具名称完全匹配
+  - 前缀匹配：工具名称以查询词开头
+  - 别名精确匹配：别名完全匹配
+  - 别名前缀匹配：别名以查询词开头
+  - 拼音首字母匹配：工具名称拼音首字母以查询词开头
+  - 包含匹配：工具名称包含查询词
+  - 别名包含匹配：别名包含查询词
+  - 拼音包含匹配：拼音首字母包含查询词
+  - 描述包含匹配：工具描述包含查询词
 - **IPC 接口**:
   - `to-main-SearchBox:searchTools` - 搜索工具
   - `to-main-SearchBox:searchClipboard` - 搜索剪贴板
@@ -734,14 +758,19 @@ electron-vite-learn/
   ```typescript
   import { searchService } from './service/searchService'
 
-  // 搜索工具
-  const results = searchService.searchTools('yl')
+  // 搜索工具（支持别名：md、预览、markdown）
+  const results = searchService.searchTools('md')
 
   // 搜索剪贴板
   const clipboardResults = await searchService.searchClipboard('关键词')
 
-  // 执行工具
+  // 执行工具（打开 Markdown 预览会自动隐藏主界面）
   searchService.executeTool('markdown-preview')
+
+  // 其他可执行的工具
+  searchService.executeTool('download-manager')  // 打开下载管理
+  searchService.executeTool('check-update')      // 检查更新
+  searchService.executeTool('settings')          // 打开设置
   ```
 
 ### 搜索框窗口 (src/main/frame/SearchBoxFrame.ts)
@@ -751,6 +780,7 @@ electron-vite-learn/
   - 快捷键 `Ctrl+K` / `⌘K` 呼出/隐藏
   - 支持拼音首字母搜索
   - 搜索工具、剪贴板历史、应用、文件、网页
+  - **Preload 脚本**：已修复 webPreferences 覆盖问题，确保 preload 脚本正确加载
 - **IPC 接口**:
   - `to-main-SearchBox:searchTools` - 搜索工具
   - `to-main-SearchBox:searchClipboard` - 搜索剪贴板
@@ -773,22 +803,60 @@ electron-vite-learn/
 ### Markdown 预览窗口 (src/main/frame/MarkdownPreviewFrame.ts)
 - **职责**: 多标签页实时分屏预览 Markdown
 - **功能**:
+  - 透明背景，与渲染进程大小一致
   - 左右分屏：编辑区 + 预览区
   - 多标签页支持
   - 拖入 .md 文件
-  - 保存功能 (Ctrl+S)
+  - 保存功能 (Ctrl+S)：已有文件直接保存，新文件弹出文件选择对话框
+  - **右键菜单**：通过独立的 ContextMenuFrame 窗口显示，不会被父窗口边界截断
+  - **换行支持**：单换行符自动转换为 `<br>`（启用 markdown-it breaks 选项）
+- **窗口配置**:
+  - `transparent: true` - 透明背景
+  - `frame: false` - 无边框
+  - 窗口大小与渲染进程一致（900x600）
 - **IPC 接口**:
   - `to-main-MarkdownPreview:readFile` - 读取文件
-  - `to-main-MarkdownPreview:saveFile` - 保存文件
+  - `to-main-MarkdownPreview:saveFile` - 保存文件到指定路径
+  - `to-main-MarkdownPreview:saveFileAs` - 另存为（弹出文件选择对话框）
   - `to-main-MarkdownPreview:minimize` - 最小化窗口
   - `to-main-MarkdownPreview:toggleMaximize` - 切换最大化
   - `to-main-MarkdownPreview:close` - 关闭窗口
+  - `to-main-MarkdownPreview:showContextMenu` - 显示右键菜单（转发到 ContextMenuFrame）
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
 
   // 创建并显示 Markdown 预览窗口
   windowFactory.createMarkdownPreviewFrame().show()
+  ```
+
+### 右键菜单窗口 (src/main/frame/ContextMenuFrame.ts)
+- **职责**: Markdown 编辑器右键菜单的独立窗口
+- **功能**:
+  - 透明无边框小窗口，独立于父窗口显示
+  - 支持动态计算菜单高度
+  - 自动调整位置，确保不超出屏幕边界
+  - **失去焦点后自动隐藏**（点击菜单项或点击外部区域）
+  - 菜单项点击后将焦点返回到 Markdown 预览窗口
+  - 菜单项点击后通过 BroadcastChannel 广播到所有窗口
+- **窗口配置**:
+  - `transparent: true` - 透明背景
+  - `frame: false` - 无边框
+  - `skipTaskbar: true` - 不显示在任务栏
+  - `alwaysOnTop: true` - 悬浮在最上层
+  - 大小根据菜单项数量动态调整
+  - 监听 `blur` 事件自动隐藏
+- **IPC 接口**:
+  - `to-main-ContextMenu:click` - 菜单项被点击
+  - `to-main-ContextMenu:close` - 关闭菜单
+  - `to-renderer-ContextMenu:show` - 显示菜单（发送菜单数据到渲染进程）
+  - `broadcast:context-menu-action` - 广播菜单操作到所有窗口
+- **使用方式**:
+  ```typescript
+  import { windowFactory } from './frame'
+
+  // 显示右键菜单
+  windowFactory.showContextMenu(x, y, items)
   ```
 
 ### 系统托盘 (src/main/trayService.ts)

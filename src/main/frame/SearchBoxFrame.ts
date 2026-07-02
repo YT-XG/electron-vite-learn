@@ -1,4 +1,5 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
+import { join } from 'path'
 import BaseFrame from './BaseFrame'
 import { searchService } from '../service/searchService'
 
@@ -25,6 +26,8 @@ export default class SearchBoxFrame extends BaseFrame {
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
       nodeIntegration: false,
       contextIsolation: true
     }
@@ -36,12 +39,26 @@ export default class SearchBoxFrame extends BaseFrame {
   /** 是否正在显示 */
   #isVisible = false
 
+  /** 是否已注册 IPC */
+  static #ipcRegistered = false
+
   /**
    * 重写创建方法
    */
   create(): BrowserWindow {
     const window = super.create()
     window.hide()
+
+    // 失去焦点时隐藏（延迟执行，避免通知窗口抢焦点时立即隐藏）
+    window.on('blur', () => {
+      setTimeout(() => {
+        // 检查窗口是否仍然可见且没有被其他操作覆盖
+        if (this.isAlive() && this.window!.isVisible()) {
+          this.hide()
+        }
+      }, 200)
+    })
+
     return window
   }
 
@@ -68,6 +85,8 @@ export default class SearchBoxFrame extends BaseFrame {
 
       this.window!.webContents.once('did-finish-load', () => {
         setTimeout(() => {
+          // 通知渲染进程清空搜索框
+          this.sendOne('to-renderer-SearchBox:clear')
           this.window?.setOpacity(1)
           this.#isVisible = true
         }, 30)
@@ -77,6 +96,8 @@ export default class SearchBoxFrame extends BaseFrame {
       this.window!.setOpacity(0)
       this.window!.show()
       setTimeout(() => {
+        // 通知渲染进程清空搜索框
+        this.sendOne('to-renderer-SearchBox:clear')
         this.window?.setOpacity(1)
         this.#isVisible = true
       }, 30)
@@ -120,6 +141,11 @@ export default class SearchBoxFrame extends BaseFrame {
   protected registerIPC(): void {
     super.registerIPC()
 
+    // 只注册一次 IPC
+    if (SearchBoxFrame.#ipcRegistered) {
+      return
+    }
+
     // 搜索工具
     this.recvTwo('to-main-SearchBox:searchTools', (_event, query: string) => {
       return searchService.searchTools(query)
@@ -160,9 +186,6 @@ export default class SearchBoxFrame extends BaseFrame {
       this.hide()
     })
 
-    // 失去焦点时隐藏
-    this.window?.on('blur', () => {
-      this.hide()
-    })
+    SearchBoxFrame.#ipcRegistered = true
   }
 }
