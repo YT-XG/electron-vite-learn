@@ -14,7 +14,8 @@ electron-vite-learn/
 │   │   │   ├── settingsService.ts # 应用设置服务（持久化到 settings.json）
 │   │   │   ├── translateService.ts # 翻译服务（MyMemory API + SQL.js 历史存储）
 │   │   │   ├── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
-│   │   │   └── githubUpdateService.ts # GitHub 更新服务（从 GitHub Releases 检查和下载更新）
+│   │   │   ├── githubUpdateService.ts # GitHub 更新服务（从 GitHub Releases 检查和下载更新）
+│   │   │   └── downloadService.ts  # 下载服务（多线程分片下载、任务持久化）
 │   │   ├── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -31,8 +32,11 @@ electron-vite-learn/
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   │   ├── core/              # 核心功能模块
 │   │   │   └── downloadEngine/  # 多线程下载引擎
-│   │   │       └── config/      # 下载引擎配置
-│   │   │           └── index.ts # 配置常量（线程数、进度推送间隔、分片大小）
+│   │   │       ├── index.ts    # MultiThreadDownloadEngine 类
+│   │   │       ├── config/      # 下载引擎配置
+│   │   │       │   └── index.ts # 配置常量（线程数、进度推送间隔、分片大小）
+│   │   │       └── utils/       # 工具函数
+│   │   │           └── index.ts # 工具函数
 │   │   └── utils/              # 主进程工具函数
 │   │       └── platform.ts     # 平台相关工具函数（macOS/Windows 差异处理）
 │   ├── preload/                 # 预加载脚本
@@ -692,6 +696,16 @@ electron-vite-learn/
   ```typescript
   import { DEFAULT_THREADS, MAX_THREADS, MIN_THREADS, EMIT_INTERVAL_MS, MIN_CHUNK_BYTES } from './core/downloadEngine/config'
   ```
+
+### 下载服务 (src/main/service/downloadService.ts)
+- **职责**: 封装下载引擎，提供全局单例、任务持久化和 IPC 接口
+- **功能**:
+  - 多线程分片下载（默认 8 线程，最大 16）
+  - 暂停/恢复/取消下载任务
+  - 任务持久化（保存到 userData/download-tasks.json）
+  - IPC 接口：download:start, download:pause, download:resume, download:cancel, download:remove, download:list, download:get, download:pick-save-path
+  - 进度广播到所有可见窗口
+- **依赖**: downloadEngine
 
 ### 系统托盘 (src/main/trayService.ts)
 - **职责**: 管理系统托盘图标、右键菜单、窗口显示/隐藏
