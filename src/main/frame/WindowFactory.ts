@@ -5,6 +5,8 @@ import TestFrame from './TestFrame'
 import OpenDialogFrame from './OpenDialogFrame'
 import MainPageFrame from './MainPageFrame'
 import PermissionNoticeFrame from './PermissionNoticeFrame'
+import SearchBoxFrame from './SearchBoxFrame'
+import MarkdownPreviewFrame from './MarkdownPreviewFrame'
 
 /**
  * 窗口工厂
@@ -31,6 +33,12 @@ export default class WindowFactory {
 
   /** 权限确认窗口 */
   #permissionNoticeFrame: PermissionNoticeFrame | null = null
+
+  /** 搜索框窗口 */
+  #searchBoxFrame: SearchBoxFrame | null = null
+
+  /** Markdown 预览窗口 */
+  #markdownPreviewFrame: MarkdownPreviewFrame | null = null
 
   /**
    * 获取主窗口（悬浮球时钟）
@@ -123,6 +131,54 @@ export default class WindowFactory {
   }
 
   /**
+   * 获取搜索框窗口
+   * @returns SearchBoxFrame 实例
+   */
+  getSearchBoxFrame(): SearchBoxFrame {
+    if (!this.#searchBoxFrame) {
+      this.#searchBoxFrame = new SearchBoxFrame()
+      this.#searchBoxFrame.onDestroyCallback = () => {
+        this.#searchBoxFrame = null
+      }
+    }
+    return this.#searchBoxFrame
+  }
+
+  /**
+   * 创建搜索框窗口
+   * @returns SearchBoxFrame 实例
+   */
+  createSearchBoxFrame(): SearchBoxFrame {
+    const frame = this.getSearchBoxFrame()
+    frame.create()
+    return frame
+  }
+
+  /**
+   * 获取 Markdown 预览窗口
+   * @returns MarkdownPreviewFrame 实例
+   */
+  getMarkdownPreviewFrame(): MarkdownPreviewFrame {
+    if (!this.#markdownPreviewFrame) {
+      this.#markdownPreviewFrame = new MarkdownPreviewFrame()
+      this.#markdownPreviewFrame.onDestroyCallback = () => {
+        this.#markdownPreviewFrame = null
+      }
+    }
+    return this.#markdownPreviewFrame
+  }
+
+  /**
+   * 创建 Markdown 预览窗口
+   * @returns MarkdownPreviewFrame 实例
+   */
+  createMarkdownPreviewFrame(): MarkdownPreviewFrame {
+    const frame = this.getMarkdownPreviewFrame()
+    frame.create()
+    return frame
+  }
+
+  /**
    * 创建悬浮球窗口
    * @returns 主窗口实例
    */
@@ -143,6 +199,8 @@ export default class WindowFactory {
     this.#openDialogFrame?.destroy()
     this.#mainPageFrame?.destroy()
     this.#permissionNoticeFrame?.destroy()
+    this.#searchBoxFrame?.destroy()
+    this.#markdownPreviewFrame?.destroy()
   }
 
   /**
@@ -155,6 +213,8 @@ export default class WindowFactory {
     this.#openDialogFrame?.hide()
     this.#mainPageFrame?.close()
     this.#permissionNoticeFrame?.destroy()
+    this.#searchBoxFrame?.hide()
+    this.#markdownPreviewFrame?.destroy()
   }
 }
 
