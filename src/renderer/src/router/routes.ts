@@ -40,5 +40,15 @@ export const AppRoutes = [
     path: '/claudeCodeStatus',
     name: 'Claude Code 状态',
     component: () => import('@renderer/views/ClaudeCodeStatus.vue')
+  },
+  {
+    path: '/searchBox',
+    name: '搜索框',
+    component: () => import('@renderer/views/SearchBox.vue')
+  },
+  {
+    path: '/markdownPreview',
+    name: 'Markdown 预览',
+    component: () => import('@renderer/views/MarkdownPreview.vue')
   }
 ]
