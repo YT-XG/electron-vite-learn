@@ -144,9 +144,9 @@ onMounted(() => {
     #3d8bff,
     #78b4ff,
     #a0d0ff,
-    #ff96c8,
-    #ff6ab0,
-    #ff3d8b,
+    #d4a8c0,
+    #e879a0,
+    #c4607a,
     #3d8bff
   );
   animation: border-spin 3s linear infinite;

@@ -152,8 +152,8 @@ onUnmounted(() => {
   height: 70px;
   top: 0;
   left: 0;
-  border-bottom-color: #ff96c8;
-  border-left-color: #ff6ab0;
+  border-bottom-color: #d4a8c0;
+  border-left-color: #e879a0;
   animation: home-spin-reverse 4s linear infinite;
 }
 </style>

@@ -279,8 +279,13 @@ export default class MainPageFrame extends BaseFrame {
       this.showAndTranslate(text)
     })
 
-    // 打开 Markdown 预览
+    // 打开 Markdown 预览（先隐藏主界面，再显示 Markdown 预览窗口）
     this.recvOne('to-main-MainPage:openMarkdownPreview', () => {
+      // 隐藏主界面
+      if (this.isAlive()) {
+        this.close()
+      }
+      // 显示 Markdown 预览窗口
       windowFactory.createMarkdownPreviewFrame().show()
     })
   }

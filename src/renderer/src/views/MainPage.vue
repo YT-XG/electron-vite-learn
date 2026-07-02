@@ -308,7 +308,7 @@ onUnmounted(() => {
 /* ========== 渐变色条 ========== */
 .gradient-bar {
   height: 3px;
-  background: linear-gradient(90deg, #3d8bff, #78b4ff, #a0d0ff, #ff96c8, #ff6ab0, #ff3d8b, #3d8bff);
+  background: linear-gradient(90deg, #3d8bff, #6aabff, #9ec8ff, #d4a8c0, #e879a0, #d4689a, #3d8bff);
   background-size: 200% 100%;
   animation: gradient-flow 3s linear infinite;
   flex-shrink: 0;

@@ -152,8 +152,8 @@ export default class PermissionNoticeFrame extends BaseFrame {
       height: PermissionNoticeFrame.POPUP_HEIGHT
     })
 
-    // 显示窗口
-    this.window!.show()
+    // 显示窗口（不抢占焦点，避免影响搜索框等前台窗口）
+    this.window!.showInactive()
   }
 
   /**

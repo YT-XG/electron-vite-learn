@@ -32,7 +32,7 @@
             <defs>
               <linearGradient id="iconGrad" x1="0" y1="0" x2="28" y2="28">
                 <stop offset="0%" stop-color="#3d8bff" />
-                <stop offset="100%" stop-color="#ff6ab0" />
+                <stop offset="100%" stop-color="#e879a0" />
               </linearGradient>
             </defs>
           </svg>
@@ -283,7 +283,7 @@ onUnmounted(() => {
 /* ─── 顶部渐变装饰条 ─── */
 .accent-bar {
   height: 3px;
-  background: linear-gradient(90deg, #78b4ff 0%, #3d8bff 40%, #ff6ab0 70%, #ff96c8 100%);
+  background: linear-gradient(90deg, #78b4ff 0%, #3d8bff 40%, #e879a0 70%, #d4a8c0 100%);
 }
 
 /* ─── 关闭按钮 ─── */
@@ -382,7 +382,7 @@ onUnmounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(90deg, #3d8bff, #e879a0);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -447,8 +447,8 @@ onUnmounted(() => {
   right: -10px;
   width: 40px;
   height: 40px;
-  border-bottom-color: #ff96c8;
-  border-left-color: #ff6ab0;
+  border-bottom-color: #d4a8c0;
+  border-left-color: #e879a0;
   animation: update-spin-reverse 4s linear infinite;
   opacity: 0.3;
 }

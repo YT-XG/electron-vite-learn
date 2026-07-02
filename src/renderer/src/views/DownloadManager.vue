@@ -314,7 +314,7 @@ onUnmounted(() => {
 .title {
   font-size: 18px;
   font-weight: 600;
-  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(90deg, #3d8bff, #e879a0);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -326,7 +326,7 @@ onUnmounted(() => {
   height: 32px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, #3d8bff, #e879a0);
   color: white;
   font-size: 18px;
   cursor: pointer;
@@ -454,7 +454,7 @@ onUnmounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(90deg, #3d8bff, #e879a0);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -635,7 +635,7 @@ onUnmounted(() => {
 }
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  background: linear-gradient(135deg, #3d8bff, #e879a0);
   color: white;
 }
 

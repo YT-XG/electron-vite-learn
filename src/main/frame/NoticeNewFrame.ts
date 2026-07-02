@@ -258,8 +258,8 @@ export default class NoticeNewFrame extends BaseFrame {
       height: NoticeNewFrame.POPUP_HEIGHT
     })
 
-    // 显示窗口
-    this.window!.show()
+    // 显示窗口（不抢占焦点，避免影响搜索框等前台窗口）
+    this.window!.showInactive()
 
     // 启动自动销毁定时器（使用实例级 duration）
     this.#destroyTimer = setTimeout(() => {

@@ -157,8 +157,8 @@ export default class ClaudeCodeStatusFrame extends BaseFrame {
       height: ClaudeCodeStatusFrame.POPUP_HEIGHT
     })
 
-    // 显示窗口
-    this.window!.show()
+    // 显示窗口（不抢占焦点，避免影响搜索框等前台窗口）
+    this.window!.showInactive()
 
     // 通知渲染进程播放淡入动画
     this.sendOne('to-renderer-ClaudeCodeStatusFrame:show')
