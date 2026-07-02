@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserWindowConstructorOptions } from 'electron'
+import { BrowserWindowConstructorOptions } from 'electron'
 import BaseFrame from './BaseFrame'
 
 /**

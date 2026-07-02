@@ -30,7 +30,7 @@
     <div class="tabs-bar">
       <div class="tabs">
         <div
-          v-for="(tab, index) in tabs"
+          v-for="tab in tabs"
           :key="tab.id"
           class="tab"
           :class="{ active: activeTabId === tab.id }"

@@ -212,6 +212,44 @@ export default class MainPageFrame extends BaseFrame {
   }
 
   /**
+   * 显示窗口并切换到指定页面
+   * @param page - 目标页面名称
+   */
+  showAndPage(page: string): void {
+    if (!this.isAlive()) {
+      this.create()
+      this.#centerOnScreen()
+      this.window!.setOpacity(0)
+      this.window!.show()
+
+      this.window!.webContents.once('did-finish-load', () => {
+        setTimeout(() => {
+          this.window?.setOpacity(1)
+          setTimeout(() => {
+            this.sendOne('to-renderer-MainPage:setPage', page)
+          }, 400)
+        }, 30)
+      })
+    } else {
+      if (!this.window!.isVisible()) {
+        this.window!.setAlwaysOnTop(true)
+        this.#centerOnScreen()
+        this.window!.setOpacity(0)
+        this.window!.show()
+        setTimeout(() => {
+          this.window?.setOpacity(1)
+          this.sendOne('to-renderer-MainPage:reShow')
+          setTimeout(() => {
+            this.sendOne('to-renderer-MainPage:setPage', page)
+          }, 400)
+        }, 30)
+      } else {
+        this.sendOne('to-renderer-MainPage:setPage', page)
+      }
+    }
+  }
+
+  /**
    * 注册 IPC 监听器
    */
   protected registerIPC(): void {

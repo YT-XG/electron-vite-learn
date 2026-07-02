@@ -42,7 +42,7 @@ class SearchService {
       category: 'tool',
       icon: '📝',
       description: '实时 Markdown 分屏预览',
-      action: () => windowFactory.createMarkdownPreviewFrame().show()
+      action: function () { windowFactory.createMarkdownPreviewFrame().show() }
     },
     {
       id: 'clipboard-manager',
@@ -51,7 +51,7 @@ class SearchService {
       category: 'tool',
       icon: '📋',
       description: '查看和管理剪贴板历史',
-      action: () => windowFactory.getMainPageFrame().showAndPage('clipboard')
+      action: function () { windowFactory.getMainPageFrame().showAndPage('clipboard') }
     },
     {
       id: 'translate',
@@ -60,7 +60,7 @@ class SearchService {
       category: 'tool',
       icon: '🌐',
       description: '多语言文本翻译',
-      action: () => windowFactory.getMainPageFrame().showAndPage('translate')
+      action: function () { windowFactory.getMainPageFrame().showAndPage('translate') }
     },
     {
       id: 'settings',
@@ -69,7 +69,7 @@ class SearchService {
       category: 'tool',
       icon: '⚙️',
       description: '应用设置',
-      action: () => windowFactory.getMainPageFrame().showAndPage('settings')
+      action: function () { windowFactory.getMainPageFrame().showAndPage('settings') }
     }
   ]
 
@@ -154,9 +154,9 @@ class SearchService {
     try {
       // 动态导入剪贴板服务
       const { clipboardService } = await import('./clipboardService')
-      const history = await clipboardService.search(query, 10)
+      const history = clipboardService.search(query)
 
-      return history.map((item, index) => ({
+      return history.slice(0, 10).map((item, index) => ({
         id: `clipboard-${item.id}`,
         name: item.content.substring(0, 50) + (item.content.length > 50 ? '...' : ''),
         aliases: [],
