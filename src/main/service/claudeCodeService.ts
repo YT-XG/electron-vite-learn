@@ -573,8 +573,6 @@ class ClaudeCodeService {
       case 'SessionStart':
         this.sessionCount++
         this.cancelHideTimer()
-        // 显示"会话运行中"状态
-        noticeManager.showClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
         // 同时显示一个简短通知
         noticeManager.show({
           text: '🟢 Claude Code 会话已开始',
@@ -603,7 +601,7 @@ class ClaudeCodeService {
 
       case 'UserPromptSubmit':
         // 用户发送了请求，准备工作
-        noticeManager.showClaudeCodeStatus('thinking', '📝 已收到用户请求，准备工作中...')
+        noticeManager.showClaudeCodeStatus('thinking', '📝 准备工作中...')
         break
 
       case 'PreToolUse': {

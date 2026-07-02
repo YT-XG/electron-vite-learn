@@ -67,7 +67,7 @@ onMounted(() => {
 
 <style scoped>
 .status-container {
-  width: 50%;
+  width: 65%;
   height: 100%;
   display: flex;
   justify-content: center;
