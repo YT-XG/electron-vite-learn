@@ -69,6 +69,15 @@
             <span class="nav-icon">🌐</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">翻译</span>
           </button>
+          <!-- 下载管理 -->
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'download' }"
+            @click="currentPage = 'download'"
+          >
+            <span class="nav-icon">📥</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">下载管理</span>
+          </button>
           <!-- 设置 -->
           <button
             class="nav-item"
@@ -97,6 +106,8 @@
           <Settings v-else-if="currentPage === 'settings'" key="settings" />
           <!-- 翻译 -->
           <Translate v-else-if="currentPage === 'translate'" key="translate" @goBack="currentPage = 'home'" />
+          <!-- 下载管理 -->
+          <DownloadManager v-else-if="currentPage === 'download'" key="download" />
         </Transition>
       </main>
     </div>
@@ -106,12 +117,13 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import ClipboardManager from './ClipboardManager.vue'
+import DownloadManager from './DownloadManager.vue'
 import Settings from './Settings.vue'
 import Translate from './Translate.vue'
 
 const version = ref('')
 /** 当前页面 */
-const currentPage = ref<'home' | 'clipboard' | 'settings' | 'translate'>('clipboard')
+const currentPage = ref<'home' | 'clipboard' | 'settings' | 'translate' | 'download'>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
@@ -187,8 +199,8 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
  * @param page - 目标页面名称
  */
 const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
-  if (['home', 'clipboard', 'settings', 'translate'].includes(page)) {
-    currentPage.value = page as 'home' | 'clipboard' | 'settings' | 'translate'
+  if (['home', 'clipboard', 'settings', 'translate', 'download'].includes(page)) {
+    currentPage.value = page as 'home' | 'clipboard' | 'settings' | 'translate' | 'download'
   }
 }
 
