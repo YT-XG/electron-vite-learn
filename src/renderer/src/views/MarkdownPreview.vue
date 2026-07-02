@@ -733,7 +733,7 @@ onMounted(() => {
   padding: 16px;
   resize: none;
   tab-size: 2;
-  caret-color: var(--accent-blue);
+  caret-color: var(--accent);
 }
 
 .editor-textarea::placeholder {
@@ -741,7 +741,7 @@ onMounted(() => {
 }
 
 .editor-textarea::selection {
-  background: rgba(61, 139, 255, 0.2);
+  background: rgba(196, 96, 58, 0.2);
 }
 
 /* ========== 分隔线 ========== */
@@ -767,7 +767,7 @@ onMounted(() => {
 }
 
 .divider:hover {
-  background: var(--accent-blue);
+  background: var(--accent);
 }
 
 .divider-handle {
@@ -779,7 +779,7 @@ onMounted(() => {
 }
 
 .divider:hover .divider-handle {
-  background: var(--accent-blue);
+  background: var(--accent);
 }
 
 /* ========== 预览区 ========== */
@@ -874,7 +874,7 @@ onMounted(() => {
   border-radius: 5px;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
   font-size: 0.88em;
-  color: var(--accent-blue);
+  color: var(--accent);
   border: 1px solid var(--border-color);
 }
 
@@ -899,10 +899,10 @@ onMounted(() => {
 }
 
 .preview-content :deep(blockquote) {
-  border-left: 3px solid var(--accent-blue);
+  border-left: 3px solid var(--accent);
   margin: 16px 0;
   padding: 10px 16px;
-  background: rgba(61, 139, 255, 0.06);
+  background: rgba(196, 96, 58, 0.06);
   border-radius: 0 8px 8px 0;
   color: var(--text-secondary);
 }
@@ -927,14 +927,14 @@ onMounted(() => {
 }
 
 .preview-content :deep(a) {
-  color: var(--accent-blue);
+  color: var(--accent);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: all 0.15s ease;
 }
 
 .preview-content :deep(a:hover) {
-  border-bottom-color: var(--accent-blue);
+  border-bottom-color: var(--accent);
 }
 
 .preview-content :deep(hr) {

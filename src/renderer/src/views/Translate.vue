@@ -111,7 +111,7 @@
           </div>
         </div>
         <div class="dialog-footer" v-if="historyList.length > 0">
-          <button class="btn btn-danger" @click="clearAllHistory">清空历史</button>
+          <button class="btn btn-translate-danger" @click="clearAllHistory">清空历史</button>
         </div>
       </div>
     </div>
@@ -426,12 +426,24 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .action-btn:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 减弱动效 */
+@media (prefers-reduced-motion: reduce) {
+  .action-btn {
+    transition: none;
+  }
 }
 
 /* ========== 语言选择 ========== */
@@ -460,8 +472,8 @@ onUnmounted(() => {
 }
 
 .lang-select:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 10%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .lang-arrow {
@@ -492,9 +504,9 @@ onUnmounted(() => {
 }
 
 .text-input:focus {
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
   background: var(--bg-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 10%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .text-input::placeholder {
@@ -533,11 +545,11 @@ onUnmounted(() => {
 .translate-btn {
   width: 100%;
   margin-bottom: 16px;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-blue) 30%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .translate-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-blue) 40%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .translate-btn:disabled {
@@ -584,7 +596,7 @@ onUnmounted(() => {
 
 .copy-btn {
   font-size: 12px;
-  color: var(--accent-blue);
+  color: var(--accent);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -594,7 +606,7 @@ onUnmounted(() => {
 }
 
 .copy-btn:hover {
-  background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .result-text {
@@ -606,13 +618,13 @@ onUnmounted(() => {
 
 /* ========== 错误提示 ========== */
 .error-message {
-  background: color-mix(in srgb, var(--accent-pink) 10%, var(--bg-secondary));
-  border: 1px solid color-mix(in srgb, var(--accent-pink) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-secondary) 10%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent);
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 16px;
   font-size: 13px;
-  color: var(--accent-pink);
+  color: var(--accent-secondary);
 }
 
 /* ========== 历史入口 ========== */
@@ -630,7 +642,7 @@ onUnmounted(() => {
 
 .history-entry:hover {
   background: var(--bg-secondary);
-  border-color: color-mix(in srgb, var(--accent-blue) 30%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .history-icon {
@@ -648,7 +660,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: var(--bg-primary);
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   padding: 1px 6px;
   border-radius: 10px;
   min-width: 18px;
@@ -746,12 +758,12 @@ onUnmounted(() => {
 }
 
 .dialog-body::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-blue) 50%, transparent), color-mix(in srgb, var(--accent-pink) 50%, transparent));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 50%, transparent), color-mix(in srgb, var(--accent-secondary) 50%, transparent));
   border-radius: 3px;
 }
 
 .dialog-body::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(180deg, var(--accent), var(--accent-secondary));
 }
 
 .dialog-footer {
@@ -798,7 +810,7 @@ onUnmounted(() => {
 
 .history-result {
   font-size: 13px;
-  color: var(--accent-blue);
+  color: var(--accent);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -827,22 +839,24 @@ onUnmounted(() => {
 }
 
 .delete-btn:hover {
-  background: color-mix(in srgb, var(--accent-pink) 15%, transparent);
-  color: var(--accent-pink);
+  background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
+  color: var(--accent-secondary);
 }
 
-/* Translate 页面小按钮覆盖 */
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-}
-
-.btn-danger {
-  background: var(--accent-pink);
+/* Translate 页面危险按钮 - 使用品牌色而非全局红色 */
+.btn-translate-danger {
+  background: var(--accent-secondary);
   color: var(--bg-primary);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-secondary) 25%, transparent);
 }
 
-.btn-danger:hover {
-  background: color-mix(in srgb, var(--accent-pink) 85%, black);
+.btn-translate-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-secondary) 85%, black);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-secondary) 35%, transparent);
+  transform: translateY(-1px);
+}
+
+.btn-translate-danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
 }
 </style>

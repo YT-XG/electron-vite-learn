@@ -545,7 +545,7 @@ onUnmounted(() => {
 }
 
 .cm-tab.active {
-  background: linear-gradient(135deg, rgba(61, 139, 255, 0.06), rgba(255, 106, 176, 0.06));
+  background: linear-gradient(135deg, rgba(196, 96, 58, 0.06), rgba(212, 135, 74, 0.06));
 }
 
 .cm-tab.active::after {
@@ -555,7 +555,7 @@ onUnmounted(() => {
   left: 20%;
   right: 20%;
   height: 2px;
-  background: linear-gradient(90deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
   border-radius: 1px;
 }
 
@@ -578,7 +578,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   padding: 1px 6px;
   border-radius: 10px;
   min-width: 18px;
@@ -636,9 +636,9 @@ onUnmounted(() => {
 }
 
 .search-input:focus {
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
   background: var(--bg-primary);
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.08);
 }
 
 /* 工具栏按钮：继承共享 .btn 基类 */
@@ -649,7 +649,7 @@ onUnmounted(() => {
 }
 
 .toolbar-btn.primary {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   color: #fff;
   box-shadow: var(--btn-shadow-primary);
 }
@@ -698,12 +698,12 @@ onUnmounted(() => {
 }
 
 .category-btn:hover {
-  border-color: var(--accent-blue);
-  color: var(--accent-blue);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .category-btn.active {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   border-color: transparent;
   color: #fff;
 }
@@ -793,8 +793,8 @@ onUnmounted(() => {
 
 .item-category {
   font-size: 11px;
-  color: var(--accent-blue);
-  background: rgba(61, 139, 255, 0.08);
+  color: var(--accent);
+  background: rgba(196, 96, 58, 0.08);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -834,12 +834,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .action-btn:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .delete-btn:hover {
@@ -848,11 +853,18 @@ onUnmounted(() => {
 }
 
 .translate-action {
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 .translate-action:hover {
-  background: rgba(61, 139, 255, 0.1);
+  background: rgba(196, 96, 58, 0.1);
+}
+
+/* 减弱动效 */
+@media (prefers-reduced-motion: reduce) {
+  .action-btn {
+    transition: none;
+  }
 }
 
 /* ========== 弹窗 ========== */
@@ -986,8 +998,8 @@ onUnmounted(() => {
 
 .form-input:focus,
 .form-textarea:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.08);
 }
 
 .category-input-wrapper {
@@ -1018,7 +1030,7 @@ onUnmounted(() => {
 }
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   color: #fff;
   box-shadow: var(--btn-shadow-primary);
 }

@@ -100,13 +100,13 @@ onMounted(() => {
   inset: 0;
   background: conic-gradient(
     from var(--border-angle),
-    #3d8bff,
+    #c4603a,
     #78b4ff,
     #a0d0ff,
     #d4a8c0,
-    #e879a0,
+    #d4874a,
     #c4607a,
-    #3d8bff
+    #c4603a
   );
   animation: border-spin 3s linear infinite;
 }

@@ -218,7 +218,7 @@ onMounted(() => {
   left: 20px;
   right: 20px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -234,7 +234,7 @@ onMounted(() => {
 }
 
 .search-input-wrapper:focus-within .search-icon {
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 .search-input {
@@ -246,7 +246,7 @@ onMounted(() => {
   font-size: 15px;
   font-weight: 400;
   letter-spacing: -0.01em;
-  caret-color: var(--accent-blue);
+  caret-color: var(--accent);
 }
 
 .search-input::placeholder {
@@ -277,7 +277,7 @@ onMounted(() => {
   width: 16px;
   height: 16px;
   border: 2px solid var(--border-color);
-  border-top-color: var(--accent-blue);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -328,8 +328,8 @@ onMounted(() => {
 }
 
 .result-item.active {
-  background: rgba(61, 139, 255, 0.1);
-  box-shadow: 0 0 0 1px rgba(61, 139, 255, 0.15) inset;
+  background: rgba(196, 96, 58, 0.1);
+  box-shadow: 0 0 0 1px rgba(196, 96, 58, 0.15) inset;
 }
 
 .result-item.active .result-icon {
@@ -350,7 +350,7 @@ onMounted(() => {
 }
 
 .result-item.active .result-icon {
-  background: rgba(61, 139, 255, 0.12);
+  background: rgba(196, 96, 58, 0.12);
 }
 
 .result-info {
@@ -389,8 +389,8 @@ onMounted(() => {
 
 /* 分类标签颜色 */
 .result-category.tool {
-  color: var(--accent-blue);
-  background: rgba(61, 139, 255, 0.1);
+  color: var(--accent);
+  background: rgba(196, 96, 58, 0.1);
 }
 
 .result-category.clipboard {

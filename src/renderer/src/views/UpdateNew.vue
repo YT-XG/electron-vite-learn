@@ -31,8 +31,8 @@
             />
             <defs>
               <linearGradient id="iconGrad" x1="0" y1="0" x2="28" y2="28">
-                <stop offset="0%" stop-color="#3d8bff" />
-                <stop offset="100%" stop-color="#e879a0" />
+                <stop offset="0%" stop-color="#c4603a" />
+                <stop offset="100%" stop-color="#d4874a" />
               </linearGradient>
             </defs>
           </svg>
@@ -283,7 +283,7 @@ onUnmounted(() => {
 /* ─── 顶部渐变装饰条 ─── */
 .accent-bar {
   height: 3px;
-  background: linear-gradient(90deg, #78b4ff 0%, #3d8bff 40%, #e879a0 70%, #d4a8c0 100%);
+  background: linear-gradient(90deg, #d4874a 0%, #c4603a 40%, #d4874a 70%, #e0a060 100%);
 }
 
 /* ─── 关闭按钮 ─── */
@@ -336,7 +336,7 @@ onUnmounted(() => {
 .update-version {
   font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
   font-size: 13px;
-  color: #3d8bff;
+  color: #c4603a;
   margin: 0 0 8px;
   font-weight: 500;
 }
@@ -375,14 +375,14 @@ onUnmounted(() => {
 .progress-bar {
   flex: 1;
   height: 4px;
-  background: rgba(61, 139, 255, 0.1);
+  background: rgba(196, 96, 58, 0.1);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3d8bff, #e879a0);
+  background: linear-gradient(90deg, #c4603a, #d4874a);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -436,8 +436,8 @@ onUnmounted(() => {
 .ring-1 {
   bottom: -15px;
   right: -15px;
-  border-top-color: #78b4ff;
-  border-right-color: #3d8bff;
+  border-top-color: #d4874a;
+  border-right-color: #c4603a;
   animation: update-spin 3s linear infinite;
   opacity: 0.4;
 }
@@ -447,8 +447,8 @@ onUnmounted(() => {
   right: -10px;
   width: 40px;
   height: 40px;
-  border-bottom-color: #d4a8c0;
-  border-left-color: #e879a0;
+  border-bottom-color: #e0a060;
+  border-left-color: #d4874a;
   animation: update-spin-reverse 4s linear infinite;
   opacity: 0.3;
 }

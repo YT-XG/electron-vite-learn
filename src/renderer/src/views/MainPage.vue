@@ -46,16 +46,9 @@
         <nav class="sidebar-nav">
           <button
             class="nav-item"
-            :class="{ active: currentPage === 'home' }"
-            @click="currentPage = 'home'"
-          >
-            <span class="nav-icon">🏠</span>
-            <span class="nav-label" v-if="!isSidebarCollapsed">首页</span>
-          </button>
-          <button
-            class="nav-item"
             :class="{ active: currentPage === 'clipboard' }"
             @click="currentPage = 'clipboard'"
+            :title="isSidebarCollapsed ? '剪切板' : ''"
           >
             <span class="nav-icon">📋</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">剪切板</span>
@@ -65,6 +58,7 @@
             class="nav-item"
             :class="{ active: currentPage === 'translate' }"
             @click="currentPage = 'translate'"
+            :title="isSidebarCollapsed ? '翻译' : ''"
           >
             <span class="nav-icon">🌐</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">翻译</span>
@@ -74,6 +68,7 @@
             class="nav-item"
             :class="{ active: currentPage === 'download' }"
             @click="currentPage = 'download'"
+            :title="isSidebarCollapsed ? '下载管理' : ''"
           >
             <span class="nav-icon">📥</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">下载管理</span>
@@ -83,6 +78,7 @@
             class="nav-item"
             :class="{ active: currentPage === 'settings' }"
             @click="currentPage = 'settings'"
+            :title="isSidebarCollapsed ? '设置' : ''"
           >
             <span class="nav-icon">⚙️</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
@@ -92,6 +88,7 @@
             class="nav-item"
             :class="{ active: currentPage === 'toolbox' }"
             @click="currentPage = 'toolbox'"
+            :title="isSidebarCollapsed ? '工具箱' : ''"
           >
             <span class="nav-icon">🛠️</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">工具箱</span>
@@ -102,19 +99,12 @@
       <!-- 右侧内容区 -->
       <main class="content">
         <Transition name="page-fade" mode="out-in">
-          <!-- 首页 -->
-          <div v-if="currentPage === 'home'" key="home" class="home-page">
-            <div class="welcome-icon">✦</div>
-            <h2 class="welcome-title">妙妙屋</h2>
-            <p class="welcome-desc">你的桌面效率工具</p>
-          </div>
-
           <!-- 剪贴板管理 -->
-          <ClipboardManager v-else-if="currentPage === 'clipboard'" key="clipboard" />
+          <ClipboardManager v-if="currentPage === 'clipboard'" key="clipboard" />
           <!-- 设置 -->
           <Settings v-else-if="currentPage === 'settings'" key="settings" />
           <!-- 翻译 -->
-          <Translate v-else-if="currentPage === 'translate'" key="translate" @goBack="currentPage = 'home'" />
+          <Translate v-else-if="currentPage === 'translate'" key="translate" @goBack="currentPage = 'clipboard'" />
           <!-- 下载管理 -->
           <DownloadManager v-else-if="currentPage === 'download'" key="download" />
           <!-- 工具箱 -->
@@ -135,7 +125,7 @@ import Toolbox from './tools/Toolbox.vue'
 
 const version = ref('')
 /** 当前页面 */
-const currentPage = ref<'home' | 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'>('clipboard')
+const currentPage = ref<'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
@@ -165,6 +155,10 @@ const minimize = () => {
  */
 const close = () => {
   isHiding.value = true
+  // 直接通知主进程隐藏，不依赖 animationend（该事件在 reduced-motion 下不触发）
+  setTimeout(() => {
+    window.electron.ipcRenderer.send('to-main-MainPage:hideAfterAnimation')
+  }, 350)
 }
 
 /**
@@ -211,8 +205,8 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
  * @param page - 目标页面名称
  */
 const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
-  if (['home', 'clipboard', 'settings', 'translate', 'download', 'toolbox'].includes(page)) {
-    currentPage.value = page as 'home' | 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'
+  if (['clipboard', 'settings', 'translate', 'download', 'toolbox'].includes(page)) {
+    currentPage.value = page as 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'
   }
 }
 
@@ -253,38 +247,32 @@ onUnmounted(() => {
   flex-direction: column;
   border: 1px solid var(--border-color);
   -webkit-app-region: no-drag;
-
-  /* 初始状态：缩小 */
-  transform: scale(0.92);
-  transform-origin: center center;
 }
 
 /* ========== 入场动画 ========== */
 .main-page.page-visible:not(.page-hiding) {
-  animation: page-show 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: page-show 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes page-show {
   from {
-    transform: scale(0.92);
+    opacity: 0;
   }
   to {
-    transform: scale(1);
+    opacity: 1;
   }
 }
 
 /* ========== 退场动画 ========== */
 .main-page.page-hiding {
-  animation: page-hide 0.3s ease-in forwards;
+  animation: page-hide 0.25s ease-in forwards;
 }
 
 @keyframes page-hide {
   from {
-    transform: scale(1);
     opacity: 1;
   }
   to {
-    transform: scale(0.85);
     opacity: 0;
   }
 }
@@ -308,7 +296,7 @@ onUnmounted(() => {
 /* ========== 渐变色条 ========== */
 .gradient-bar {
   height: 3px;
-  background: linear-gradient(90deg, #3d8bff, #6aabff, #9ec8ff, #d4a8c0, #e879a0, #d4689a, #3d8bff);
+  background: linear-gradient(90deg, #c4603a, #d4874a, #e0a060, #d4a070, #c4603a);
   background-size: 200% 100%;
   animation: gradient-flow 3s linear infinite;
   flex-shrink: 0;
@@ -397,7 +385,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+}
+
+.control-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .control-btn:hover {
@@ -451,8 +444,13 @@ onUnmounted(() => {
   background: transparent;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   text-align: left;
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .sidebar.collapsed .nav-item {
@@ -465,8 +463,8 @@ onUnmounted(() => {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(61, 139, 255, 0.08), rgba(255, 106, 176, 0.08));
-  color: var(--accent-blue);
+  background: linear-gradient(135deg, rgba(196, 96, 58, 0.08), rgba(212, 135, 74, 0.08));
+  color: var(--accent);
 }
 
 .nav-icon {
@@ -480,7 +478,7 @@ onUnmounted(() => {
 }
 
 .nav-item.active .nav-label {
-  color: var(--accent-blue);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -488,56 +486,5 @@ onUnmounted(() => {
 .content {
   flex: 1;
   overflow: hidden;
-}
-
-/* ========== 首页 ========== */
-.home-page {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.welcome-icon {
-  font-size: 32px;
-  margin-bottom: 4px;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-.welcome-title {
-  font-size: 20px;
-  font-weight: 700;
-  background: linear-gradient(
-    90deg,
-    var(--accent-blue),
-    var(--accent-pink),
-    var(--accent-blue)
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  color: transparent;
-  animation: gradient-sweep 4s ease infinite;
-  margin: 0;
-}
-
-@keyframes gradient-sweep {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-.welcome-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0;
 }
 </style>

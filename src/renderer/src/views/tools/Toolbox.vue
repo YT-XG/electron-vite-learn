@@ -80,7 +80,7 @@ const openTool = (tool: Tool) => {
 
 .tool-card:hover {
   background: var(--bg-tertiary);
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
   transform: translateY(-2px);
 }
 

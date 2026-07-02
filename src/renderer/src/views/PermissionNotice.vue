@@ -184,13 +184,13 @@ onMounted(() => {
   inset: 0;
   background: conic-gradient(
     from var(--border-angle),
-    #3d8bff,
+    #c4603a,
     #78b4ff,
     #a0d0ff,
     #d4a8c0,
-    #e879a0,
+    #d4874a,
     #c4607a,
-    #3d8bff
+    #c4603a
   );
   animation: border-spin 3s linear infinite;
 }
@@ -257,7 +257,7 @@ onMounted(() => {
 }
 
 .info-value {
-  color: var(--accent-blue, #3d8bff);
+  color: var(--accent, #c4603a);
   font-weight: 500;
 }
 
@@ -304,11 +304,11 @@ onMounted(() => {
 
 /* 同意按钮 - 蓝色渐变 */
 .btn-allow {
-  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+  background: linear-gradient(135deg, var(--accent), var(--accent));
 }
 
 .btn-allow:hover {
-  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.4);
 }
 
 /* 全部同意按钮 - 绿色渐变 */

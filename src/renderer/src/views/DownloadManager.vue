@@ -16,6 +16,13 @@
       </div>
     </div>
 
+    <!-- 通用错误提示 -->
+    <div v-if="generalError" class="general-error" @click="generalError = ''">
+      <span class="error-icon">⚠️</span>
+      <span class="error-text">{{ generalError }}</span>
+      <span class="error-dismiss">✕</span>
+    </div>
+
     <!-- 添加下载对话框 -->
     <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
       <div class="dialog">
@@ -151,6 +158,9 @@ const isAdding = ref(false)
 /** 下载线程数 */
 const downloadThreads = ref(8)
 
+/** 通用错误提示 */
+const generalError = ref('')
+
 /**
  * 获取状态文本
  * @param status - 任务状态
@@ -212,7 +222,8 @@ const confirmAddDownload = async (): Promise<void> => {
       threads: downloadThreads.value
     })
     if (!result.ok) {
-      alert(`下载失败: ${result.message}`)
+      generalError.value = `下载失败: ${result.message}`
+      setTimeout(() => { generalError.value = '' }, 5000)
     }
   } finally {
     isAdding.value = false
@@ -282,7 +293,8 @@ const retryTask = async (task: DownloadTask): Promise<void> => {
     threads: task.threads,
   })
   if (!result.ok) {
-    alert(`重试失败: ${result.message}`)
+    generalError.value = `重试失败: ${result.message}`
+    setTimeout(() => { generalError.value = '' }, 5000)
   }
 }
 
@@ -355,7 +367,7 @@ onUnmounted(() => {
 .title {
   font-size: 18px;
   font-weight: 600;
-  background: linear-gradient(90deg, #3d8bff, #e879a0);
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -392,7 +404,7 @@ onUnmounted(() => {
 }
 
 .threads-select:focus {
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
 }
 
 .add-btn {
@@ -400,7 +412,7 @@ onUnmounted(() => {
   height: 32px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #3d8bff, #e879a0);
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   color: white;
   font-size: 18px;
   cursor: pointer;
@@ -412,7 +424,7 @@ onUnmounted(() => {
 
 .add-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(61, 139, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(196, 96, 58, 0.3);
 }
 
 .empty-state {
@@ -458,7 +470,7 @@ onUnmounted(() => {
 }
 
 .task-card:hover {
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
 }
 
 .task-header {
@@ -490,28 +502,28 @@ onUnmounted(() => {
 }
 
 .task-status.status-downloading {
-  background: rgba(61, 139, 255, 0.15);
-  color: #3d8bff;
+  background: rgba(196, 96, 58, 0.15);
+  color: var(--accent);
 }
 
 .task-status.status-paused {
-  background: rgba(255, 193, 7, 0.15);
-  color: #ffc107;
+  background: rgba(224, 160, 96, 0.15);
+  color: #e0a060;
 }
 
 .task-status.status-completed {
-  background: rgba(76, 175, 80, 0.15);
-  color: #4caf50;
+  background: rgba(22, 163, 74, 0.15);
+  color: var(--success-color);
 }
 
 .task-status.status-failed {
-  background: rgba(244, 67, 54, 0.15);
-  color: #f44336;
+  background: rgba(220, 38, 38, 0.15);
+  color: var(--danger-color);
 }
 
 .task-status.status-canceled {
-  background: rgba(158, 158, 158, 0.15);
-  color: #9e9e9e;
+  background: rgba(150, 150, 150, 0.15);
+  color: var(--text-tertiary);
 }
 
 .progress-section {
@@ -528,7 +540,7 @@ onUnmounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3d8bff, #e879a0);
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -546,7 +558,7 @@ onUnmounted(() => {
 }
 
 .progress-speed {
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 .progress-time {
@@ -555,10 +567,10 @@ onUnmounted(() => {
 
 .error-message {
   font-size: 11px;
-  color: #f44336;
+  color: var(--danger-color);
   margin-bottom: 8px;
   padding: 6px 8px;
-  background: rgba(244, 67, 54, 0.1);
+  background: rgba(220, 38, 38, 0.1);
   border-radius: 6px;
 }
 
@@ -575,61 +587,81 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .pause-btn,
 .resume-btn {
-  background: linear-gradient(135deg, #3d8bff, #5a9fff);
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   color: white;
 }
 
 .pause-btn:hover,
 .resume-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.3);
 }
 
 .cancel-btn {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .cancel-btn:hover {
-  background: rgba(244, 67, 54, 0.1);
-  color: #f44336;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border-color: var(--danger-color);
 }
 
 .open-btn,
 .retry-btn {
-  background: linear-gradient(135deg, #4caf50, #66bb6a);
+  background: linear-gradient(135deg, var(--success-color), #22c55e);
   color: white;
 }
 
 .open-btn:hover,
 .retry-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
 }
 
 .folder-btn {
-  background: linear-gradient(135deg, #ff9800, #ffb74d);
-  color: white;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .folder-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+  background: var(--border-color);
+  border-color: var(--border-color-hover);
 }
 
 .remove-btn {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .remove-btn:hover {
-  background: rgba(244, 67, 54, 0.1);
-  color: #f44336;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border-color: var(--danger-color);
+}
+
+/* 减弱动效 */
+@media (prefers-reduced-motion: reduce) {
+  .action-btn {
+    transition: none;
+  }
+  .action-btn:hover {
+    transform: none;
+  }
 }
 
 /* 对话框样式 */
@@ -675,7 +707,7 @@ onUnmounted(() => {
 }
 
 .dialog-input:focus {
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
 }
 
 .dialog-input::placeholder {
@@ -709,13 +741,13 @@ onUnmounted(() => {
 }
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, #3d8bff, #e879a0);
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   color: white;
 }
 
 .dialog-btn.confirm:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.3);
 }
 
 .dialog-btn.confirm:disabled {
@@ -723,5 +755,50 @@ onUnmounted(() => {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ========== 通用错误提示 ========== */
+.general-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 0 16px 12px;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-color);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--danger-color);
+  cursor: pointer;
+  animation: error-slide-in 0.25s ease-out;
+}
+
+@keyframes error-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-icon {
+  flex-shrink: 0;
+}
+
+.error-text {
+  flex: 1;
+}
+
+.error-dismiss {
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-size: 12px;
+}
+
+.error-dismiss:hover {
+  opacity: 1;
 }
 </style>

@@ -141,13 +141,13 @@ onMounted(() => {
   inset: 0;
   background: conic-gradient(
     from var(--border-angle),
-    #3d8bff,
-    #78b4ff,
-    #a0d0ff,
-    #d4a8c0,
-    #e879a0,
-    #c4607a,
-    #3d8bff
+    #c4603a,
+    #d4874a,
+    #e0a060,
+    #d4a070,
+    #c4603a,
+    #a85030,
+    #c4603a
   );
   animation: border-spin 3s linear infinite;
 }
@@ -214,7 +214,7 @@ onMounted(() => {
 
 .translate-btn:hover {
   transform: scale(1.15);
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 /* 打开链接按钮 */

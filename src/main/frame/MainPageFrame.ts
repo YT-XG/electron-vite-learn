@@ -8,10 +8,10 @@ import { windowFactory } from './WindowFactory'
  */
 export default class MainPageFrame extends BaseFrame {
   /** 窗口宽度 */
-  static readonly WIDTH = 600
+  static readonly WIDTH = 800
 
   /** 窗口高度 */
-  static readonly HEIGHT = 450
+  static readonly HEIGHT = 600
 
   /** 最小宽度 */
   static readonly MIN_WIDTH = 600

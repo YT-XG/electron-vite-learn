@@ -766,8 +766,8 @@ onUnmounted(() => {
 }
 
 .shortcut-keys:hover {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.08);
 }
 
 .change-hint {
@@ -783,23 +783,23 @@ onUnmounted(() => {
   gap: 8px;
   padding: 8px 14px;
   background: var(--bg-primary);
-  border: 2px solid var(--accent-blue);
+  border: 2px solid var(--accent);
   border-radius: 8px;
   min-height: 36px;
   box-sizing: border-box;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.12);
   animation: recorder-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes recorder-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.12); }
-  50% { box-shadow: 0 0 0 6px rgba(61, 139, 255, 0.08); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.12); }
+  50% { box-shadow: 0 0 0 6px rgba(196, 96, 58, 0.08); }
 }
 
 .recording-pulse {
   font-size: 10px;
-  color: var(--accent-blue);
+  color: var(--accent);
   animation: dot-pulse 1s ease-in-out infinite;
 }
 
@@ -832,8 +832,8 @@ onUnmounted(() => {
 }
 
 .keycap.active {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
   box-shadow: 0 1px 0 #2563eb;
 }
@@ -876,8 +876,8 @@ onUnmounted(() => {
 }
 
 .server-url-select:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.1);
 }
 
 .server-url-input {
@@ -902,8 +902,8 @@ onUnmounted(() => {
 }
 
 .server-url-input:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.1);
 }
 
 .server-preview {
@@ -978,14 +978,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--accent-blue);
+  color: var(--accent);
   cursor: pointer;
   user-select: none;
   transition: color 0.2s ease;
 }
 
 .help-header:hover {
-  color: var(--accent-pink);
+  color: var(--accent-secondary);
 }
 
 .help-arrow {
@@ -1030,7 +1030,7 @@ onUnmounted(() => {
   border-radius: 4px;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 11px;
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 .help-steps kbd {
@@ -1048,7 +1048,7 @@ onUnmounted(() => {
 .help-tip {
   margin: 10px 0 0;
   padding: 8px 10px;
-  background: rgba(61, 139, 255, 0.08);
+  background: rgba(196, 96, 58, 0.08);
   border-radius: 6px;
   font-size: 11px;
   color: var(--text-secondary);
@@ -1063,7 +1063,7 @@ onUnmounted(() => {
   border-radius: 3px;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 11px;
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 /* macOS 路径输入框 */
@@ -1126,8 +1126,8 @@ onUnmounted(() => {
 }
 
 .form-input:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(61, 139, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.1);
 }
 
 /* ========== 更新源选择 ========== */
@@ -1151,18 +1151,18 @@ onUnmounted(() => {
 }
 
 .radio-option:hover {
-  border-color: var(--accent-blue);
+  border-color: var(--accent);
 }
 
 .radio-option.active {
-  border-color: var(--accent-blue);
-  background: rgba(61, 139, 255, 0.05);
+  border-color: var(--accent);
+  background: rgba(196, 96, 58, 0.05);
 }
 
 .radio-option input[type="radio"] {
   width: 16px;
   height: 16px;
-  accent-color: var(--accent-blue);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 
@@ -1218,9 +1218,9 @@ onUnmounted(() => {
 }
 
 .theme-btn.active {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
   color: #fff;
-  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.3);
 }
 
 /* ========== 开关 ========== */
@@ -1271,7 +1271,7 @@ onUnmounted(() => {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-pink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
