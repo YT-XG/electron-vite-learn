@@ -1,0 +1,521 @@
+<template>
+  <div class="download-manager">
+    <div class="header">
+      <h2 class="title">📥 下载管理</h2>
+      <button class="add-btn" @click="addDownload" title="添加下载">
+        <span>+</span>
+      </button>
+    </div>
+
+    <!-- 空状态 -->
+    <div v-if="tasks.length === 0" class="empty-state">
+      <div class="empty-icon">📭</div>
+      <p class="empty-text">暂无下载任务</p>
+      <p class="empty-hint">点击右上角 + 添加下载</p>
+    </div>
+
+    <!-- 任务列表 -->
+    <div v-else class="task-list">
+      <div
+        v-for="task in tasks"
+        :key="task.id"
+        class="task-card"
+        :class="`status-${task.status}`"
+      >
+        <div class="task-header">
+          <span class="task-icon">📄</span>
+          <span class="task-name" :title="task.fileName">{{ task.fileName }}</span>
+          <span class="task-status" :class="`status-${task.status}`">
+            {{ getStatusText(task.status) }}
+          </span>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="progress-section">
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :style="{ width: `${task.progress * 100}%` }"
+            ></div>
+          </div>
+          <div class="progress-info">
+            <span class="progress-percent">{{ Math.round(task.progress * 100) }}%</span>
+            <span v-if="task.status === 'downloading'" class="progress-speed">
+              {{ formatSpeed(task.speedBytesPerSecond) }}
+            </span>
+            <span v-if="task.status === 'downloading' && task.estimatedFinishAt" class="progress-time">
+              {{ formatRemainingTime(task.estimatedFinishAt) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 错误信息 -->
+        <div v-if="task.errorMessage" class="error-message">
+          {{ task.errorMessage }}
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="task-actions">
+          <template v-if="task.status === 'downloading'">
+            <button class="action-btn pause-btn" @click="pauseTask(task.id)">暂停</button>
+            <button class="action-btn cancel-btn" @click="cancelTask(task.id)">取消</button>
+          </template>
+          <template v-else-if="task.status === 'paused'">
+            <button class="action-btn resume-btn" @click="resumeTask(task.id)">继续</button>
+            <button class="action-btn cancel-btn" @click="cancelTask(task.id)">取消</button>
+          </template>
+          <template v-else-if="task.status === 'completed'">
+            <button class="action-btn open-btn" @click="openFile(task.savePath)">打开文件</button>
+            <button class="action-btn folder-btn" @click="openFolder(task.savePath)">打开文件夹</button>
+            <button class="action-btn remove-btn" @click="removeTask(task.id)">移除</button>
+          </template>
+          <template v-else-if="task.status === 'failed'">
+            <button class="action-btn retry-btn" @click="retryTask(task)">重试</button>
+            <button class="action-btn remove-btn" @click="removeTask(task.id)">移除</button>
+          </template>
+          <template v-else-if="task.status === 'canceled'">
+            <button class="action-btn remove-btn" @click="removeTask(task.id)">移除</button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+
+/** 下载任务接口 */
+interface DownloadTask {
+  id: string
+  url: string
+  savePath: string
+  fileName: string
+  totalBytes: number
+  downloadedBytes: number
+  progress: number
+  speedBytesPerSecond: number
+  estimatedFinishAt: number | null
+  threads: number
+  status: 'downloading' | 'paused' | 'completed' | 'failed' | 'canceled'
+  errorMessage?: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** 任务列表 */
+const tasks = ref<DownloadTask[]>([])
+
+/**
+ * 获取状态文本
+ * @param status - 任务状态
+ * @returns 状态文本
+ */
+const getStatusText = (status: DownloadTask['status']): string => {
+  const statusMap: Record<DownloadTask['status'], string> = {
+    downloading: '下载中',
+    paused: '已暂停',
+    completed: '已完成',
+    failed: '失败',
+    canceled: '已取消',
+  }
+  return statusMap[status]
+}
+
+/**
+ * 格式化下载速度
+ * @param bytesPerSecond - 每秒字节数
+ * @returns 格式化的速度字符串
+ */
+const formatSpeed = (bytesPerSecond: number): string => {
+  if (bytesPerSecond <= 0) return ''
+  if (bytesPerSecond < 1024) return `${bytesPerSecond} B/s`
+  if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(1)} KB/s`
+  return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`
+}
+
+/**
+ * 格式化剩余时间
+ * @param estimatedFinishAt - 预计完成时间戳
+ * @returns 格式化的剩余时间字符串
+ */
+const formatRemainingTime = (estimatedFinishAt: number): string => {
+  const remainingMs = estimatedFinishAt - Date.now()
+  if (remainingMs <= 0) return ''
+  const remainingSeconds = Math.ceil(remainingMs / 1000)
+  if (remainingSeconds < 60) return `${remainingSeconds}s`
+  const minutes = Math.floor(remainingSeconds / 60)
+  const seconds = remainingSeconds % 60
+  return `${minutes}m ${seconds}s`
+}
+
+/**
+ * 添加下载
+ */
+const addDownload = async (): Promise<void> => {
+  const url = prompt('请输入下载地址：')
+  if (!url) return
+
+  const result = await window.electron.ipcRenderer.invoke('download:start', { url })
+  if (!result.ok) {
+    alert(`下载失败: ${result.message}`)
+  }
+}
+
+/**
+ * 暂停任务
+ * @param taskId - 任务ID
+ */
+const pauseTask = async (taskId: string): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('download:pause', taskId)
+}
+
+/**
+ * 恢复任务
+ * @param taskId - 任务ID
+ */
+const resumeTask = async (taskId: string): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('download:resume', taskId)
+}
+
+/**
+ * 取消任务
+ * @param taskId - 任务ID
+ */
+const cancelTask = async (taskId: string): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('download:cancel', taskId)
+}
+
+/**
+ * 移除任务
+ * @param taskId - 任务ID
+ */
+const removeTask = async (taskId: string): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('download:remove', taskId)
+  tasks.value = tasks.value.filter((t) => t.id !== taskId)
+}
+
+/**
+ * 重试任务
+ * @param task - 任务对象
+ */
+const retryTask = async (task: DownloadTask): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('download:remove', task.id)
+  tasks.value = tasks.value.filter((t) => t.id !== task.id)
+  const result = await window.electron.ipcRenderer.invoke('download:start', {
+    url: task.url,
+    savePath: task.savePath,
+    threads: task.threads,
+  })
+  if (!result.ok) {
+    alert(`重试失败: ${result.message}`)
+  }
+}
+
+/**
+ * 打开文件
+ * @param filePath - 文件路径
+ */
+const openFile = async (filePath: string): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('shell:openPath', filePath)
+}
+
+/**
+ * 打开文件夹
+ * @param filePath - 文件路径
+ */
+const openFolder = async (filePath: string): Promise<void> => {
+  await window.electron.ipcRenderer.invoke('shell:showItemInFolder', filePath)
+}
+
+/**
+ * 任务更新处理
+ * @param _event - IPC 事件
+ * @param task - 任务快照
+ */
+const onTaskUpdated = (_event: Electron.IpcRendererEvent, task: DownloadTask): void => {
+  const index = tasks.value.findIndex((t) => t.id === task.id)
+  if (index >= 0) {
+    tasks.value[index] = task
+  } else {
+    tasks.value.unshift(task)
+  }
+}
+
+onMounted(async () => {
+  // 加载现有任务列表
+  const existingTasks = await window.electron.ipcRenderer.invoke('download:list')
+  tasks.value = existingTasks || []
+
+  // 监听任务更新
+  window.electron.ipcRenderer.on('download:task-updated', onTaskUpdated)
+})
+
+onUnmounted(() => {
+  window.electron.ipcRenderer.removeListener('download:task-updated', onTaskUpdated)
+})
+</script>
+
+<style scoped>
+.download-manager {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.add-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3d8bff, #ff6ab0);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.add-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(61, 139, 255, 0.3);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.task-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-card {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+}
+
+.task-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.task-icon {
+  font-size: 16px;
+}
+
+.task-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.task-status.status-downloading {
+  background: rgba(61, 139, 255, 0.15);
+  color: #3d8bff;
+}
+
+.task-status.status-paused {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.task-status.status-completed {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+}
+
+.task-status.status-failed {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+}
+
+.task-status.status-canceled {
+  background: rgba(158, 158, 158, 0.15);
+  color: #9e9e9e;
+}
+
+.progress-section {
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3d8bff, #ff6ab0);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.progress-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.progress-percent {
+  font-weight: 500;
+}
+
+.progress-speed {
+  color: var(--accent-blue);
+}
+
+.progress-time {
+  color: var(--text-tertiary);
+}
+
+.error-message {
+  font-size: 11px;
+  color: #f44336;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: rgba(244, 67, 54, 0.1);
+  border-radius: 6px;
+}
+
+.task-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pause-btn,
+.resume-btn {
+  background: linear-gradient(135deg, #3d8bff, #5a9fff);
+  color: white;
+}
+
+.pause-btn:hover,
+.resume-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(61, 139, 255, 0.3);
+}
+
+.cancel-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.cancel-btn:hover {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+}
+
+.open-btn,
+.retry-btn {
+  background: linear-gradient(135deg, #4caf50, #66bb6a);
+  color: white;
+}
+
+.open-btn:hover,
+.retry-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.folder-btn {
+  background: linear-gradient(135deg, #ff9800, #ffb74d);
+  color: white;
+}
+
+.folder-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+}
+
+.remove-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.remove-btn:hover {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+}
+</style>
