@@ -87,6 +87,15 @@
             <span class="nav-icon">⚙️</span>
             <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
           </button>
+          <!-- 工具箱 -->
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'toolbox' }"
+            @click="currentPage = 'toolbox'"
+          >
+            <span class="nav-icon">🛠️</span>
+            <span class="nav-label" v-if="!isSidebarCollapsed">工具箱</span>
+          </button>
         </nav>
       </aside>
 
@@ -108,6 +117,8 @@
           <Translate v-else-if="currentPage === 'translate'" key="translate" @goBack="currentPage = 'home'" />
           <!-- 下载管理 -->
           <DownloadManager v-else-if="currentPage === 'download'" key="download" />
+          <!-- 工具箱 -->
+          <Toolbox v-else-if="currentPage === 'toolbox'" key="toolbox" />
         </Transition>
       </main>
     </div>
@@ -120,10 +131,11 @@ import ClipboardManager from './ClipboardManager.vue'
 import DownloadManager from './DownloadManager.vue'
 import Settings from './Settings.vue'
 import Translate from './Translate.vue'
+import Toolbox from './tools/Toolbox.vue'
 
 const version = ref('')
 /** 当前页面 */
-const currentPage = ref<'home' | 'clipboard' | 'settings' | 'translate' | 'download'>('clipboard')
+const currentPage = ref<'home' | 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
@@ -199,8 +211,8 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
  * @param page - 目标页面名称
  */
 const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
-  if (['home', 'clipboard', 'settings', 'translate', 'download'].includes(page)) {
-    currentPage.value = page as 'home' | 'clipboard' | 'settings' | 'translate' | 'download'
+  if (['home', 'clipboard', 'settings', 'translate', 'download', 'toolbox'].includes(page)) {
+    currentPage.value = page as 'home' | 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'
   }
 }
 

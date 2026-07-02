@@ -1,5 +1,6 @@
 import { app, BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
 import BaseFrame from './BaseFrame'
+import { windowFactory } from './WindowFactory'
 
 /**
  * 主页面窗口
@@ -238,6 +239,11 @@ export default class MainPageFrame extends BaseFrame {
     // 从剪贴板历史记录跳转到翻译页面
     this.recvOne('to-main-MainPage:openTranslate', (_event, text: string) => {
       this.showAndTranslate(text)
+    })
+
+    // 打开 Markdown 预览
+    this.recvOne('to-main-MainPage:openMarkdownPreview', () => {
+      windowFactory.createMarkdownPreviewFrame().show()
     })
   }
 }
