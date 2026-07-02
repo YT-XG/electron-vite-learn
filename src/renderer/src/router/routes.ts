@@ -1,5 +1,4 @@
 export const AppRoutes = [
-  { path: '/', name: '首页', component: () => import('@renderer/views/Home.vue') },
   { path: '/about', name: '关于我们', component: () => import('@renderer/views/About.vue') },
   {
     path: '/noticeNew',
@@ -12,19 +11,9 @@ export const AppRoutes = [
     component: () => import('@renderer/views/UpdateNew.vue')
   },
   {
-    path: '/openDialog',
-    name: '展开窗口',
-    component: () => import('@renderer/views/OpenDialog.vue')
-  },
-  {
     path: '/downloadManager',
     name: '下载管理',
     component: () => import('@renderer/views/DownloadManager.vue')
-  },
-  {
-    path: '/test',
-    name: '测试',
-    component: () => import('@renderer/views/Test.vue')
   },
   {
     path: '/mainPage',

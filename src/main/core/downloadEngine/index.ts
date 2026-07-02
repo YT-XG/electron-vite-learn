@@ -498,6 +498,7 @@ export class MultiThreadDownloadEngine {
     await rename(task.tempOutputPath, task.savePath)
 
     // 校验下载文件大小
+    let fileValid = true
     try {
       const finalStat = await stat(task.savePath)
       const finalSize = finalStat.size
@@ -509,16 +510,20 @@ export class MultiThreadDownloadEngine {
         log.error(`[DownloadEngine] 文件大小校验失败: 预期 ${task.totalBytes}, 实际 ${finalSize}`)
         // 删除损坏的文件
         await unlink(task.savePath).catch(() => {})
-        throw new Error(`下载不完整: 预期 ${task.totalBytes} 字节, 实际 ${finalSize} 字节`)
+        fileValid = false
+      } else {
+        task.downloadedBytes = finalSize
+        task.totalBytes = finalSize
       }
-
-      task.downloadedBytes = finalSize
-      task.totalBytes = finalSize
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('下载不完整')) {
-        throw error
-      }
+    } catch {
       // stat 失败时忽略，使用已有值
+    }
+
+    // 清理临时文件（无论成功失败都要清理）
+    await this.cleanupTaskFiles(task)
+
+    if (!fileValid) {
+      throw new Error(`下载不完整: 文件大小与预期不符`)
     }
 
     task.progress = 1
@@ -527,8 +532,6 @@ export class MultiThreadDownloadEngine {
     task.status = 'completed'
     task.updatedAt = Date.now()
     this.emitTask(task, true)
-
-    await this.cleanupTaskFiles(task, { keepOutput: true })
   }
 
   /**

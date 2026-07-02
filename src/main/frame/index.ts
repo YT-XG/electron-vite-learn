@@ -7,10 +7,7 @@
 export { default as BaseFrame } from './BaseFrame'
 
 // 具体实现
-export { default as BallFrame } from './BallFrame'
 export { default as NoticeNewFrame } from './NoticeNewFrame'
-export { default as TestFrame } from './TestFrame'
-export { default as OpenDialogFrame } from './OpenDialogFrame'
 export { default as UpdateNewFrame } from './UpdateNewFrame'
 export { default as MainPageFrame } from './MainPageFrame'
 export { default as PermissionNoticeFrame } from './PermissionNoticeFrame'

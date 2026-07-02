@@ -36,7 +36,7 @@ export interface UpdateInfo {
 }
 /**
  * 新版更新窗口
- * @description 底部居中弹出的更新提示窗口，契合悬浮球主题
+ * @description 底部居中弹出的更新提示窗口
  */
 export default class UpdateNewFrame extends BaseFrame {
   /** 弹窗宽度 */

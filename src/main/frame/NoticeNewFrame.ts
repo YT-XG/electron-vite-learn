@@ -5,7 +5,7 @@ import { getBottomMargin } from '../utils/platform'
 
 /**
  * 通知弹窗
- * @description 底部居中弹出的通知提示窗口，契合悬浮球主题，显示时长由 NoticeManager 统一管理
+ * @description 底部居中弹出的通知提示窗口，显示时长由 NoticeManager 统一管理
  *              入场缩放到大动画由渲染进程 CSS 实现，收起向下滑出由主进程控制
  */
 export default class NoticeNewFrame extends BaseFrame {

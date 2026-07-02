@@ -1,7 +1,7 @@
 <template>
   <div class="update-container" :class="{ 'update-visible': isVisible }">
     <div class="update-card">
-      <!-- 顶部渐变装饰条（蓝→粉，呼应悬浮球旋转环） -->
+      <!-- 顶部渐变装饰条（蓝→粉） -->
       <div class="accent-bar" />
 
       <!-- 关闭按钮 -->
@@ -88,7 +88,7 @@
         </div>
       </div>
 
-      <!-- 底部装饰环（呼应悬浮球的旋转环） -->
+      <!-- 底部装饰环 -->
       <div class="ring-deco ring-1" />
       <div class="ring-deco ring-2" />
     </div>
@@ -423,7 +423,7 @@ onUnmounted(() => {
   transform: translateY(0);
 }
 
-/* ─── 装饰环（呼应悬浮球的旋转环） ─── */
+/* ─── 装饰环 ─── */
 .ring-deco {
   position: absolute;
   width: 50px;

@@ -82,10 +82,10 @@ app.whenReady().then(async () => {
     return shell.showItemInFolder(fullPath)
   })
 
-  // 应用激活时重新创建窗口（macOS）
+  // macOS：点击 Dock 图标时显示主页面
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      windowFactory.createBallFrame()
+      windowFactory.getMainPageFrame().create()
     }
   })
 })

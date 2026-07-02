@@ -20,14 +20,10 @@ electron-vite-learn/
 │   │   ├── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
-│   │       ├── BallFrame.ts    # 主窗口（悬浮球时钟）
-│   │       ├── NoticeFrame.ts  # 通知窗口
 │   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，支持翻译按钮）
 │   │       ├── NoticeManager.ts    # 通知管理器（多通知堆叠、自定义时长、移动动画）
 │   │       ├── PermissionNoticeFrame.ts # 权限确认弹窗（Claude Code 权限请求交互）
 │   │       ├── ClaudeCodeStatusFrame.ts # Claude Code 状态通知（常驻状态条）
-│   │       ├── TestFrame.ts    # 测试窗口
-│   │       ├── OpenDialogFrame.ts # 悬浮球展开对话框窗口
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       ├── SearchBoxFrame.ts  # 搜索框窗口（全局搜索，快捷键呼出）
@@ -61,12 +57,10 @@ electron-vite-learn/
 │           │   ├── userStore.ts # 用户状态管理
 │           │   └── noticeStore.ts # 通知状态管理
 │           ├── views/          # 页面视图组件
-│           │   ├── Home.vue   # 悬浮球时钟（可拖拽、显示当前时间）
 │           │   ├── About.vue  # 关于页
 │           │   ├── Notice.vue # 通知窗口（剪贴板通知）
 │           │   ├── NoticeNew.vue   # 通知弹窗（蓝粉渐变胶囊样式，支持翻译按钮）
 │           │   ├── UpdateNew.vue   # 更新窗口（底部居中弹出）
-│           │   ├── OpenDialog.vue # 悬浮球展开对话框
 │           │   ├── MainPage.vue  # 主页面（侧边栏布局，托盘左键打开）
 │           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 收藏）
 │           │   ├── Translate.vue    # 翻译页面
@@ -134,12 +128,8 @@ electron-vite-learn/
 - **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
 - **关键文件**:
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
-  - `BallFrame.ts` - 主窗口（悬浮球时钟），支持拖拽、吸附、剪贴板监控
-  - `NoticeFrame.ts` - 剪贴板通知窗口，从右下角弹出显示复制的文字
   - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，支持翻译按钮（仅剪贴板通知显示），时长由 NoticeManager 管理
   - `NoticeManager.ts` - 通知管理器，管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画
-  - `TestFrame.ts` - 测试窗口
-  - `OpenDialogFrame.ts` - 悬浮球展开对话框窗口，鼠标悬停时向左/右侧展开
   - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
   - `MainPageFrame.ts` - 主页面窗口，无边框，屏幕正中心显示，左键托盘打开
   - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
@@ -152,12 +142,6 @@ electron-vite-learn/
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
-
-  // 创建主窗口
-  windowFactory.createMainFrame()
-
-  // 显示通知
-  windowFactory.showNotice('剪贴板内容已更新')
 
   // 显示通知弹窗（底部居中，通过 NoticeManager 管理）
   windowFactory.getNoticeManager().show({
@@ -175,50 +159,8 @@ electron-vite-learn/
   // 显示更新窗口（底部居中弹出）
   windowFactory.showUpdateNew({ version: '1.0.1', description: '修复了一些 bug' })
 
-  // 显示 OpenDialog（鼠标悬停时自动调用）
-  const openDialogFrame = windowFactory.getOpenDialogFrame()
-  openDialogFrame.showPopup()
-
   // 显示/隐藏主页面（左键托盘自动调用）
   windowFactory.getMainPageFrame().showCentered()
-  ```
-
-### OpenDialog 展开对话框 (src/main/frame/OpenDialogFrame.ts)
-- **职责**: 悬浮球鼠标悬停时向左/右侧展开的对话框窗口
-- **功能**:
-  - 鼠标悬停在悬浮球时自动显示
-  - 根据屏幕空间自动选择向左或向右展开
-  - 带有平滑的展开/收缩动画
-  - 位置随悬浮球拖拽实时同步
-  - 鼠标移开悬浮球且不在对话框窗口时自动隐藏
-  - 鼠标在对话框内时保持显示状态
-  - 延迟隐藏时间：200ms（给用户移动鼠标的时间）
-  - 窗口大小：400x300（可配置）
-- **IPC 接口**:
-  - `open-dialog:show` - 显示对话框（由 Home.vue 鼠标悬停触发）
-  - `open-dialog:hide` - 延迟隐藏对话框（由 Home.vue 鼠标离开触发）
-  - `open-dialog:mouse-enter` - 鼠标进入对话框区域（渲染进程报告）
-  - `open-dialog:mouse-leave` - 鼠标离开对话框区域（渲染进程报告）
-  - `open-dialog:animate` - 播放展开动画（主进程发送）
-  - `open-dialog:close` - 播放关闭动画（主进程发送）
-- **使用方式**:
-  ```typescript
-  import { windowFactory } from './frame'
-
-  // 获取 OpenDialog 实例
-  const openDialogFrame = windowFactory.getOpenDialogFrame()
-
-  // 显示对话框
-  openDialogFrame.showPopup()
-
-  // 隐藏对话框
-  openDialogFrame.hide()
-
-  // 延迟隐藏（鼠标离开悬浮球时调用，如果鼠标在弹窗内则不隐藏）
-  openDialogFrame.hideWithDelay()
-
-  // 定位到悬浮球位置
-  openDialogFrame.positionAboveBall()
   ```
 
 ### 通知弹窗 (src/main/frame/NoticeNewFrame.ts)
@@ -317,9 +259,9 @@ electron-vite-learn/
   - 按需创建，不自动启动
   - 带有弹出/收起 CSS 动画
   - 透明无边框窗口，玻璃拟态卡片风格
-  - 与悬浮球蓝粉配色一致（#3d8bff / #ff6ab0）
+  - 蓝粉配色（#3d8bff / #ff6ab0）
   - 显示版本号、更新说明、下载进度条
-  - 底部装饰旋转环呼应悬浮球设计
+  - 底部装饰旋转环
   - 局域网更新：读取 SMB 共享文件夹的 `latest.yml` 版本信息
   - 本地缓存检查：优先检查本地是否已下载该版本
   - 下载进度实时显示
@@ -928,12 +870,10 @@ electron-vite-learn/
 ### 页面视图 (src/renderer/src/views/)
 - **职责**: 各页面的视图组件
 - **关键文件**:
-  - `Home.vue` - 悬浮球时钟，显示当前时间（HH:MM:SS），支持窗口拖拽
   - `About.vue` - 关于页
   - `Notice.vue` - 剪贴板通知窗口，显示复制的文字（最多两行，超出省略），支持拖拽、关闭按钮、10秒自动关闭
   - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示，支持翻译按钮（仅剪贴板通知显示），显示时长由 NoticeManager 管理
   - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
-  - `OpenDialog.vue` - 悬浮球展开对话框，鼠标悬停时向左/右侧展开，带展开/收缩动画
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
   - `ClipboardManager.vue` - 剪贴板管理（历史记录 + 收藏）
   - `Translate.vue` - 翻译页面，支持多语言文本翻译和历史记录

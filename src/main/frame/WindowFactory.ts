@@ -1,8 +1,5 @@
-import BallFrame from './BallFrame'
 import NoticeManager from './NoticeManager'
 import UpdateNewFrame from './UpdateNewFrame'
-import TestFrame from './TestFrame'
-import OpenDialogFrame from './OpenDialogFrame'
 import MainPageFrame from './MainPageFrame'
 import PermissionNoticeFrame from './PermissionNoticeFrame'
 import SearchBoxFrame from './SearchBoxFrame'
@@ -14,20 +11,11 @@ import ContextMenuFrame from './ContextMenuFrame'
  * @description 统一管理所有窗口的创建和生命周期
  */
 export default class WindowFactory {
-  /** 悬浮球实例 */
-  #ballFrame: BallFrame | null = null
-
   /** 多通知管理器 */
   #noticeManager: NoticeManager | null = null
 
   /** 新版更新窗口实例 */
   #updateNewFrame: UpdateNewFrame | null = null
-
-  /** 测试窗口 */
-  #testFrame: TestFrame | null = null
-
-  /** OpenDialog 窗口 */
-  #openDialogFrame: OpenDialogFrame | null = null
 
   /** 主页面窗口 */
   #mainPageFrame: MainPageFrame | null = null
@@ -43,17 +31,6 @@ export default class WindowFactory {
 
   /** 右键菜单窗口 */
   #contextMenuFrame: ContextMenuFrame | null = null
-
-  /**
-   * 获取主窗口（悬浮球时钟）
-   * @returns BallFrame 实例
-   */
-  getBallFrame(): BallFrame {
-    if (!this.#ballFrame) {
-      this.#ballFrame = new BallFrame()
-    }
-    return this.#ballFrame
-  }
 
   /**
    * 获取多通知管理器
@@ -86,27 +63,6 @@ export default class WindowFactory {
       }
     }
     return this.#updateNewFrame
-  }
-  /**
-   * 获取测试窗口
-   * @returns TestFrame 实例
-   */
-  getTestFrame(): TestFrame {
-    if (!this.#testFrame) {
-      this.#testFrame = new TestFrame()
-    }
-    return this.#testFrame
-  }
-
-  /**
-   * 获取 OpenDialog 窗口
-   * @returns OpenDialogFrame 实例
-   */
-  getOpenDialogFrame(): OpenDialogFrame {
-    if (!this.#openDialogFrame) {
-      this.#openDialogFrame = new OpenDialogFrame()
-    }
-    return this.#openDialogFrame
   }
 
   /**
@@ -221,24 +177,11 @@ export default class WindowFactory {
   }
 
   /**
-   * 创建悬浮球窗口
-   * @returns 主窗口实例
-   */
-  createBallFrame(): BallFrame {
-    const frame = this.getBallFrame()
-    frame.create()
-    return frame
-  }
-
-  /**
    * 销毁所有窗口
    */
   destroyAll(): void {
-    this.#ballFrame?.destroy()
     this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.destroy()
-    this.#testFrame?.destroy()
-    this.#openDialogFrame?.destroy()
     this.#mainPageFrame?.destroy()
     this.#permissionNoticeFrame?.destroy()
     this.#searchBoxFrame?.destroy()
@@ -250,10 +193,8 @@ export default class WindowFactory {
    * 关闭所有窗口（隐藏）
    */
   closeAll(): void {
-    this.#ballFrame?.close()
     this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.hide()
-    this.#openDialogFrame?.hide()
     this.#mainPageFrame?.close()
     this.#permissionNoticeFrame?.destroy()
     this.#searchBoxFrame?.hide()
