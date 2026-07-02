@@ -6,6 +6,7 @@ import { clipboardService } from './service/clipboardService'
 import { settingsService } from './service/settingsService'
 import { translateService } from './service/translateService'
 import { claudeCodeService } from './service/claudeCodeService'
+import { downloadService } from './service/downloadService'
 import './service/inputService'
 import log from 'electron-log'
 
@@ -50,6 +51,8 @@ app.whenReady().then(async () => {
   await translateService.init()
   // 初始化 Claude Code 监控服务（HTTP 服务器 + Hook 管理）
   await claudeCodeService.init()
+  // 初始化下载服务（多线程下载）
+  downloadService.init()
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
