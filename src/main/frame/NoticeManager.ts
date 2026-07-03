@@ -2,6 +2,7 @@
 import { screen } from 'electron'
 import NoticeNewFrame from './NoticeNewFrame'
 import { getBottomMargin } from '../utils/platform'
+import { windowFactory } from './WindowFactory'
 
 /** 通知类型 */
 export type NoticeType = 'default' | 'success' | 'error' | 'warning'
@@ -175,8 +176,6 @@ export default class NoticeManager {
     // 延迟通知，等待动画完成
     setTimeout(() => {
       try {
-        // 动态导入避免循环依赖
-        const { windowFactory } = require('./WindowFactory')
         const updateFrame = windowFactory.getUpdateNewFrame()
         if (updateFrame && typeof updateFrame.reposition === 'function') {
           updateFrame.reposition()

@@ -298,7 +298,8 @@ export default class UpdateNewFrame extends BaseFrame {
         size: githubInfo.size,
         sha512: '',
         releaseNotes: githubInfo.releaseNotes,
-        releaseDate: githubInfo.releaseDate
+        releaseDate: githubInfo.releaseDate,
+        msg: `发现新版本 v${githubInfo.version}`
       }
 
       log.info('[UpdateNew] GitHub 发现新版本:', updateInfo)
@@ -313,6 +314,7 @@ export default class UpdateNewFrame extends BaseFrame {
         this.currentDownloadPath = cachedPath
         // 通知渲染进程：已下载完成，可直接安装
         this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
+        updateInfo.msg = `发现新版本 v${githubInfo.version}（已缓存）`
       }
 
       // 显示更新窗口
@@ -418,7 +420,8 @@ export default class UpdateNewFrame extends BaseFrame {
         sha512:
           (latestInfo.sha512 as string) || ((latestInfo.files as any)?.[0]?.sha512 as string) || '',
         releaseNotes: (latestInfo.releaseNotes as string) || '',
-        releaseDate: (latestInfo.releaseDate as string) || new Date().toISOString()
+        releaseDate: (latestInfo.releaseDate as string) || new Date().toISOString(),
+        msg: `发现新版本 v${remoteVersion}`
       }
       log.info('[LanUpdate] 发现新版本:', updateInfo)
 
@@ -430,6 +433,7 @@ export default class UpdateNewFrame extends BaseFrame {
       if (cachedPath) {
         log.info('[UpdateNew] 本地已缓存该版本，直接显示安装按钮')
         this.currentDownloadPath = cachedPath
+        updateInfo.msg = `发现新版本 v${remoteVersion}（已缓存）`
         // 通知渲染进程：已下载完成，可直接安装
         this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
       }
