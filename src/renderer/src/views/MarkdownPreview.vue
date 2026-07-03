@@ -6,7 +6,7 @@
       <!-- 标题栏 -->
       <div class="title-bar">
         <div class="title-bar-drag">
-          <span class="title-icon">📝</span>
+          <span class="title-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></span>
           <span class="title-text">Markdown 预览</span>
         </div>
         <div class="window-controls">
@@ -190,9 +190,9 @@ const insertLinePrefix = (prefix: string) => {
 const contextMenuItems: Array<{
   icon: string; label: string; shortcut?: string; separator?: boolean; action?: string
 }> = [
-  { icon: '📝', label: '标题 1', action: 'h1' },
-  { icon: '📝', label: '标题 2', action: 'h2' },
-  { icon: '📝', label: '标题 3', action: 'h3' },
+  { icon: '', label: '标题 1', action: 'h1' },
+  { icon: '', label: '标题 2', action: 'h2' },
+  { icon: '', label: '标题 3', action: 'h3' },
   { icon: '', label: '', separator: true },
   { icon: 'B', label: '加粗', shortcut: 'Ctrl+B', action: 'bold' },
   { icon: 'I', label: '斜体', shortcut: 'Ctrl+I', action: 'italic' },
@@ -487,6 +487,18 @@ onMounted(() => {
     e.preventDefault()
     e.stopPropagation()
   })
+
+  // 监听从剪贴板打开的新标签页
+  window.electron.ipcRenderer.on('to-renderer-MarkdownPreview:newTab', (_event, content: string) => {
+    // 创建新标签页
+    const newId = String(Date.now())
+    tabs.value.push({
+      id: newId,
+      name: '剪贴板内容',
+      content: content
+    })
+    activeTabId.value = newId
+  })
 })
 </script>
 
@@ -508,13 +520,13 @@ onMounted(() => {
 .md-content {
   width: 100%;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   display: flex;
   flex-direction: column;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 8px 40px -8px var(--shadow-color);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 40px -8px var(--shadow-lg);
 }
 
 /* ========== 标题栏 - 跟随主题 ========== */
@@ -526,7 +538,7 @@ onMounted(() => {
   height: 40px;
   background: var(--bg-secondary);
   padding: 0 10px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
 }
 
 .title-bar-drag {
@@ -584,7 +596,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   padding: 0 8px;
   height: 34px;
 }
@@ -624,7 +636,7 @@ onMounted(() => {
 .tab.active {
   color: var(--text-primary);
   background: var(--bg-secondary);
-  box-shadow: 0 0 0 1px var(--border-color) inset;
+  box-shadow: 0 0 0 1px var(--border) inset;
 }
 
 .tab-icon {
@@ -698,8 +710,8 @@ onMounted(() => {
 .editor {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+  background: var(--bg-base);
 }
 
 .editor-header,
@@ -708,7 +720,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 0 16px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
 }
 
@@ -723,7 +735,7 @@ onMounted(() => {
 
 .editor-textarea {
   flex: 1;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   border: none;
   outline: none;
   color: var(--text-primary);
@@ -748,7 +760,7 @@ onMounted(() => {
 
 .divider {
   width: 3px;
-  background: var(--border-color);
+  background: var(--border);
   cursor: col-resize;
   transition: background 0.15s ease;
   display: flex;
@@ -788,7 +800,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--bg-base);
 }
 
 .preview-content {
@@ -799,7 +811,7 @@ onMounted(() => {
   font-size: 14.5px;
   line-height: 1.7;
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .preview-content::-webkit-scrollbar {
@@ -811,12 +823,12 @@ onMounted(() => {
 }
 
 .preview-content::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border);
   border-radius: 3px;
 }
 
 .preview-content::-webkit-scrollbar-thumb:hover {
-  background: var(--border-color-hover);
+  background: var(--border-hover);
 }
 
 /* ========== Markdown 样式 - 跟随主题 ========== */
@@ -827,7 +839,7 @@ onMounted(() => {
   margin: 0 0 16px 0;
   padding-bottom: 10px;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
@@ -838,7 +850,7 @@ onMounted(() => {
   margin: 28px 0 12px 0;
   padding-bottom: 8px;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   letter-spacing: -0.01em;
   line-height: 1.35;
 }
@@ -875,7 +887,7 @@ onMounted(() => {
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
   font-size: 0.88em;
   color: var(--accent);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .preview-content :deep(pre) {
@@ -884,9 +896,9 @@ onMounted(() => {
   border-radius: 10px;
   overflow-x: auto;
   margin: 16px 0;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .preview-content :deep(pre code) {
@@ -940,14 +952,14 @@ onMounted(() => {
 .preview-content :deep(hr) {
   border: none;
   height: 1px;
-  background: var(--border-color);
+  background: var(--border);
   margin: 24px 0;
 }
 
 .preview-content :deep(img) {
   max-width: 100%;
   border-radius: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   margin: 8px 0;
 }
 
@@ -957,12 +969,12 @@ onMounted(() => {
   margin: 16px 0;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .preview-content :deep(th),
 .preview-content :deep(td) {
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   padding: 10px 14px;
   text-align: left;
 }
