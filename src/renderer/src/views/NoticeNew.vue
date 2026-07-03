@@ -216,8 +216,8 @@ onMounted(() => {
 
 /* 翻译按钮 */
 .translate-btn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   background: transparent;
   border-radius: 50%;
@@ -232,8 +232,13 @@ onMounted(() => {
 }
 
 .translate-btn:hover {
-  transform: scale(1.15);
+  transform: scale(1.1);
   color: var(--accent);
+  background: var(--accent-light);
+}
+
+.translate-btn:active {
+  transform: scale(0.95);
 }
 
 /* 打开链接按钮 */
@@ -247,15 +252,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
   color: #fff;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(var(--success-rgb), 0.2);
 }
 
 .link-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.4);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(var(--success-rgb), 0.4);
+}
+
+.link-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 2px rgba(var(--success-rgb), 0.2);
 }
 
 /* JSON 工具按钮 */
@@ -270,13 +280,19 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: #fff;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(var(--accent-rgb), 0.2);
 }
 
 .json-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.4);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.4);
+}
+
+.json-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 2px rgba(var(--accent-rgb), 0.2);
 }
 </style>
 
