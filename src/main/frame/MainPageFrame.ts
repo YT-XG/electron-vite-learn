@@ -296,15 +296,19 @@ export default class MainPageFrame extends BaseFrame {
       if (this.isAlive()) {
         this.close()
       }
-      // 创建 Markdown 预览窗口并传递内容
-      const mdFrame = windowFactory.createMarkdownPreviewFrame()
-      mdFrame.create(true)
-      // 等待窗口加载完成后发送内容
-      if (mdFrame.getWindow()) {
-        mdFrame.getWindow()!.webContents.on('did-finish-load', () => {
+      // 获取或创建 Markdown 预览窗口
+      const mdFrame = windowFactory.getMarkdownPreviewFrame()
+      if (!mdFrame.isAlive()) {
+        // 窗口不存在，创建并等待加载完成后发送内容
+        const win = mdFrame.create(true)
+        win.webContents.on('did-finish-load', () => {
           console.log('[MainPageFrame] Markdown window loaded, sending content...')
-          mdFrame.getWindow()!.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+          win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
         })
+      } else {
+        // 窗口已存在，直接显示并发送内容
+        mdFrame.show()
+        mdFrame.getWindow()!.webContents.send('to-renderer-MarkdownPreview:newTab', content)
       }
     })
   }
