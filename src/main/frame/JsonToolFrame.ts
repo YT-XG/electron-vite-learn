@@ -1,5 +1,6 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, dialog } from 'electron'
 import BaseFrame from './BaseFrame'
+import { windowFactory } from './WindowFactory'
 
 /**
  * JSON 工具窗口
@@ -106,6 +107,11 @@ export default class JsonToolFrame extends BaseFrame {
       const fs = require('fs')
       fs.writeFileSync(result.filePath, content, 'utf-8')
       return true
+    })
+
+    // 显示通知
+    this.recvOne('to-main-JsonTool:showNotice', (_event, text: string, duration?: number) => {
+      windowFactory.showNoticeNew({ text, duration })
     })
   }
 

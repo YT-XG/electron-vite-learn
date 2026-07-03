@@ -105,16 +105,9 @@
       <textarea
         v-model="inputText"
         class="editor-input"
-        :class="{ 'has-error': errorMsg }"
         placeholder="在此粘贴或输入 JSON 内容...（支持拖拽文件导入）"
         spellcheck="false"
       ></textarea>
-    </div>
-
-    <!-- 状态栏 -->
-    <div v-if="errorMsg || successMsg" class="status-bar" :class="{ 'has-error': errorMsg }">
-      <span v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
-      <span v-else-if="successMsg" class="success-msg">{{ successMsg }}</span>
     </div>
 
     <!-- 拖拽遮罩层 -->
@@ -135,8 +128,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const inputText = ref('')
-const errorMsg = ref('')
-const successMsg = ref('')
 const isDragOver = ref(false)
 
 /**
@@ -161,14 +152,21 @@ const close = (): void => {
 }
 
 /**
+ * 显示通知
+ * @param text - 通知文本
+ * @param duration - 显示时长（毫秒），默认 2000
+ */
+const showNotice = (text: string, duration = 2000): void => {
+  window.electron.ipcRenderer.send('to-main-JsonTool:showNotice', text, duration)
+}
+
+/**
  * 打开文件
  */
 const openFile = async (): Promise<void> => {
   const content = await window.electron.ipcRenderer.invoke('to-main-JsonTool:openFile')
   if (content !== null) {
     inputText.value = content
-    errorMsg.value = ''
-    successMsg.value = ''
     // 尝试格式化
     formatJson()
   }
@@ -180,16 +178,12 @@ const openFile = async (): Promise<void> => {
 const saveFile = async (): Promise<void> => {
   const content = inputText.value
   if (!content) {
-    errorMsg.value = '没有内容可保存'
+    showNotice('没有内容可保存')
     return
   }
   const saved = await window.electron.ipcRenderer.invoke('to-main-JsonTool:saveFile', content)
   if (saved) {
-    successMsg.value = '保存成功'
-    errorMsg.value = ''
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
+    showNotice('保存成功')
   }
 }
 
@@ -197,13 +191,11 @@ const saveFile = async (): Promise<void> => {
  * 格式化 JSON
  */
 const formatJson = (): void => {
-  errorMsg.value = ''
-  successMsg.value = ''
   try {
     const parsed = JSON.parse(inputText.value)
     inputText.value = JSON.stringify(parsed, null, 2)
   } catch (e) {
-    errorMsg.value = `格式化失败: ${(e as Error).message}`
+    showNotice(`格式化失败: ${(e as Error).message}`)
   }
 }
 
@@ -211,13 +203,11 @@ const formatJson = (): void => {
  * 压缩 JSON
  */
 const compressJson = (): void => {
-  errorMsg.value = ''
-  successMsg.value = ''
   try {
     const parsed = JSON.parse(inputText.value)
     inputText.value = JSON.stringify(parsed)
   } catch (e) {
-    errorMsg.value = `压缩失败: ${(e as Error).message}`
+    showNotice(`压缩失败: ${(e as Error).message}`)
   }
 }
 
@@ -225,8 +215,6 @@ const compressJson = (): void => {
  * 转义 JSON 字符串
  */
 const escapeJson = (): void => {
-  errorMsg.value = ''
-  successMsg.value = ''
   inputText.value = JSON.stringify(inputText.value)
 }
 
@@ -234,12 +222,10 @@ const escapeJson = (): void => {
  * 反转义 JSON 字符串
  */
 const unescapeJson = (): void => {
-  errorMsg.value = ''
-  successMsg.value = ''
   try {
     inputText.value = JSON.parse(inputText.value)
   } catch (e) {
-    errorMsg.value = `反转义失败: ${(e as Error).message}`
+    showNotice(`反转义失败: ${(e as Error).message}`)
   }
 }
 
@@ -247,13 +233,11 @@ const unescapeJson = (): void => {
  * 校验 JSON
  */
 const validateJson = (): void => {
-  errorMsg.value = ''
-  successMsg.value = ''
   try {
     JSON.parse(inputText.value)
-    successMsg.value = 'JSON 格式正确'
+    showNotice('JSON 格式正确')
   } catch (e) {
-    errorMsg.value = `JSON 格式错误: ${(e as Error).message}`
+    showNotice(`JSON 格式错误: ${(e as Error).message}`)
   }
 }
 
@@ -263,27 +247,16 @@ const validateJson = (): void => {
 const copyResult = async (): Promise<void> => {
   const text = inputText.value
   if (!text) {
-    errorMsg.value = '没有内容可复制'
-    setTimeout(() => {
-      errorMsg.value = ''
-    }, 2000)
+    showNotice('没有内容可复制')
     return
   }
   try {
     await navigator.clipboard.writeText(text)
-    successMsg.value = '已复制到剪贴板'
-    errorMsg.value = ''
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
+    showNotice('已复制到剪贴板')
   } catch {
     // fallback: 使用主进程写入剪贴板
     window.electron.ipcRenderer.send('to-service-ClipboardService:writeText', text)
-    successMsg.value = '已复制到剪贴板'
-    errorMsg.value = ''
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
+    showNotice('已复制到剪贴板')
   }
 }
 
@@ -296,8 +269,6 @@ const readFileContent = (file: File): void => {
     const content = e.target?.result as string
     if (content !== null) {
       inputText.value = content
-      errorMsg.value = ''
-      successMsg.value = ''
       formatJson()
     }
   }
@@ -385,8 +356,6 @@ onMounted(() => {
     'to-renderer-JsonTool:setContent',
     (_e, content: string) => {
       inputText.value = content
-      errorMsg.value = ''
-      successMsg.value = ''
       // 自动格式化
       formatJson()
     }
@@ -545,36 +514,6 @@ onUnmounted(() => {
 
 .editor-input::placeholder {
   color: var(--text-tertiary);
-}
-
-.editor-input.has-error {
-  background: var(--danger-bg);
-}
-
-/* 状态栏 */
-.status-bar {
-  padding: 8px 16px;
-  background: var(--bg-surface);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.status-bar.has-error {
-  background: var(--danger-bg);
-}
-
-.error-msg {
-  color: var(--danger);
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.success-msg {
-  color: var(--success);
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
 }
 
 /* 拖拽状态 */
