@@ -10,7 +10,7 @@
         <span class="notice-text">{{ msg }}</span>
         <div v-if="showOpenLink || showTranslate" class="btn-group">
           <button v-if="showOpenLink" class="link-btn" @click="openLink" title="打开链接">
-            🔗
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </button>
           <button v-if="showTranslate" class="translate-btn" @click="openTranslate" title="翻译">
             <svg viewBox="0 0 1024 1024" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
@@ -141,13 +141,13 @@ onMounted(() => {
   inset: 0;
   background: conic-gradient(
     from var(--border-angle),
-    #c4603a,
-    #d4874a,
-    #e0a060,
-    #d4a070,
-    #c4603a,
-    #a85030,
-    #c4603a
+    #3b82f6,
+    #06b6d4,
+    #22c55e,
+    #06b6d4,
+    #3b82f6,
+    #2563eb,
+    #3b82f6
   );
   animation: border-spin 3s linear infinite;
 }
@@ -166,12 +166,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
   border-radius: 22px;
   padding: 0 12px 0 20px;
   box-shadow:
-    0 4px 20px var(--shadow-color),
-    0 2px 8px rgba(255, 106, 176, 0.15);
+    0 4px 20px rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(59, 130, 246, 0.1);
 }
 
 .notice-text {
@@ -222,7 +222,7 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  background: linear-gradient(135deg, var(--success-color), #059669);
+  background: var(--success);
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -230,13 +230,13 @@ onMounted(() => {
   justify-content: center;
   font-size: 14px;
   color: #fff;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
 .link-btn:hover {
   transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.4);
 }
 </style>
 

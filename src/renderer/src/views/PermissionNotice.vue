@@ -9,7 +9,7 @@
       <div class="notice-card">
         <div class="notice-content">
           <div class="notice-header">
-            <span class="notice-icon">⚠️</span>
+            <span class="notice-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
             <span class="notice-title">{{ isAskUserQuestion ? 'Claude Code 提问' : 'Claude Code 请求权限' }}</span>
           </div>
           <div class="notice-info">
@@ -184,13 +184,13 @@ onMounted(() => {
   inset: 0;
   background: conic-gradient(
     from var(--border-angle),
-    #c4603a,
+    #3b82f6,
     #78b4ff,
     #a0d0ff,
-    #d4a8c0,
-    #d4874a,
-    #c4607a,
-    #c4603a
+    #06d6a0,
+    #06b6d4,
+    #10b981,
+    #3b82f6
   );
   animation: border-spin 3s linear infinite;
 }
@@ -209,12 +209,12 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
   border-radius: 18px;
   padding: 12px 16px;
   box-shadow:
-    0 4px 20px var(--shadow-color),
-    0 2px 8px rgba(255, 106, 176, 0.15);
+    0 4px 20px var(--shadow-xl),
+    0 2px 8px rgba(6, 182, 212, 0.15);
 }
 
 /* 内容区域 */
@@ -257,7 +257,7 @@ onMounted(() => {
 }
 
 .info-value {
-  color: var(--accent, #c4603a);
+  color: var(--accent, #3b82f6);
   font-weight: 500;
 }
 
@@ -308,7 +308,7 @@ onMounted(() => {
 }
 
 .btn-allow:hover {
-  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.4);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
 }
 
 /* 全部同意按钮 - 绿色渐变 */

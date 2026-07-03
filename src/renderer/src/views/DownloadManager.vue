@@ -1,7 +1,10 @@
 <template>
   <div class="download-manager">
     <div class="header">
-      <h2 class="title">📥 下载管理</h2>
+      <h2 class="title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载管理
+      </h2>
       <div class="header-actions">
         <!-- 线程数设置 -->
         <div class="threads-setting">
@@ -11,14 +14,16 @@
           </select>
         </div>
         <button class="add-btn" @click="showAddDialog = true" title="添加下载">
-          <span>+</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
     </div>
 
     <!-- 通用错误提示 -->
     <div v-if="generalError" class="general-error" @click="generalError = ''">
-      <span class="error-icon">⚠️</span>
+      <span class="error-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>
       <span class="error-text">{{ generalError }}</span>
       <span class="error-dismiss">✕</span>
     </div>
@@ -44,7 +49,9 @@
 
     <!-- 空状态 -->
     <div v-if="tasks.length === 0" class="empty-state">
-      <div class="empty-icon">📭</div>
+      <div class="empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
       <p class="empty-text">暂无下载任务</p>
       <p class="empty-hint">点击右上角 + 添加下载</p>
     </div>
@@ -58,7 +65,9 @@
         :class="`status-${task.status}`"
       >
         <div class="task-header">
-          <span class="task-icon">📄</span>
+          <span class="task-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </span>
           <span class="task-name" :title="task.fileName">{{ task.fileName }}</span>
           <span class="task-status" :class="`status-${task.status}`">
             {{ getStatusText(task.status) }}
@@ -367,11 +376,14 @@ onUnmounted(() => {
 .title {
   font-size: 18px;
   font-weight: 600;
-  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .header-actions {
@@ -394,13 +406,14 @@ onUnmounted(() => {
 .threads-select {
   width: 60px;
   padding: 4px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
   outline: none;
+  transition: border-color 0.15s;
 }
 
 .threads-select:focus {
@@ -412,19 +425,19 @@ onUnmounted(() => {
   height: 32px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   color: white;
-  font-size: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s;
 }
 
 .add-btn:hover {
+  background: var(--accent-hover);
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(196, 96, 58, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
 }
 
 .empty-state {
@@ -437,8 +450,8 @@ onUnmounted(() => {
 }
 
 .empty-icon {
-  font-size: 48px;
-  opacity: 0.5;
+  opacity: 0.3;
+  color: var(--text-tertiary);
 }
 
 .empty-text {
@@ -462,11 +475,11 @@ onUnmounted(() => {
 }
 
 .task-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border-radius: 10px;
   padding: 12px;
-  border: 1px solid var(--border-color);
-  transition: all 0.2s;
+  border: 1px solid var(--border);
+  transition: border-color 0.15s;
 }
 
 .task-card:hover {
@@ -481,7 +494,9 @@ onUnmounted(() => {
 }
 
 .task-icon {
-  font-size: 16px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
 }
 
 .task-name {
@@ -502,27 +517,27 @@ onUnmounted(() => {
 }
 
 .task-status.status-downloading {
-  background: rgba(196, 96, 58, 0.15);
+  background: rgba(var(--accent-rgb), 0.12);
   color: var(--accent);
 }
 
 .task-status.status-paused {
-  background: rgba(224, 160, 96, 0.15);
-  color: #e0a060;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .task-status.status-completed {
-  background: rgba(22, 163, 74, 0.15);
-  color: var(--success-color);
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .task-status.status-failed {
-  background: rgba(220, 38, 38, 0.15);
-  color: var(--danger-color);
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .task-status.status-canceled {
-  background: rgba(150, 150, 150, 0.15);
+  background: rgba(var(--text-tertiary-rgb), 0.12);
   color: var(--text-tertiary);
 }
 
@@ -532,7 +547,7 @@ onUnmounted(() => {
 
 .progress-bar {
   height: 4px;
-  background: var(--bg-tertiary);
+  background: var(--border);
   border-radius: 2px;
   overflow: hidden;
   margin-bottom: 4px;
@@ -540,7 +555,7 @@ onUnmounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -567,10 +582,10 @@ onUnmounted(() => {
 
 .error-message {
   font-size: 11px;
-  color: var(--danger-color);
+  color: var(--danger);
   margin-bottom: 8px;
   padding: 6px 8px;
-  background: rgba(220, 38, 38, 0.1);
+  background: var(--danger-bg);
   border-radius: 6px;
 }
 
@@ -583,7 +598,7 @@ onUnmounted(() => {
 .action-btn {
   padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -597,61 +612,62 @@ onUnmounted(() => {
 
 .pause-btn,
 .resume-btn {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   color: white;
 }
 
 .pause-btn:hover,
 .resume-btn:hover {
+  background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.3);
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
 }
 
 .cancel-btn {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .cancel-btn:hover {
   background: var(--danger-bg);
-  color: var(--danger-color);
-  border-color: var(--danger-color);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .open-btn,
 .retry-btn {
-  background: linear-gradient(135deg, var(--success-color), #22c55e);
+  background: var(--success);
   color: white;
 }
 
 .open-btn:hover,
 .retry-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+  box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.3);
 }
 
 .folder-btn {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .folder-btn:hover {
-  background: var(--border-color);
-  border-color: var(--border-color-hover);
+  background: var(--border);
+  border-color: var(--border-hover);
 }
 
 .remove-btn {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .remove-btn:hover {
   background: var(--danger-bg);
-  color: var(--danger-color);
-  border-color: var(--danger-color);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 /* 减弱动效 */
@@ -671,7 +687,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -679,11 +696,12 @@ onUnmounted(() => {
 }
 
 .dialog {
-  background: var(--bg-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
   width: 320px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 
 .dialog-title {
@@ -696,14 +714,14 @@ onUnmounted(() => {
 .dialog-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-secondary);
+  background: var(--bg-base);
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
 .dialog-input:focus {
@@ -724,30 +742,32 @@ onUnmounted(() => {
 .dialog-btn {
   padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .dialog-btn.cancel {
-  background: var(--bg-tertiary);
+  background: var(--bg-base);
   color: var(--text-secondary);
+  border: 1px solid var(--border);
 }
 
 .dialog-btn.cancel:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--border);
 }
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   color: white;
 }
 
 .dialog-btn.confirm:hover {
+  background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.3);
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
 }
 
 .dialog-btn.confirm:disabled {
@@ -765,10 +785,10 @@ onUnmounted(() => {
   padding: 10px 16px;
   margin: 0 16px 12px;
   background: var(--danger-bg);
-  border: 1px solid var(--danger-color);
+  border: 1px solid var(--danger);
   border-radius: 8px;
   font-size: 13px;
-  color: var(--danger-color);
+  color: var(--danger);
   cursor: pointer;
   animation: error-slide-in 0.25s ease-out;
 }
@@ -786,6 +806,8 @@ onUnmounted(() => {
 
 .error-icon {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .error-text {

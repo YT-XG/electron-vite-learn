@@ -156,19 +156,27 @@ export default class MarkdownPreviewFrame extends BaseFrame {
 
     // 从剪贴板打开并填充内容
     ipcMain.on('to-main-MarkdownPreview:openWithContent', (_event, content: string) => {
+      console.log('[MarkdownPreviewFrame] Received openWithContent IPC, content length:', content.length)
+      console.log('[MarkdownPreviewFrame] Window alive:', this.isAlive())
+
       // 如果窗口未创建，先创建并等待加载完成
       if (!this.isAlive()) {
+        console.log('[MarkdownPreviewFrame] Creating new window...')
         const win = this.create(true)
         // 等待页面加载完成后再发送内容
         win.webContents.on('did-finish-load', () => {
+          console.log('[MarkdownPreviewFrame] Window did-finish-load, sending content...')
           if (this.window && !this.window.isDestroyed()) {
             this.window.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+            console.log('[MarkdownPreviewFrame] Content sent to renderer')
           }
         })
       } else {
+        console.log('[MarkdownPreviewFrame] Window already exists, showing...')
         this.show()
         // 窗口已存在，直接发送内容
         this.window!.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+        console.log('[MarkdownPreviewFrame] Content sent to renderer')
       }
     })
 

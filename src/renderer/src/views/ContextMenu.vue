@@ -78,13 +78,13 @@ onUnmounted(() => {
   min-width: 180px;
   max-height: 100vh;
   overflow-y: auto;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 6px;
   box-shadow:
-    0 8px 30px -4px var(--shadow-color),
-    0 2px 8px -2px var(--shadow-color);
+    0 8px 30px -4px var(--shadow-xl),
+    0 2px 8px -2px var(--shadow-xl);
   animation: ctx-fade-in 0.12s ease-out;
 }
 
@@ -117,7 +117,7 @@ onUnmounted(() => {
 
 .ctx-separator {
   height: 1px;
-  background: var(--border-color);
+  background: var(--border);
   margin: 4px 6px;
 }
 

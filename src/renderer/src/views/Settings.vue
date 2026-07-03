@@ -19,14 +19,16 @@
           :class="{ active: currentTheme === 'light' }"
           @click="setTheme('light')"
         >
-          ☀️ 浅色
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          浅色
         </button>
         <button
           class="theme-btn"
           :class="{ active: currentTheme === 'dark' }"
           @click="setTheme('dark')"
         >
-          🌙 深色
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          深色
         </button>
       </div>
     </div>
@@ -75,14 +77,16 @@
         <!-- 操作按钮 -->
         <div class="shortcut-actions">
           <button v-if="state === 'idle'" class="btn btn-secondary" @click="startRecording">
-            ✏️ 录制
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            录制
           </button>
           <template v-if="state === 'recording'">
             <button class="btn btn-primary" :disabled="!isValidCombo" @click="saveShortcut">
-              ✅ 保存
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              保存
             </button>
             <button class="btn btn-ghost" @click="cancelRecording">
-              ✕ 取消
+              取消
             </button>
           </template>
         </div>
@@ -105,7 +109,7 @@
         <label class="radio-option" :class="{ active: updateSource === 'lan' }">
           <input type="radio" v-model="updateSource" value="lan" @change="saveUpdateSource" />
           <div class="radio-content">
-            <span class="radio-title">📂 局域网更新</span>
+            <span class="radio-title">局域网更新</span>
             <span class="radio-desc">从共享文件夹检查更新（需要在同一网络）</span>
           </div>
         </label>
@@ -113,7 +117,7 @@
         <label class="radio-option" :class="{ active: updateSource === 'github' }">
           <input type="radio" v-model="updateSource" value="github" @change="saveUpdateSource" />
           <div class="radio-content">
-            <span class="radio-title">🌐 GitHub 更新</span>
+            <span class="radio-title">GitHub 更新</span>
             <span class="radio-desc">从 GitHub Releases 检查更新（需要网络连接）</span>
           </div>
         </label>
@@ -134,7 +138,8 @@
             />
           </div>
           <button class="btn btn-primary" @click="saveGithubRepo" :disabled="!isGithubRepoDirty">
-            ✅ 保存
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            保存
           </button>
         </div>
       </Transition>
@@ -171,7 +176,8 @@
           />
 
           <button class="btn btn-primary" @click="saveServerUrl" :disabled="!isDirty">
-            ✅ 保存
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            保存
           </button>
         </div>
 
@@ -256,7 +262,8 @@
       </div>
 
       <button class="btn btn-primary" @click="saveTranslateApi" :disabled="!isTranslateApiDirty">
-        ✅ 保存
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        保存
       </button>
 
       <Transition name="fade">
@@ -689,7 +696,7 @@ onUnmounted(() => {
 }
 
 .settings-page::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border);
   border-radius: 3px;
 }
 
@@ -717,8 +724,8 @@ onUnmounted(() => {
 
 /* ========== 设置卡片 ========== */
 .setting-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
@@ -756,18 +763,18 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color-hover);
+  background: var(--bg-base);
+  border: 1px solid var(--border-hover);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   min-height: 36px;
   box-sizing: border-box;
 }
 
 .shortcut-keys:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.08);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .change-hint {
@@ -782,19 +789,19 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   border: 2px solid var(--accent);
   border-radius: 8px;
   min-height: 36px;
   box-sizing: border-box;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.12);
+  box-shadow: 0 0 0 3px var(--accent-glow);
   animation: recorder-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes recorder-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.12); }
-  50% { box-shadow: 0 0 0 6px rgba(196, 96, 58, 0.08); }
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent-glow); }
+  50% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0.08); }
 }
 
 .recording-pulse {
@@ -821,14 +828,14 @@ onUnmounted(() => {
   min-width: 28px;
   height: 26px;
   padding: 0 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color-hover);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
   border-radius: 5px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
   font-family: inherit;
-  box-shadow: 0 1px 0 var(--text-tertiary);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .keycap.active {
@@ -856,54 +863,54 @@ onUnmounted(() => {
   width: 180px;
   height: 38px;
   padding: 0 32px 0 14px;
-  border: 1px solid var(--border-color-hover);
+  border: 1px solid var(--border-hover);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--bg-primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
+  background: var(--bg-base) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
   outline: none;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px var(--shadow-color);
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .server-url-select:hover {
-  border-color: var(--border-color-hover);
-  box-shadow: 0 2px 4px var(--shadow-color);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
 }
 
 .server-url-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .server-url-input {
   flex: 1;
   height: 38px;
   padding: 0 14px;
-  border: 1px solid var(--border-color-hover);
+  border: 1px solid var(--border-hover);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-base);
   outline: none;
-  transition: all 0.2s ease;
-  font-family: 'Consolas', 'Monaco', monospace;
-  box-shadow: 0 1px 2px var(--shadow-color);
+  transition: all 0.15s ease;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  box-shadow: var(--shadow-sm);
 }
 
 .server-url-input:hover {
-  border-color: var(--border-color-hover);
-  box-shadow: 0 2px 4px var(--shadow-color);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
 }
 
 .server-url-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .server-preview {
@@ -914,9 +921,9 @@ onUnmounted(() => {
   color: var(--text-secondary);
   margin: 10px 0 0;
   padding: 6px 10px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 6px;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 /* ========== macOS 挂载状态 ========== */
@@ -925,9 +932,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   margin-bottom: 12px;
 }
 
@@ -938,14 +945,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
 
 .status-icon.mounted {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16a34a;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .status-info {
@@ -963,13 +970,13 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--text-secondary);
   margin: 2px 0 0;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 /* ========== macOS 挂载帮助 ========== */
 .mac-mount-help {
   margin-top: 12px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
   padding-top: 12px;
 }
 
@@ -1000,9 +1007,9 @@ onUnmounted(() => {
 .help-content {
   margin-top: 12px;
   padding: 12px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .help-steps {
@@ -1028,7 +1035,7 @@ onUnmounted(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 11px;
   color: var(--accent);
 }
@@ -1036,8 +1043,8 @@ onUnmounted(() => {
 .help-steps kbd {
   display: inline-block;
   padding: 2px 6px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color-hover);
+  background: var(--bg-base);
+  border: 1px solid var(--border-hover);
   border-radius: 4px;
   font-family: inherit;
   font-size: 11px;
@@ -1048,7 +1055,7 @@ onUnmounted(() => {
 .help-tip {
   margin: 10px 0 0;
   padding: 8px 10px;
-  background: rgba(196, 96, 58, 0.08);
+  background: var(--accent-light);
   border-radius: 6px;
   font-size: 11px;
   color: var(--text-secondary);
@@ -1061,7 +1068,7 @@ onUnmounted(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 3px;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 11px;
   color: var(--accent);
 }
@@ -1069,13 +1076,13 @@ onUnmounted(() => {
 /* macOS 路径输入框 */
 .mac-path-input {
   flex: 1;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 /* ========== 保存成功提示 ========== */
 .save-tip {
   font-size: 12px;
-  color: #16a34a;
+  color: var(--success);
   margin: 12px 0 0;
 }
 
@@ -1121,7 +1128,7 @@ onUnmounted(() => {
   background: var(--bg-primary);
   outline: none;
   transition: all 0.2s ease;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   box-sizing: border-box;
 }
 
@@ -1143,8 +1150,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color-hover);
+  background: var(--bg-base);
+  border: 1px solid var(--border-hover);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1156,7 +1163,7 @@ onUnmounted(() => {
 
 .radio-option.active {
   border-color: var(--accent);
-  background: rgba(196, 96, 58, 0.05);
+  background: var(--accent-light);
 }
 
 .radio-option input[type="radio"] {
@@ -1185,7 +1192,7 @@ onUnmounted(() => {
 
 .github-config {
   padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
   margin-top: 12px;
   display: flex;
   flex-direction: column;
@@ -1197,9 +1204,9 @@ onUnmounted(() => {
   display: flex;
   gap: 4px;
   padding: 3px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .theme-btn {
@@ -1218,9 +1225,9 @@ onUnmounted(() => {
 }
 
 .theme-btn.active {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(196, 96, 58, 0.3);
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
 }
 
 /* ========== 开关 ========== */
@@ -1252,7 +1259,7 @@ onUnmounted(() => {
 .toggle-slider {
   position: absolute;
   inset: 0;
-  background: var(--border-color);
+  background: var(--border);
   border-radius: 24px;
   transition: all 0.3s ease;
 }
@@ -1271,7 +1278,7 @@ onUnmounted(() => {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {

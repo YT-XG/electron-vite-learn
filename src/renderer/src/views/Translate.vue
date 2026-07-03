@@ -77,7 +77,14 @@
 
     <!-- 翻译历史入口 -->
     <div class="history-entry" @click="showHistory = true">
-      <span class="history-icon">📜</span>
+      <span class="history-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <path d="M4 2C4 2 2 4 2 6C2 8 4 10 6 10C8 10 9.5 8.5 9.5 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M2 10V14H6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 14C12.2091 14 14 12.2091 14 10C14 7.79086 12.2091 6 10 6C8.67498 6 7.50598 6.67498 6.82938 7.67537" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M10 6V2H6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
       <span class="history-text">翻译历史</span>
       <span class="history-count" v-if="historyList.length">{{ historyList.length }}</span>
     </div>
@@ -87,7 +94,11 @@
       <div class="dialog" @click.stop>
         <div class="dialog-header">
           <h3>翻译历史</h3>
-          <button class="dialog-close" @click="showHistory = false">✕</button>
+          <button class="dialog-close" @click="showHistory = false">
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
         <div class="dialog-body">
           <div v-if="historyList.length === 0" class="empty-state">
@@ -104,8 +115,19 @@
                 <span class="history-time">{{ formatTime(item.created_at) }}</span>
               </div>
               <div class="history-actions">
-                <button class="action-btn" @click="reTranslate(item)" title="重新翻译">🔄</button>
-                <button class="action-btn delete-btn" @click="deleteHistory(item.id)" title="删除">✕</button>
+                <button class="action-btn" @click="reTranslate(item)" title="重新翻译">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <path d="M12.5 7A5.5 5.5 0 1 1 7 1.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M7 1.5V4L9.5 2.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button class="action-btn delete-btn" @click="deleteHistory(item.id)" title="删除">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <path d="M3 4H11" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <path d="M5 4V3C5 2.44772 5.44772 2 6 2H8C8.55228 2 9 2.44772 9 3V4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 4L4.66667 11.5C4.66667 12.0523 5.11438 12.5 5.66667 12.5H8.33333C8.88562 12.5 9.33333 12.0523 9.33333 11.5L10 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -387,18 +409,18 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .back-btn:hover {
-  background: var(--border-color);
+  background: var(--border);
   color: var(--text-primary);
 }
 
@@ -430,7 +452,7 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
@@ -458,17 +480,17 @@ onUnmounted(() => {
   flex: 1;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-base);
   outline: none;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .lang-select:focus {
@@ -490,22 +512,22 @@ onUnmounted(() => {
   width: 100%;
   min-height: 100px;
   padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   font-size: 14px;
   color: var(--text-primary);
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   outline: none;
   resize: vertical;
   font-family: inherit;
   line-height: 1.5;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
 .text-input:focus {
   border-color: var(--accent);
-  background: var(--bg-primary);
+  background: var(--bg-base);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
@@ -532,12 +554,12 @@ onUnmounted(() => {
   border: none;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  transition: all 0.15s ease;
 }
 
 .clear-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
@@ -561,7 +583,7 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: var(--bg-primary);
+  border-top-color: var(--bg-base);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -574,9 +596,9 @@ onUnmounted(() => {
 
 /* ========== 结果框 ========== */
 .result-section {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
 }
@@ -601,8 +623,8 @@ onUnmounted(() => {
   border: none;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  transition: all 0.15s ease;
 }
 
 .copy-btn:hover {
@@ -618,13 +640,13 @@ onUnmounted(() => {
 
 /* ========== 错误提示 ========== */
 .error-message {
-  background: color-mix(in srgb, var(--accent-secondary) 10%, var(--bg-secondary));
-  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent);
-  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 16px;
   font-size: 13px;
-  color: var(--accent-secondary);
+  color: var(--danger);
 }
 
 /* ========== 历史入口 ========== */
@@ -633,20 +655,24 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .history-entry:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .history-icon {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
 }
 
 .history-text {
@@ -659,8 +685,8 @@ onUnmounted(() => {
 .history-count {
   font-size: 11px;
   font-weight: 600;
-  color: var(--bg-primary);
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  color: var(--bg-base);
+  background: var(--accent);
   padding: 1px 6px;
   border-radius: 10px;
   min-width: 18px;
@@ -675,7 +701,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -684,12 +710,12 @@ onUnmounted(() => {
 }
 
 .dialog {
-  background: var(--bg-primary);
+  background: var(--bg-base);
   border-radius: 16px;
   width: 90%;
   max-width: 500px;
   max-height: 70vh;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
   animation: dialog-in 0.2s ease;
   display: flex;
   flex-direction: column;
@@ -711,7 +737,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
 }
 
 .dialog-header h3 {
@@ -726,18 +752,18 @@ onUnmounted(() => {
   height: 28px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .dialog-close:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
@@ -758,17 +784,17 @@ onUnmounted(() => {
 }
 
 .dialog-body::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 50%, transparent), color-mix(in srgb, var(--accent-secondary) 50%, transparent));
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 3px;
 }
 
 .dialog-body::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
 }
 
 .dialog-footer {
   padding: 12px 20px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
 }
@@ -787,9 +813,9 @@ onUnmounted(() => {
 }
 
 .history-item {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 12px;
   position: relative;
 }
@@ -839,20 +865,20 @@ onUnmounted(() => {
 }
 
 .delete-btn:hover {
-  background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
-  color: var(--accent-secondary);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
 }
 
-/* Translate 页面危险按钮 - 使用品牌色而非全局红色 */
+/* Translate 页面危险按钮 - 使用 danger 色 */
 .btn-translate-danger {
-  background: var(--accent-secondary);
-  color: var(--bg-primary);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-secondary) 25%, transparent);
+  background: var(--danger);
+  color: var(--bg-base);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--danger) 25%, transparent);
 }
 
 .btn-translate-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent-secondary) 85%, black);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-secondary) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 85%, black);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--danger) 35%, transparent);
   transform: translateY(-1px);
 }
 

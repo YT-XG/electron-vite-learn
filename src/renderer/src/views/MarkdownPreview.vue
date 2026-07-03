@@ -490,6 +490,7 @@ onMounted(() => {
 
   // 监听从剪贴板打开的新标签页
   window.electron.ipcRenderer.on('to-renderer-MarkdownPreview:newTab', (_event, content: string) => {
+    console.log('[MarkdownPreview] Received newTab IPC, content length:', content.length)
     // 创建新标签页
     const newId = String(Date.now())
     tabs.value.push({
@@ -498,6 +499,7 @@ onMounted(() => {
       content: content
     })
     activeTabId.value = newId
+    console.log('[MarkdownPreview] New tab created, tabId:', newId)
   })
 })
 

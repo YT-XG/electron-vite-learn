@@ -392,7 +392,10 @@ const translateItem = (item: HistoryItem): void => {
  * @param item - 历史记录项
  */
 const editInMarkdown = (item: HistoryItem): void => {
+  console.log('[ClipboardManager] editInMarkdown called, content length:', item.content.length)
+  console.log('[ClipboardManager] sending IPC: to-main-MarkdownPreview:openWithContent')
   window.electron.ipcRenderer.send('to-main-MarkdownPreview:openWithContent', item.content)
+  console.log('[ClipboardManager] IPC sent successfully')
 }
 
 /**

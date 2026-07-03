@@ -50,47 +50,43 @@
             @click="currentPage = 'clipboard'"
             :title="isSidebarCollapsed ? '剪切板' : ''"
           >
-            <span class="nav-icon">📋</span>
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">剪切板</span>
           </button>
-          <!-- 翻译 -->
           <button
             class="nav-item"
             :class="{ active: currentPage === 'translate' }"
             @click="currentPage = 'translate'"
             :title="isSidebarCollapsed ? '翻译' : ''"
           >
-            <span class="nav-icon">🌐</span>
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">翻译</span>
           </button>
-          <!-- 下载管理 -->
           <button
             class="nav-item"
             :class="{ active: currentPage === 'download' }"
             @click="currentPage = 'download'"
             :title="isSidebarCollapsed ? '下载管理' : ''"
           >
-            <span class="nav-icon">📥</span>
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">下载管理</span>
           </button>
-          <!-- 设置 -->
           <button
             class="nav-item"
             :class="{ active: currentPage === 'settings' }"
             @click="currentPage = 'settings'"
             :title="isSidebarCollapsed ? '设置' : ''"
           >
-            <span class="nav-icon">⚙️</span>
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
           </button>
-          <!-- 工具箱 -->
           <button
             class="nav-item"
             :class="{ active: currentPage === 'toolbox' }"
             @click="currentPage = 'toolbox'"
             :title="isSidebarCollapsed ? '工具箱' : ''"
           >
-            <span class="nav-icon">🛠️</span>
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">工具箱</span>
           </button>
         </nav>
@@ -240,12 +236,12 @@ onUnmounted(() => {
 .main-page {
   width: 100%;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   -webkit-app-region: no-drag;
 }
 
@@ -255,12 +251,8 @@ onUnmounted(() => {
 }
 
 @keyframes page-show {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ========== 退场动画 ========== */
@@ -269,12 +261,8 @@ onUnmounted(() => {
 }
 
 @keyframes page-hide {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* ========== 页面切换动画 ========== */
@@ -296,19 +284,15 @@ onUnmounted(() => {
 /* ========== 渐变色条 ========== */
 .gradient-bar {
   height: 3px;
-  background: linear-gradient(90deg, #c4603a, #d4874a, #e0a060, #d4a070, #c4603a);
+  background: linear-gradient(90deg, #3b82f6, #06b6d4, #22c55e, #06b6d4, #3b82f6);
   background-size: 200% 100%;
   animation: gradient-flow 3s linear infinite;
   flex-shrink: 0;
 }
 
 @keyframes gradient-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
 /* ========== 标题栏 ========== */
@@ -317,7 +301,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   height: 36px;
-  padding: 0 12px 0 12px;
+  padding: 0 12px;
   flex-shrink: 0;
 }
 
@@ -342,11 +326,11 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .sidebar-toggle:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
@@ -361,9 +345,9 @@ onUnmounted(() => {
 .app-version {
   font-size: 10px;
   font-weight: 400;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  padding: 1px 5px;
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  padding: 1px 6px;
   border-radius: 4px;
   margin-left: 4px;
 }
@@ -394,13 +378,13 @@ onUnmounted(() => {
 }
 
 .control-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
 .close-btn:hover {
   background: var(--danger-bg);
-  color: var(--danger-color);
+  color: var(--danger);
 }
 
 /* ========== 主体布局 ========== */
@@ -414,10 +398,9 @@ onUnmounted(() => {
 .sidebar {
   width: 140px;
   background: var(--bg-glass);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border-right: 1px solid var(--border-color);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-right: 1px solid var(--border);
   padding: 8px;
   flex-shrink: 0;
   display: flex;
@@ -459,16 +442,21 @@ onUnmounted(() => {
 }
 
 .nav-item:hover {
-  background: var(--bg-secondary);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(196, 96, 58, 0.08), rgba(212, 135, 74, 0.08));
+  background: var(--accent-light);
   color: var(--accent);
 }
 
 .nav-icon {
-  font-size: 16px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.nav-item.active .nav-icon {
+  color: var(--accent);
 }
 
 .nav-label {
