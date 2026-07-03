@@ -1,4 +1,4 @@
-import { BrowserWindowConstructorOptions, dialog } from 'electron'
+import { BrowserWindow, BrowserWindowConstructorOptions, dialog } from 'electron'
 import BaseFrame from './BaseFrame'
 
 /**
@@ -39,6 +39,14 @@ export default class JsonToolFrame extends BaseFrame {
    */
   protected registerIPC(): void {
     super.registerIPC()
+
+    // 最小化窗口
+    this.recvOne('to-main-JsonTool:minimize', (event) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender)
+      if (senderWindow && !senderWindow.isDestroyed()) {
+        senderWindow.minimize()
+      }
+    })
 
     // 打开文件 - 弹出文件选择对话框，读取选中的 JSON 文件
     this.recvTwo('to-main-JsonTool:openFile', async () => {
