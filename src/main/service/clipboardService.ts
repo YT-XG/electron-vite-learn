@@ -196,7 +196,7 @@ class ClipboardService {
     })
 
     // 弹出通知弹窗（显示翻译按钮）
-    windowFactory.getNoticeManager().show({
+    windowFactory.showNotice({
       text: content,
       showTranslate: true,
       duration: 5000

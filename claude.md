@@ -21,13 +21,14 @@ electron-vite-learn/
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
 │   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，支持翻译按钮）
-│   │       ├── NoticeManager.ts    # 通知管理器（多通知堆叠、自定义时长、移动动画）
 │   │       ├── PermissionNoticeFrame.ts # 权限确认弹窗（Claude Code 权限请求交互）
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       ├── SearchBoxFrame.ts  # 搜索框窗口（全局搜索，快捷键呼出）
 │   │       ├── MarkdownPreviewFrame.ts # Markdown 预览窗口（多标签页分屏预览）
 │   │       ├── ContextMenuFrame.ts # 右键菜单窗口（Markdown 编辑器菜单）
+│   │       ├── PopupManager.ts    # 统一弹窗管理器（管理所有底部弹窗）
+│   │       ├── PopupItem.ts       # 弹窗元数据（封装窗口实例和动画）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
 │   │   ├── core/              # 核心功能模块
 │   │   │   └── downloadEngine/  # 多线程下载引擎
@@ -130,8 +131,7 @@ electron-vite-learn/
 - **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
 - **关键文件**:
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
-  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，支持翻译按钮（仅剪贴板通知显示），时长由 NoticeManager 管理
-  - `NoticeManager.ts` - 通知管理器，管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画
+  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，支持翻译按钮（仅剪贴板通知显示），时长由 PopupManager 管理
   - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
   - `MainPageFrame.ts` - 主页面窗口，无边框，屏幕正中心显示，左键托盘打开
   - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
@@ -145,15 +145,15 @@ electron-vite-learn/
   ```typescript
   import { windowFactory } from './frame'
 
-  // 显示通知弹窗（底部居中，通过 NoticeManager 管理）
-  windowFactory.getNoticeManager().show({
+  // 显示通知弹窗（底部居中，通过 PopupManager 管理）
+  windowFactory.showNotice({
     text: '剪贴板内容',
     showTranslate: true,
     duration: 5000
   })
 
   // 显示更新通知（不显示翻译按钮）
-  windowFactory.getNoticeManager().show({
+  windowFactory.showNotice({
     text: '正在检查更新...',
     duration: 3000
   })
@@ -175,7 +175,7 @@ electron-vite-learn/
   - 按需创建，不自动启动
   - 带有弹出/收起 CSS 动画
   - 透明无边框窗口，蓝粉渐变胶囊风格
-  - 显示时长由 NoticeManager 管理（可自定义）
+  - 显示时长由 PopupManager 管理（可自定义）
   - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
   - **翻译按钮**：仅剪贴板复制文字时显示，其他通知（如检查更新）不显示
   - **打开链接按钮**：自动检测文本中是否包含链接，如果包含则显示打开链接按钮（绿色渐变）
@@ -210,50 +210,40 @@ electron-vite-learn/
   noticeFrame.showAtBottomCenter()
   ```
 
-### 通知管理器 (src/main/frame/NoticeManager.ts)
-- **职责**: 管理多个通知窗口实例，支持通知堆叠、自定义时长和移动动画，以及 Claude Code 常驻状态通知
+### 统一弹窗管理器 (src/main/frame/PopupManager.ts)
+- **职责**: 管理所有底部弹窗的位置和生命周期，支持通知堆叠、自定义时长和移动动画
 - **功能**:
-  - 维护通知实例池（最多 5 个）
-  - 新通知从底部出现，旧通知被向上顶起
+  - 维护弹窗实例池（最多 5 个）
+  - 新弹窗从底部出现，旧弹窗被向上顶起
   - 平滑过渡动画（300ms easeOutCubic）
-  - 每个通知可自定义显示时长
-  - 超过上限时自动销毁最早的通知
+  - 每个弹窗可自定义显示时长
+  - 超过上限时自动销毁最早的弹窗
   - **Claude Code 状态管理**: 管理常驻状态通知的显示/更新/隐藏/销毁
-  - **持久通知特殊堆叠**: 持久通知始终显示在最顶部，不受普通通知上限限制
+  - **权限请求弹窗**: 单例管理权限确认窗口
+  - macOS Dock 高度自动适配
 - **IPC 接口**: 无（内部管理，不直接暴露 IPC）
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
 
-  // 显示剪贴板通知（显示翻译按钮，5秒后自动销毁）
-  windowFactory.getNoticeManager().show({
+  // 显示通知（通过 WindowFactory 便捷方法）
+  windowFactory.showNotice({
     text: '复制的文本内容',
     showTranslate: true,
     duration: 5000
   })
 
-  // 显示更新通知（3秒后自动销毁）
-  windowFactory.getNoticeManager().show({
-    text: '正在检查更新...',
-    duration: 3000
-  })
+  // 直接使用 PopupManager
+  const popupManager = windowFactory.getPopupManager()
 
-  // 显示包含链接的通知（自动检测并显示打开链接按钮）
-  windowFactory.getNoticeManager().show({
-    text: '请访问 https://example.com 查看详情'
-  })
+  // 获取弹窗数量
+  const count = popupManager.getPopupCount()
 
-  // 显示 Claude Code 状态通知（常驻显示）
-  windowFactory.getNoticeManager().showClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
+  // 显示 Claude Code 状态通知
+  popupManager.showClaudeStatus('running', '🟢 Claude Code 会话运行中', createFn, updateFn)
 
-  // 更新 Claude Code 状态
-  windowFactory.getNoticeManager().updateClaudeCodeStatus('waiting_permission', '⏳ 等待权限: Bash')
-
-  // 隐藏 Claude Code 状态通知（带淡出动画）
-  windowFactory.getNoticeManager().hideClaudeCodeStatus()
-
-  // 销毁 Claude Code 状态通知
-  windowFactory.getNoticeManager().destroyClaudeCodeStatus()
+  // 隐藏 Claude Code 状态通知
+  popupManager.hideClaudeStatus()
   ```
 
 ### 更新窗口 (src/main/frame/UpdateNewFrame.ts)
@@ -495,7 +485,7 @@ electron-vite-learn/
   - 通过 Hook 脚本拦截 Claude Code 的事件（SessionStart/End, Stop, PermissionRequest）
   - 启动 HTTP 服务器（127.0.0.1:17861）接收 Hook 事件
   - 权限请求：暂存 HTTP 响应，显示权限确认窗口，同时更新常驻状态为"等待权限"
-  - 非权限事件：通过 NoticeManager 更新常驻状态通知
+  - 非权限事件：通过 PopupManager 更新常驻状态通知
   - 支持安装/卸载 Hook 到 ~/.claude/settings.json
   - **状态管理**: 跟踪活跃会话计数，管理常驻状态通知的显示/隐藏
 - **工作流程**:
@@ -560,44 +550,6 @@ electron-vite-learn/
     command: 'rm -rf /tmp/test',
     description: ''
   })
-  ```
-
-### Claude Code 状态通知 (src/main/frame/ClaudeCodeStatusFrame.ts)
-- **职责**: 底部居中显示的常驻状态条，用于显示 Claude Code 的运行状态
-- **功能**:
-  - 显示 Claude Code 的当前状态（会话运行中、等待权限确认、任务完成等）
-  - 支持更新状态文本（无需销毁重建窗口）
-  - 不设置自动销毁定时器，持续显示直到手动隐藏
-  - 透明无边框窗口，蓝粉渐变胶囊风格
-  - 支持鼠标穿透（透明区域可点击）
-  - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
-  - 支持淡入/淡出动画
-- **状态类型**:
-  - `running` - 🟢 会话运行中
-  - `thinking` - 💭 思考中...
-  - `executing` - ⚡ 执行任务中
-  - `waiting_permission` - ⏳ 等待权限确认
-  - `completed` - ✅ 任务完成
-- **IPC 接口**:
-  - `to-renderer-ClaudeCodeStatusFrame:updateStatus` - 更新状态文本（主进程发送）
-  - `to-renderer-ClaudeCodeStatusFrame:show` - 显示窗口（主进程发送）
-  - `to-renderer-ClaudeCodeStatusFrame:hide` - 隐藏窗口（主进程发送）
-  - `to-main-ClaudeCodeStatusFrame:ready` - 渲染进程已就绪（渲染进程发送）
-- **使用方式**:
-  ```typescript
-  import { windowFactory } from './frame'
-
-  // 显示状态通知（通过 NoticeManager）
-  windowFactory.getNoticeManager().showClaudeCodeStatus('running', '🟢 Claude Code 会话运行中')
-
-  // 更新状态
-  windowFactory.getNoticeManager().updateClaudeCodeStatus('waiting_permission', '⏳ 等待权限: Bash')
-
-  // 隐藏状态通知（带淡出动画）
-  windowFactory.getNoticeManager().hideClaudeCodeStatus()
-
-  // 销毁状态通知
-  windowFactory.getNoticeManager().destroyClaudeCodeStatus()
   ```
 
 ### GitHub 更新服务 (src/main/service/githubUpdateService.ts)
@@ -925,7 +877,7 @@ electron-vite-learn/
 - **关键文件**:
   - `About.vue` - 关于页
   - `Notice.vue` - 剪贴板通知窗口，显示复制的文字（最多两行，超出省略），支持拖拽、关闭按钮、10秒自动关闭
-  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示，支持翻译按钮（仅剪贴板通知显示），显示时长由 NoticeManager 管理
+  - `NoticeNew.vue` - 通知弹窗，蓝粉渐变胶囊样式，单行文字显示，支持翻译按钮（仅剪贴板通知显示），显示时长由 PopupManager 管理
   - `UpdateNew.vue` - 更新窗口，底部居中弹出，支持下载进度显示和安装
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
   - `ClipboardManager.vue` - 剪贴板管理（历史记录 + 收藏）

@@ -111,7 +111,7 @@ export default class JsonToolFrame extends BaseFrame {
 
     // 显示通知
     this.recvOne('to-main-JsonTool:showNotice', (_event, text: string, duration?: number, type?: 'default' | 'success' | 'error' | 'warning') => {
-      windowFactory.showNoticeNew({ text, duration, type })
+      windowFactory.showNotice({ text, duration, type })
     })
   }
 

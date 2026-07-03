@@ -2,11 +2,11 @@ import { BrowserWindow, BrowserWindowConstructorOptions, screen, shell } from 'e
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
 import { getBottomMargin } from '../utils/platform'
-import type { NoticeType } from './NoticeManager'
+import type { NoticeType } from './PopupManager'
 
 /**
  * 通知弹窗
- * @description 底部居中弹出的通知提示窗口，显示时长由 NoticeManager 统一管理
+ * @description 底部居中弹出的通知提示窗口，显示时长由 PopupManager 统一管理
  *              入场缩放到大动画由渲染进程 CSS 实现，收起向下滑出由主进程控制
  */
 export default class NoticeNewFrame extends BaseFrame {

@@ -88,7 +88,7 @@ class SearchService {
       description: '检查应用是否有新版本',
       action: function () {
         // 显示检查更新通知
-        windowFactory.getNoticeManager().show({
+        windowFactory.showNotice({
           text: '正在检查更新...',
           duration: 3000
         })
@@ -97,13 +97,13 @@ class SearchService {
           .getUpdateNewFrame()
           .checkForUpdates()
           .then((res) => {
-            windowFactory.getNoticeManager().show({
+            windowFactory.showNotice({
               text: res?.msg || '检查更新完成',
               duration: 5000
             })
           })
           .catch((err) => {
-            windowFactory.getNoticeManager().show({
+            windowFactory.showNotice({
               text: '检查更新失败: ' + (err.message || '未知错误'),
               duration: 5000
             })

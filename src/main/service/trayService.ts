@@ -123,7 +123,7 @@ export class TrayService {
 
     this.#isChecking = true
 
-    windowFactory.getNoticeManager().show({
+    windowFactory.showNotice({
       text: '正在检查更新...',
       duration: 3000
     })
@@ -132,7 +132,7 @@ export class TrayService {
       .getUpdateNewFrame()
       .checkForUpdates()
       .then((res) => {
-        windowFactory.getNoticeManager().show({
+        windowFactory.showNotice({
           text: res?.msg || '',
           duration: 5000
         })

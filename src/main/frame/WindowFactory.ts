@@ -1,5 +1,5 @@
-import NoticeManager from './NoticeManager'
 import PopupManager from './PopupManager'
+import NoticeNewFrame from './NoticeNewFrame'
 import UpdateNewFrame from './UpdateNewFrame'
 import MainPageFrame from './MainPageFrame'
 import PermissionNoticeFrame from './PermissionNoticeFrame'
@@ -13,9 +13,6 @@ import JsonToolFrame from './JsonToolFrame'
  * @description 统一管理所有窗口的创建和生命周期
  */
 export default class WindowFactory {
-  /** 多通知管理器 */
-  #noticeManager: NoticeManager | null = null
-
   /** 统一弹窗管理器 */
   #popupManager: PopupManager | null = null
 
@@ -41,17 +38,6 @@ export default class WindowFactory {
   #jsonToolFrame: JsonToolFrame | null = null
 
   /**
-   * 获取多通知管理器
-   * @returns NoticeManager 实例
-   */
-  getNoticeManager(): NoticeManager {
-    if (!this.#noticeManager) {
-      this.#noticeManager = new NoticeManager()
-    }
-    return this.#noticeManager
-  }
-
-  /**
    * 获取统一弹窗管理器
    * @returns PopupManager 实例
    */
@@ -63,11 +49,21 @@ export default class WindowFactory {
   }
 
   /**
-   * 显示通知（便捷方法）
+   * 显示通知（便捷方法，通过 PopupManager 管理）
    * @param options - 通知配置
    */
-  showNoticeNew(options: import('./NoticeManager').NoticeOptions): void {
-    this.getNoticeManager().show(options)
+  showNotice(options: import('./PopupManager').NoticeOptions): void {
+    const { text, showTranslate = false, duration = 5000, type = 'default' } = options
+
+    // 通过 PopupManager 管理弹窗生命周期
+    this.getPopupManager().showNotice(
+      () => {
+        const frame = new NoticeNewFrame()
+        return frame.create()
+      },
+      { type: 'notice', width: 500, height: 60 },
+      { text, showTranslate, duration, type }
+    )
   }
 
   /**
@@ -224,7 +220,6 @@ export default class WindowFactory {
    */
   destroyAll(): void {
     this.#popupManager?.destroyAll()
-    this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.destroy()
     this.#mainPageFrame?.destroy()
     this.#permissionNoticeFrame?.destroy()
@@ -239,7 +234,6 @@ export default class WindowFactory {
    */
   closeAll(): void {
     this.#popupManager?.destroyAll()
-    this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.hide()
     this.#mainPageFrame?.close()
     this.#permissionNoticeFrame?.destroy()
