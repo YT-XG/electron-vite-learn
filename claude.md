@@ -73,7 +73,11 @@ electron-vite-learn/
 │           │   └── tools/      # 工具页面
 │           │       └── Toolbox.vue  # 工具箱页面
 │           ├── components/     # 可复用组件
-│           │   └── Versions.vue
+│           │   ├── Versions.vue
+│           │   ├── BaseDialog.vue    # 统一对话框组件
+│           │   └── EmptyState.vue    # 统一空状态组件
+│           ├── composables/    # 组合式函数
+│           │   └── useTimeFormat.ts  # 时间格式化工具
 │           ├── utils/          # 工具函数
 │           │   ├── request.ts  # HTTP 请求工具
 │           │   └── pinyinSearch.ts # 拼音首字母搜索工具
@@ -634,6 +638,7 @@ electron-vite-learn/
   - **收藏手动添加**：点击"添加"按钮，手动输入内容、分类、描述
   - **收藏分类管理**：按分类筛选收藏，支持自定义分类（如：Linux命令）
   - 编辑收藏内容
+  - **在 Markdown 编辑器中编辑**：点击历史记录的编辑按钮，在 Markdown 预览窗口中编辑内容
   - 删除单条记录
   - 空状态提示
   - 监听主进程推送，实时更新列表
@@ -764,6 +769,8 @@ electron-vite-learn/
   - `to-main-MarkdownPreview:toggleMaximize` - 切换最大化
   - `to-main-MarkdownPreview:close` - 关闭窗口
   - `to-main-MarkdownPreview:showContextMenu` - 显示右键菜单（转发到 ContextMenuFrame）
+  - `to-main-MarkdownPreview:openWithContent` - 从剪贴板打开并填充内容（新标签页）
+  - `to-renderer-MarkdownPreview:newTab` - 创建新标签页并填充内容
 - **使用方式**:
   ```typescript
   import { windowFactory } from './frame'
@@ -836,12 +843,19 @@ electron-vite-learn/
 
 ### 渲染进程 (src/renderer/)
 - **职责**: 用户界面展示和交互
+- **设计系统**: Modern Dark (Cinema) 风格，Slate/Blue 配色方案
+  - 深色主题背景: `#0f172a` (Slate 900)
+  - 品牌色: `#3b82f6` (Blue 500)
+  - 语义色: 成功 `#22c55e`、危险 `#ef4444`、警告 `#f59e0b`
+  - 按钮: 统一 `border-radius: 8px`，hover 上浮 1px
+  - 对话框: `backdrop-filter: blur(4px)`，`border-radius: 16px`
 - **关键文件**:
   - `src/main.ts` - Vue 应用初始化
   - `src/App.vue` - 根组件
   - `src/router/index.ts` - 路由配置
   - `src/store/` - Pinia 状态管理
   - `src/components/` - 可复用组件
+  - `src/composables/` - 组合式函数
   - `src/views/` - 页面视图组件
   - `src/utils/` - 工具函数
 - **依赖**: vue, vue-router, pinia, @vitejs/plugin-vue
@@ -866,6 +880,43 @@ electron-vite-learn/
 - **职责**: 封装通用工具函数
 - **关键文件**: `request.ts` - Axios 请求封装
 - **依赖**: axios
+
+### 可复用组件 (src/renderer/src/components/)
+- **职责**: 跨页面复用的 UI 组件
+- **关键文件**:
+  - `BaseDialog.vue` - 统一对话框组件（遮罩 + 弹窗容器 + 头部/内容/底部插槽）
+  - `EmptyState.vue` - 统一空状态组件（图标 + 提示文字 + 辅助说明）
+- **使用方式**:
+  ```vue
+  <BaseDialog :visible="showDialog" title="标题" @close="showDialog = false">
+    <p>对话框内容</p>
+    <template #footer>
+      <button class="btn btn-secondary" @click="showDialog = false">取消</button>
+      <button class="btn btn-primary" @click="confirm">确定</button>
+    </template>
+  </BaseDialog>
+
+  <EmptyState icon="search" text="未找到匹配结果" hint="试试其他关键词" />
+  ```
+- **图标选项**: `search` | `clipboard` | `download` | `translate` | `folder` | `tool` | `success`
+
+### 组合式函数 (src/renderer/src/composables/)
+- **职责**: 可复用的逻辑函数
+- **关键文件**:
+  - `useTimeFormat.ts` - 时间格式化工具（相对时间、绝对时间、文件大小、下载速度）
+- **使用方式**:
+  ```typescript
+  import { formatTimeAgo, formatFileSize, formatSpeed } from '@/composables/useTimeFormat'
+
+  // 相对时间：刚刚、5分钟前、3小时前
+  const time = formatTimeAgo(timestamp)
+
+  // 文件大小：1.5 MB
+  const size = formatFileSize(bytes)
+
+  // 下载速度：2.3 MB/s
+  const speed = formatSpeed(bytesPerSecond)
+  ```
 
 ### 页面视图 (src/renderer/src/views/)
 - **职责**: 各页面的视图组件
