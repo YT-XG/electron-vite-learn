@@ -971,6 +971,55 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
+   * 平滑移动窗口到目标 Y 坐标
+   * @param targetY - 目标 Y 坐标
+   * @param animated - 是否使用动画，默认 true
+   */
+  moveTo(targetY: number, animated = true): void {
+    if (!this.isAlive()) return
+
+    if (!animated) {
+      const [x] = this.window!.getPosition()
+      this.window!.setPosition(x, targetY)
+      return
+    }
+
+    const [x, startY] = this.window!.getPosition()
+    if (startY === targetY) return
+
+    const duration = 300
+    const startTime = Date.now()
+
+    const animate = (): void => {
+      if (!this.isAlive()) return
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      // easeOutCubic 缓动函数：先快后慢，自然停止
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+      const currentY = Math.round(startY + (targetY - startY) * easeOutCubic)
+
+      this.window!.setPosition(x, currentY)
+
+      if (progress < 1) {
+        setTimeout(animate, 8)
+      }
+    }
+
+    animate()
+  }
+
+  /**
+   * 获取窗口当前 Y 坐标
+   * @returns Y 坐标，窗口不存在时返回 0
+   */
+  getY(): number {
+    if (!this.isAlive()) return 0
+    const [, y] = this.window!.getPosition()
+    return y
+  }
+
+  /**
    * 销毁更新窗口
    * @description 播放收起动画后销毁窗口
    */
