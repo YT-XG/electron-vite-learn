@@ -2,7 +2,7 @@
   <div class="notice-container">
     <div
       class="notice-border"
-      :class="{ 'scale-in': isVisible }"
+      :class="[{ 'scale-in': isVisible }, `notice-${noticeType}`]"
       @mouseenter="onCardEnter"
       @mouseleave="onCardLeave"
     >
@@ -47,6 +47,9 @@ const showOpenLink = ref(false)
 /** 是否显示 JSON 工具按钮（文本包含 JSON 格式时显示） */
 const showJsonTool = ref(false)
 
+/** 通知类型 */
+const noticeType = ref<'default' | 'success' | 'error' | 'warning'>('default')
+
 /** 是否可见（触发入场缩放动画） */
 const isVisible = ref(false)
 
@@ -56,12 +59,14 @@ const isVisible = ref(false)
  * @param translate - 是否显示翻译按钮
  * @param openLink - 是否显示打开链接按钮
  * @param jsonTool - 是否显示 JSON 工具按钮
+ * @param type - 通知类型
  */
-const setMsg = (data: string, translate = false, openLink = false, jsonTool = false) => {
+const setMsg = (data: string, translate = false, openLink = false, jsonTool = false, type: 'default' | 'success' | 'error' | 'warning' = 'default') => {
   msg.value = data
   showTranslate.value = translate
   showOpenLink.value = openLink
   showJsonTool.value = jsonTool
+  noticeType.value = type
 }
 
 /**
@@ -110,8 +115,8 @@ onMounted(() => {
   // 监听主进程发送的消息
   window.electron.ipcRenderer.on(
     'to-renderer-NoticeNewFrame:sendMsg',
-    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean) => {
-      setMsg(data, translate, openLink, jsonTool)
+    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean, type: 'default' | 'success' | 'error' | 'warning') => {
+      setMsg(data, translate, openLink, jsonTool, type)
       // 下一帧触发 CSS 缩放动画（从 scale(0.2) → scale(1)）
       nextTick(() => {
         isVisible.value = true
@@ -169,6 +174,48 @@ onMounted(() => {
     #3b82f6
   );
   animation: border-spin 3s linear infinite;
+}
+
+/* 成功类型边框 */
+.notice-success::before {
+  background: conic-gradient(
+    from var(--border-angle),
+    #22c55e,
+    #10b981,
+    #34d399,
+    #10b981,
+    #22c55e,
+    #16a34a,
+    #22c55e
+  );
+}
+
+/* 错误类型边框 */
+.notice-error::before {
+  background: conic-gradient(
+    from var(--border-angle),
+    #ef4444,
+    #f97316,
+    #f87171,
+    #f97316,
+    #ef4444,
+    #dc2626,
+    #ef4444
+  );
+}
+
+/* 警告类型边框 */
+.notice-warning::before {
+  background: conic-gradient(
+    from var(--border-angle),
+    #f59e0b,
+    #fbbf24,
+    #fcd34d,
+    #fbbf24,
+    #f59e0b,
+    #d97706,
+    #f59e0b
+  );
 }
 
 /* 入场动画触发：缩放到正常大小并显现 */

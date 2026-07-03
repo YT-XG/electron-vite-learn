@@ -4,6 +4,9 @@ import NoticeNewFrame from './NoticeNewFrame'
 import ClaudeCodeStatusFrame, { type ClaudeCodeStatus } from './ClaudeCodeStatusFrame'
 import { getBottomMargin } from '../utils/platform'
 
+/** 通知类型 */
+export type NoticeType = 'default' | 'success' | 'error' | 'warning'
+
 /** 通知配置选项 */
 export interface NoticeOptions {
   /** 通知文本内容 */
@@ -12,6 +15,8 @@ export interface NoticeOptions {
   showTranslate?: boolean
   /** 显示时长（毫秒），默认 5000 */
   duration?: number
+  /** 通知类型，默认 'default' */
+  type?: NoticeType
 }
 
 /**
@@ -46,7 +51,7 @@ export default class NoticeManager {
    * @param options - 通知配置
    */
   show(options: NoticeOptions): void {
-    const { text, showTranslate = false, duration = 5000 } = options
+    const { text, showTranslate = false, duration = 5000, type = 'default' } = options
 
     // 如果已达到上限，销毁最早的（最上面的）通知
     if (this.notices.length >= this.MAX_NOTICES) {
@@ -62,7 +67,7 @@ export default class NoticeManager {
     }
 
     // 设置消息和时长（setMsg 会自动检测 URL 并设置 showOpenLink）
-    notice.setMsg(text, showTranslate)
+    notice.setMsg(text, showTranslate, type)
     notice.setDuration(duration)
 
     // 插入到列表头部（最新）

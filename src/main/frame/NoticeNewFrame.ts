@@ -2,6 +2,7 @@ import { BrowserWindow, BrowserWindowConstructorOptions, screen, shell } from 'e
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
 import { getBottomMargin } from '../utils/platform'
+import type { NoticeType } from './NoticeManager'
 
 /**
  * 通知弹窗
@@ -34,6 +35,9 @@ export default class NoticeNewFrame extends BaseFrame {
 
   /** 是否显示 JSON 工具按钮（文本包含 JSON 格式时显示） */
   #showJsonTool = false
+
+  /** 通知类型 */
+  #type: NoticeType = 'default'
 
   /** 自动销毁定时器 */
   #destroyTimer: ReturnType<typeof setTimeout> | null = null
@@ -110,10 +114,12 @@ export default class NoticeNewFrame extends BaseFrame {
    * 设置待发送的消息
    * @param data - 通知文本内容
    * @param showTranslate - 是否显示翻译按钮，默认 false
+   * @param type - 通知类型，默认 'default'
    */
-  setMsg(data: string, showTranslate = false) {
+  setMsg(data: string, showTranslate = false, type: NoticeType = 'default') {
     this.#msg = data
     this.#showTranslate = showTranslate
+    this.#type = type
     // 自动检测链接并设置显示打开链接按钮
     this.#showOpenLink = NoticeNewFrame.#containsUrl(data)
     // 自动检测 JSON 格式并设置显示 JSON 工具按钮
@@ -154,7 +160,8 @@ export default class NoticeNewFrame extends BaseFrame {
           this.#msg,
           this.#showTranslate,
           this.#showOpenLink,
-          this.#showJsonTool
+          this.#showJsonTool,
+          this.#type
         )
       }
       await this.showAtBottomCenter()
@@ -289,7 +296,8 @@ export default class NoticeNewFrame extends BaseFrame {
         this.#msg,
         this.#showTranslate,
         this.#showOpenLink,
-        this.#showJsonTool
+        this.#showJsonTool,
+        this.#type
       )
       this.#msgSent = true
     }

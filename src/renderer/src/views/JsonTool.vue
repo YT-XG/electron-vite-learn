@@ -155,9 +155,10 @@ const close = (): void => {
  * 显示通知
  * @param text - 通知文本
  * @param duration - 显示时长（毫秒），默认 2000
+ * @param type - 通知类型，默认 'default'
  */
-const showNotice = (text: string, duration = 2000): void => {
-  window.electron.ipcRenderer.send('to-main-JsonTool:showNotice', text, duration)
+const showNotice = (text: string, duration = 2000, type: 'default' | 'success' | 'error' | 'warning' = 'default'): void => {
+  window.electron.ipcRenderer.send('to-main-JsonTool:showNotice', text, duration, type)
 }
 
 /**
@@ -178,12 +179,12 @@ const openFile = async (): Promise<void> => {
 const saveFile = async (): Promise<void> => {
   const content = inputText.value
   if (!content) {
-    showNotice('没有内容可保存')
+    showNotice('没有内容可保存', 2000, 'warning')
     return
   }
   const saved = await window.electron.ipcRenderer.invoke('to-main-JsonTool:saveFile', content)
   if (saved) {
-    showNotice('保存成功')
+    showNotice('保存成功', 2000, 'success')
   }
 }
 
@@ -195,7 +196,7 @@ const formatJson = (): void => {
     const parsed = JSON.parse(inputText.value)
     inputText.value = JSON.stringify(parsed, null, 2)
   } catch (e) {
-    showNotice(`格式化失败: ${(e as Error).message}`)
+    showNotice(`格式化失败: ${(e as Error).message}`, 3000, 'error')
   }
 }
 
@@ -207,7 +208,7 @@ const compressJson = (): void => {
     const parsed = JSON.parse(inputText.value)
     inputText.value = JSON.stringify(parsed)
   } catch (e) {
-    showNotice(`压缩失败: ${(e as Error).message}`)
+    showNotice(`压缩失败: ${(e as Error).message}`, 3000, 'error')
   }
 }
 
@@ -225,7 +226,7 @@ const unescapeJson = (): void => {
   try {
     inputText.value = JSON.parse(inputText.value)
   } catch (e) {
-    showNotice(`反转义失败: ${(e as Error).message}`)
+    showNotice(`反转义失败: ${(e as Error).message}`, 3000, 'error')
   }
 }
 
@@ -235,9 +236,9 @@ const unescapeJson = (): void => {
 const validateJson = (): void => {
   try {
     JSON.parse(inputText.value)
-    showNotice('JSON 格式正确')
+    showNotice('JSON 格式正确', 2000, 'success')
   } catch (e) {
-    showNotice(`JSON 格式错误: ${(e as Error).message}`)
+    showNotice(`JSON 格式错误: ${(e as Error).message}`, 3000, 'error')
   }
 }
 
@@ -247,16 +248,16 @@ const validateJson = (): void => {
 const copyResult = async (): Promise<void> => {
   const text = inputText.value
   if (!text) {
-    showNotice('没有内容可复制')
+    showNotice('没有内容可复制', 2000, 'warning')
     return
   }
   try {
     await navigator.clipboard.writeText(text)
-    showNotice('已复制到剪贴板')
+    showNotice('已复制到剪贴板', 2000, 'success')
   } catch {
     // fallback: 使用主进程写入剪贴板
     window.electron.ipcRenderer.send('to-service-ClipboardService:writeText', text)
-    showNotice('已复制到剪贴板')
+    showNotice('已复制到剪贴板', 2000, 'success')
   }
 }
 
