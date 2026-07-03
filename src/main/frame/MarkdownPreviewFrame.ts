@@ -154,6 +154,21 @@ export default class MarkdownPreviewFrame extends BaseFrame {
       }
     })
 
+    // 从剪贴板打开并填充内容
+    ipcMain.on('to-main-MarkdownPreview:openWithContent', (_event, content: string) => {
+      // 如果窗口未创建，先创建
+      if (!this.isAlive()) {
+        this.create(true)
+      } else {
+        this.show()
+      }
+
+      // 发送内容到渲染进程
+      if (this.window) {
+        this.window.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+      }
+    })
+
     MarkdownPreviewFrame.#ipcRegistered = true
   }
 }
