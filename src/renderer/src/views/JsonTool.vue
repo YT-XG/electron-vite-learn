@@ -380,7 +380,7 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #0f172a;
+  background: var(--bg-base);
   overflow: hidden;
   position: relative;
 }
@@ -388,7 +388,7 @@ onUnmounted(() => {
 /* 顶部渐变色条 */
 .gradient-bar {
   height: 3px;
-  background: linear-gradient(90deg, #3b82f6, #ec4899);
+  background: linear-gradient(90deg, var(--accent), #ec4899);
   flex-shrink: 0;
 }
 
@@ -399,6 +399,8 @@ onUnmounted(() => {
   justify-content: space-between;
   height: 40px;
   padding: 0 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
   flex-shrink: 0;
 }
@@ -412,7 +414,7 @@ onUnmounted(() => {
 .app-name {
   font-size: 13px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .window-controls {
@@ -429,19 +431,19 @@ onUnmounted(() => {
   justify-content: center;
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-secondary);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .control-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  background: var(--accent-light);
+  color: var(--text-primary);
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.8);
+  background: var(--danger);
   color: white;
 }
 
@@ -451,7 +453,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 8px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -460,25 +463,30 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   background: transparent;
-  color: #94a3b8;
-  border-radius: 6px;
-  font-size: 12px;
+  color: var(--text-secondary);
+  border-radius: var(--btn-radius);
+  font-size: var(--btn-font-size);
+  font-weight: var(--btn-font-weight);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .tool-btn:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: #3b82f6;
-  color: #e2e8f0;
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.tool-btn:active {
+  transform: scale(0.97);
 }
 
 .toolbar-separator {
   width: 1px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   margin: 0 4px;
 }
 
@@ -493,7 +501,7 @@ onUnmounted(() => {
   flex: 1;
   background: transparent;
   border: none;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -504,12 +512,12 @@ onUnmounted(() => {
 }
 
 .editor-input::placeholder {
-  color: #475569;
+  color: var(--text-tertiary);
 }
 
 .editor-divider {
   width: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border);
 }
 
 .editor-output {
@@ -519,15 +527,15 @@ onUnmounted(() => {
   font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .editor-output.has-error {
-  background: rgba(239, 68, 68, 0.05);
+  background: var(--danger-bg);
 }
 
 .editor-output.has-success {
-  background: rgba(34, 197, 94, 0.05);
+  background: var(--success-bg);
 }
 
 .output-text {
@@ -538,27 +546,28 @@ onUnmounted(() => {
 
 .error-msg {
   margin: 0;
-  color: #ef4444;
+  color: var(--danger);
   white-space: pre-wrap;
   word-break: break-all;
 }
 
 .success-msg {
   margin: 0;
-  color: #22c55e;
+  color: var(--success);
   white-space: pre-wrap;
   word-break: break-all;
 }
 
 /* 拖拽状态 */
 .json-tool.drag-over {
-  border: 2px dashed #3b82f6;
+  border: 2px dashed var(--accent);
 }
 
 .drag-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.9);
+  background: var(--bg-glass);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -570,7 +579,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: #3b82f6;
+  color: var(--accent);
   font-size: 16px;
   font-weight: 500;
 }
