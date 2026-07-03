@@ -18,6 +18,12 @@ export default class JsonToolFrame extends BaseFrame {
   /** 最小高度 */
   static readonly MIN_HEIGHT = 400
 
+  /** 待发送的内容（通知窗口发送的 JSON 内容） */
+  #pendingContent: string | null = null
+
+  /** 渲染进程是否已就绪 */
+  #ready = false
+
   /** 窗口配置 - 透明无边框 */
   protected readonly options: BrowserWindowConstructorOptions = {
     width: JsonToolFrame.WIDTH,
@@ -60,6 +66,16 @@ export default class JsonToolFrame extends BaseFrame {
       }
     })
 
+    // 渲染进程已就绪
+    this.recvOne('to-main-JsonTool:ready', () => {
+      this.#ready = true
+      // 如果有待发送的内容，现在发送
+      if (this.#pendingContent !== null) {
+        this.sendOne('to-renderer-JsonTool:setContent', this.#pendingContent)
+        this.#pendingContent = null
+      }
+    })
+
     // 打开文件 - 弹出文件选择对话框，读取选中的 JSON 文件
     this.recvTwo('to-main-JsonTool:openFile', async () => {
       const result = await dialog.showOpenDialog({
@@ -91,5 +107,19 @@ export default class JsonToolFrame extends BaseFrame {
       fs.writeFileSync(result.filePath, content, 'utf-8')
       return true
     })
+  }
+
+  /**
+   * 发送内容到渲染进程
+   * @param content - 要发送的 JSON 内容
+   */
+  sendContentToRenderer(content: string): void {
+    if (this.#ready) {
+      // 渲染进程已就绪，直接发送
+      this.sendOne('to-renderer-JsonTool:setContent', content)
+    } else {
+      // 渲染进程未就绪，暂存内容
+      this.#pendingContent = content
+    }
   }
 }

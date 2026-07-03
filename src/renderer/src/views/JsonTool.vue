@@ -378,6 +378,19 @@ const handleKeydown = (e: KeyboardEvent): void => {
 // 挂载时注册键盘事件
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  // 通知主进程渲染已就绪
+  window.electron.ipcRenderer.send('to-main-JsonTool:ready')
+  // 监听主进程发送的内容（从通知窗口联动）
+  window.electron.ipcRenderer.on(
+    'to-renderer-JsonTool:setContent',
+    (_e, content: string) => {
+      inputText.value = content
+      errorMsg.value = ''
+      successMsg.value = ''
+      // 自动格式化
+      formatJson()
+    }
+  )
 })
 
 // 卸载时移除键盘事件

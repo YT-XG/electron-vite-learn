@@ -8,7 +8,13 @@
     >
       <div class="notice-card">
         <span class="notice-text">{{ msg }}</span>
-        <div v-if="showOpenLink || showTranslate" class="btn-group">
+        <div v-if="showOpenLink || showTranslate || showJsonTool" class="btn-group">
+          <button v-if="showJsonTool" class="json-btn" @click="openJsonTool" title="在 JSON 工具中打开">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/>
+              <path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>
+            </svg>
+          </button>
           <button v-if="showOpenLink" class="link-btn" @click="openLink" title="打开链接">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </button>
@@ -38,6 +44,9 @@ const showTranslate = ref(false)
 /** 是否显示打开链接按钮（文本包含链接时显示） */
 const showOpenLink = ref(false)
 
+/** 是否显示 JSON 工具按钮（文本包含 JSON 格式时显示） */
+const showJsonTool = ref(false)
+
 /** 是否可见（触发入场缩放动画） */
 const isVisible = ref(false)
 
@@ -46,11 +55,13 @@ const isVisible = ref(false)
  * @param data - 通知文本
  * @param translate - 是否显示翻译按钮
  * @param openLink - 是否显示打开链接按钮
+ * @param jsonTool - 是否显示 JSON 工具按钮
  */
-const setMsg = (data: string, translate = false, openLink = false) => {
+const setMsg = (data: string, translate = false, openLink = false, jsonTool = false) => {
   msg.value = data
   showTranslate.value = translate
   showOpenLink.value = openLink
+  showJsonTool.value = jsonTool
 }
 
 /**
@@ -67,6 +78,14 @@ const openTranslate = () => {
  */
 const openLink = () => {
   window.electron.ipcRenderer.send('to-main-NoticeNewFrame:openLink', msg.value)
+}
+
+/**
+ * 打开 JSON 工具
+ * 向主进程发送打开 JSON 工具请求，主进程会打开 JSON 工具窗口并填充内容
+ */
+const openJsonTool = () => {
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:openJsonTool', msg.value)
 }
 
 /**
@@ -91,8 +110,8 @@ onMounted(() => {
   // 监听主进程发送的消息
   window.electron.ipcRenderer.on(
     'to-renderer-NoticeNewFrame:sendMsg',
-    (_e, data: string, translate: boolean, openLink: boolean) => {
-      setMsg(data, translate, openLink)
+    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean) => {
+      setMsg(data, translate, openLink, jsonTool)
       // 下一帧触发 CSS 缩放动画（从 scale(0.2) → scale(1)）
       nextTick(() => {
         isVisible.value = true
@@ -237,6 +256,27 @@ onMounted(() => {
 .link-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.4);
+}
+
+/* JSON 工具按钮 */
+.json-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.json-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.4);
 }
 </style>
 

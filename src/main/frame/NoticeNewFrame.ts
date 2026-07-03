@@ -32,6 +32,9 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 是否显示打开链接按钮（文本包含链接时显示） */
   #showOpenLink = false
 
+  /** 是否显示 JSON 工具按钮（文本包含 JSON 格式时显示） */
+  #showJsonTool = false
+
   /** 自动销毁定时器 */
   #destroyTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -80,6 +83,30 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
+   * 检测文本中是否包含 JSON 格式
+   * @param text - 要检测的文本
+   * @returns 是否包含 JSON 格式
+   */
+  static #containsJson(text: string): boolean {
+    // 去除首尾空白后检测
+    const trimmed = text.trim()
+    if (!trimmed) return false
+
+    // 检测 JSON 对象 {} 或 JSON 数组 []
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        JSON.parse(trimmed)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    return false
+  }
+
+  /**
    * 设置待发送的消息
    * @param data - 通知文本内容
    * @param showTranslate - 是否显示翻译按钮，默认 false
@@ -89,6 +116,8 @@ export default class NoticeNewFrame extends BaseFrame {
     this.#showTranslate = showTranslate
     // 自动检测链接并设置显示打开链接按钮
     this.#showOpenLink = NoticeNewFrame.#containsUrl(data)
+    // 自动检测 JSON 格式并设置显示 JSON 工具按钮
+    this.#showJsonTool = NoticeNewFrame.#containsJson(data)
     return this
   }
 
@@ -124,7 +153,8 @@ export default class NoticeNewFrame extends BaseFrame {
           'to-renderer-NoticeNewFrame:sendMsg',
           this.#msg,
           this.#showTranslate,
-          this.#showOpenLink
+          this.#showOpenLink,
+          this.#showJsonTool
         )
       }
       await this.showAtBottomCenter()
@@ -157,6 +187,19 @@ export default class NoticeNewFrame extends BaseFrame {
       if (url) {
         shell.openExternal(url)
       }
+    })
+
+    // JSON 工具按钮点击：打开 JSON 工具窗口并发送内容
+    this.recvOne('to-main-NoticeNewFrame:openJsonTool', (_event, text: string) => {
+      const frame = windowFactory.getJsonToolFrame()
+      // 如果窗口不存在，创建窗口
+      if (!frame.isAlive()) {
+        frame.create()
+      }
+      // 发送内容到 JSON 工具窗口
+      frame.sendContentToRenderer(text)
+      // 显示窗口
+      frame.show()
     })
 
   }
@@ -245,7 +288,8 @@ export default class NoticeNewFrame extends BaseFrame {
         'to-renderer-NoticeNewFrame:sendMsg',
         this.#msg,
         this.#showTranslate,
-        this.#showOpenLink
+        this.#showOpenLink,
+        this.#showJsonTool
       )
       this.#msgSent = true
     }
