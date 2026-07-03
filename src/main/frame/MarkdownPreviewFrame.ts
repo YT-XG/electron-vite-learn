@@ -156,16 +156,19 @@ export default class MarkdownPreviewFrame extends BaseFrame {
 
     // 从剪贴板打开并填充内容
     ipcMain.on('to-main-MarkdownPreview:openWithContent', (_event, content: string) => {
-      // 如果窗口未创建，先创建
+      // 如果窗口未创建，先创建并等待加载完成
       if (!this.isAlive()) {
-        this.create(true)
+        const win = this.create(true)
+        // 等待页面加载完成后再发送内容
+        win.webContents.on('did-finish-load', () => {
+          if (this.window && !this.window.isDestroyed()) {
+            this.window.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+          }
+        })
       } else {
         this.show()
-      }
-
-      // 发送内容到渲染进程
-      if (this.window) {
-        this.window.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+        // 窗口已存在，直接发送内容
+        this.window!.webContents.send('to-renderer-MarkdownPreview:newTab', content)
       }
     })
 
