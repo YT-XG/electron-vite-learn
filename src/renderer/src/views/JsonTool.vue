@@ -190,10 +190,6 @@ const formatJson = (): void => {
   try {
     const parsed = JSON.parse(inputText.value)
     outputText.value = JSON.stringify(parsed, null, 2)
-    successMsg.value = '格式化成功'
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
   } catch (e) {
     errorMsg.value = `格式化失败: ${(e as Error).message}`
   }
@@ -208,10 +204,6 @@ const compressJson = (): void => {
   try {
     const parsed = JSON.parse(inputText.value)
     outputText.value = JSON.stringify(parsed)
-    successMsg.value = '压缩成功'
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
   } catch (e) {
     errorMsg.value = `压缩失败: ${(e as Error).message}`
   }
@@ -224,10 +216,6 @@ const escapeJson = (): void => {
   errorMsg.value = ''
   successMsg.value = ''
   outputText.value = JSON.stringify(inputText.value)
-  successMsg.value = '转义成功'
-  setTimeout(() => {
-    successMsg.value = ''
-  }, 2000)
 }
 
 /**
@@ -238,10 +226,6 @@ const unescapeJson = (): void => {
   successMsg.value = ''
   try {
     outputText.value = JSON.parse(inputText.value)
-    successMsg.value = '反转义成功'
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
   } catch (e) {
     errorMsg.value = `反转义失败: ${(e as Error).message}`
   }
@@ -256,9 +240,6 @@ const validateJson = (): void => {
   try {
     JSON.parse(inputText.value)
     successMsg.value = 'JSON 格式正确'
-    setTimeout(() => {
-      successMsg.value = ''
-    }, 2000)
   } catch (e) {
     errorMsg.value = `JSON 格式错误: ${(e as Error).message}`
   }
