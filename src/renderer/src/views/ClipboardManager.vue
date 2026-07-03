@@ -393,9 +393,8 @@ const translateItem = (item: HistoryItem): void => {
  */
 const editInMarkdown = (item: HistoryItem): void => {
   console.log('[ClipboardManager] editInMarkdown called, content length:', item.content.length)
-  console.log('[ClipboardManager] sending IPC: to-main-MarkdownPreview:openWithContent')
-  window.electron.ipcRenderer.send('to-main-MarkdownPreview:openWithContent', item.content)
-  console.log('[ClipboardManager] IPC sent successfully')
+  // 发送 IPC 到 MainPageFrame，由它来创建编辑器窗口
+  window.electron.ipcRenderer.send('to-main-MainPage:openClipboardInMarkdown', item.content)
 }
 
 /**

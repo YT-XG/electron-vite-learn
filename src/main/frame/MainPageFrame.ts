@@ -288,5 +288,24 @@ export default class MainPageFrame extends BaseFrame {
       // 显示 Markdown 预览窗口
       windowFactory.createMarkdownPreviewFrame().show()
     })
+
+    // 从剪贴板打开 Markdown 编辑器
+    this.recvOne('to-main-MainPage:openClipboardInMarkdown', (_event, content: string) => {
+      console.log('[MainPageFrame] Received openClipboardInMarkdown IPC, content length:', content.length)
+      // 隐藏主界面
+      if (this.isAlive()) {
+        this.close()
+      }
+      // 创建 Markdown 预览窗口并传递内容
+      const mdFrame = windowFactory.createMarkdownPreviewFrame()
+      mdFrame.create(true)
+      // 等待窗口加载完成后发送内容
+      if (mdFrame.getWindow()) {
+        mdFrame.getWindow()!.webContents.on('did-finish-load', () => {
+          console.log('[MainPageFrame] Markdown window loaded, sending content...')
+          mdFrame.getWindow()!.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+        })
+      }
+    })
   }
 }
