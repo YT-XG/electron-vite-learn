@@ -11,6 +11,7 @@ export { default as NoticeNewFrame } from './NoticeNewFrame'
 export { default as UpdateNewFrame } from './UpdateNewFrame'
 export { default as MainPageFrame } from './MainPageFrame'
 export { default as PermissionNoticeFrame } from './PermissionNoticeFrame'
+export { default as JsonToolFrame } from './JsonToolFrame'
 
 // 窗口工厂
 export { default as WindowFactory, windowFactory } from './WindowFactory'

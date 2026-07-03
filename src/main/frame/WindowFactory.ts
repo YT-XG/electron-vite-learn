@@ -5,6 +5,7 @@ import PermissionNoticeFrame from './PermissionNoticeFrame'
 import SearchBoxFrame from './SearchBoxFrame'
 import MarkdownPreviewFrame from './MarkdownPreviewFrame'
 import ContextMenuFrame from './ContextMenuFrame'
+import JsonToolFrame from './JsonToolFrame'
 
 /**
  * 窗口工厂
@@ -31,6 +32,9 @@ export default class WindowFactory {
 
   /** 右键菜单窗口 */
   #contextMenuFrame: ContextMenuFrame | null = null
+
+  /** JSON 工具窗口 */
+  #jsonToolFrame: JsonToolFrame | null = null
 
   /**
    * 获取多通知管理器
@@ -153,6 +157,30 @@ export default class WindowFactory {
   }
 
   /**
+   * 获取 JSON 工具窗口
+   * @returns JsonToolFrame 实例
+   */
+  getJsonToolFrame(): JsonToolFrame {
+    if (!this.#jsonToolFrame) {
+      this.#jsonToolFrame = new JsonToolFrame()
+      this.#jsonToolFrame.onDestroyCallback = () => {
+        this.#jsonToolFrame = null
+      }
+    }
+    return this.#jsonToolFrame
+  }
+
+  /**
+   * 创建 JSON 工具窗口
+   * @returns JsonToolFrame 实例
+   */
+  createJsonToolFrame(): JsonToolFrame {
+    const frame = this.getJsonToolFrame()
+    frame.create()
+    return frame
+  }
+
+  /**
    * 显示右键菜单
    * @param x - 鼠标 X 坐标
    * @param y - 鼠标 Y 坐标
@@ -187,6 +215,7 @@ export default class WindowFactory {
     this.#searchBoxFrame?.destroy()
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.destroy()
+    this.#jsonToolFrame?.destroy()
   }
 
   /**
@@ -200,6 +229,7 @@ export default class WindowFactory {
     this.#searchBoxFrame?.hide()
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.hideMenu()
+    this.#jsonToolFrame?.destroy()
   }
 }
 

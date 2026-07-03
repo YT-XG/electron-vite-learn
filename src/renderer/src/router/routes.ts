@@ -44,5 +44,10 @@ export const AppRoutes = [
     path: '/contextMenu',
     name: '右键菜单',
     component: () => import('@renderer/views/ContextMenu.vue')
+  },
+  {
+    path: '/jsonTool',
+    name: 'JSON 工具',
+    component: () => import('@renderer/views/JsonTool.vue')
   }
 ]
