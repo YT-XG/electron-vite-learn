@@ -75,6 +75,8 @@ export default class NoticeManager {
     if (isPersistent && this.persistentNotice) {
       this.persistentNotice.setMsg(text, false, type, true)
       this.persistentNotice.showAtBottomCenter()
+      // 通知更新弹窗重新定位（避免覆盖）
+      this.notifyUpdateFrameReposition()
       return
     }
 
