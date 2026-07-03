@@ -109,6 +109,9 @@ export default class NoticeManager {
 
     // 显示通知
     notice.showAtBottomCenter().catch(() => {})
+
+    // 通知更新弹窗重新定位（避免覆盖）
+    this.notifyUpdateFrameReposition()
   }
 
   /**
