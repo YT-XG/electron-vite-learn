@@ -618,10 +618,8 @@ class ClaudeCodeService {
 
     /** 更新 NoticeNewFrame 内容的回调函数 */
     const updateContentFn = (window: BrowserWindow, text: string, type: NoticeType): void => {
-      const frame = new NoticeNewFrame()
-      // 复用已有窗口实例
-      ;(frame as unknown as { window: BrowserWindow }).window = window
-      frame.setMsg(text, false, type, true)
+      // 直接通过 IPC 发送消息到渲染进程
+      window.webContents.send('to-renderer-NoticeNewFrame:sendMsg', text, false, false, false, type, true)
     }
 
     /** 普通通知弹窗配置 */
