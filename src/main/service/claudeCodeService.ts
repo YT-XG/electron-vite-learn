@@ -610,6 +610,8 @@ class ClaudeCodeService {
     /** 创建 NoticeNewFrame 窗口的回调函数 */
     const createWindowFn = (): BrowserWindow => {
       const frame = new NoticeNewFrame()
+      // 设置为持久通知，不自动销毁
+      frame.setMsg('', false, 'default', true)
       frame.create()
       // 窗口创建后显示弹窗
       frame.showAtBottomCenter().catch(() => {})
