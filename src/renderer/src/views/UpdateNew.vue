@@ -403,7 +403,7 @@ onUnmounted(() => {
 }
 
 /* 更新窗口按钮：继承共享 .btn 基类，覆盖布局 */
-.btn {
+.update-actions .btn {
   flex: 1;
 }
 
