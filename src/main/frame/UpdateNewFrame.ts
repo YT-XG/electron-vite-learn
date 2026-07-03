@@ -931,6 +931,42 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
+   * 重新定位更新窗口
+   * @description 当通知数量变化时，调整位置避免覆盖
+   */
+  reposition(): void {
+    if (!this.isAlive() || !this.#isShowing || this.#isAnimating) return
+
+    const pos = this.#calcBottomCenterPosition()
+    const [, currentY] = this.window!.getPosition()
+
+    // 只有位置变化时才移动
+    if (currentY !== pos.y) {
+      // 使用动画平滑移动
+      const duration = 300
+      const startTime = Date.now()
+
+      const animate = (): void => {
+        if (!this.isAlive()) return
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+
+        // 缓动函数：easeOutCubic
+        const eased = 1 - Math.pow(1 - progress, 3)
+        const currentPosY = Math.round(currentY + (pos.y - currentY) * eased)
+
+        this.window!.setPosition(pos.x, currentPosY)
+
+        if (progress < 1) {
+          setTimeout(animate, 16) // ~60fps
+        }
+      }
+
+      animate()
+    }
+  }
+
+  /**
    * 销毁更新窗口
    * @description 播放收起动画后销毁窗口
    */

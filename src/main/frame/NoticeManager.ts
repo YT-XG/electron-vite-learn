@@ -162,6 +162,29 @@ export default class NoticeManager {
 
     // 重新排列所有通知
     this.repositionAll()
+
+    // 通知更新弹窗重新定位（避免覆盖）
+    this.notifyUpdateFrameReposition()
+  }
+
+  /**
+   * 通知更新弹窗重新定位
+   * @description 当通知数量变化时，更新弹窗需要调整位置
+   */
+  private notifyUpdateFrameReposition(): void {
+    // 延迟通知，等待动画完成
+    setTimeout(() => {
+      try {
+        // 动态导入避免循环依赖
+        const { windowFactory } = require('./WindowFactory')
+        const updateFrame = windowFactory.getUpdateNewFrame()
+        if (updateFrame && typeof updateFrame.reposition === 'function') {
+          updateFrame.reposition()
+        }
+      } catch {
+        // 更新窗口可能不存在，忽略错误
+      }
+    }, 350) // 等待通知移动动画完成
   }
 
   /**
