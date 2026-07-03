@@ -148,7 +148,7 @@ const toggleMaximize = (): void => {
  * 关闭窗口
  */
 const close = (): void => {
-  window.electron.ipcRenderer.send('to-main-JsonTool:close')
+  window.electron.ipcRenderer.send('to-main-BaseFrame:closeWindow')
 }
 
 /**
