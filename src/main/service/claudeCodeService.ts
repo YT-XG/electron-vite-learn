@@ -9,12 +9,15 @@
  * 4. 权限请求：暂存 HTTP 响应，显示权限确认窗口
  * 5. 用户点击按钮 → 写回 HTTP 响应 → Claude Code 继续执行
  */
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import http from 'http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import log from 'electron-log'
 import { windowFactory } from '../frame'
+import NoticeNewFrame from '../frame/NoticeNewFrame'
+import type { PopupOptions } from '../frame'
+import type { NoticeType } from '../frame'
 
 /** 权限决策类型 */
 export type PermissionDecision = 'allow' | 'always' | 'deny'
@@ -446,8 +449,7 @@ class ClaudeCodeService {
             this.permissionWaiters.set(sessionId, { response, timer: autoCloseTimer, event })
 
             // 显示"等待权限"状态
-            windowFactory.getNoticeManager().showClaudeCodeStatus(
-              'waiting_permission',
+            this.showClaudeStatusForPermission(
               `⏳ 等待回答: ${permissionInfo.command || 'Claude 提问'}`
             )
 
@@ -462,8 +464,7 @@ class ClaudeCodeService {
           this.permissionWaiters.set(sessionId, { response, timer, event })
 
           // 显示"等待权限"状态
-          windowFactory.getNoticeManager().showClaudeCodeStatus(
-            'waiting_permission',
+          this.showClaudeStatusForPermission(
             `⏳ 等待权限: ${permissionInfo.toolName}`
           )
 
@@ -549,20 +550,78 @@ class ClaudeCodeService {
 
   /**
    * 显示权限确认窗口
-   * @description 创建 PermissionNoticeFrame 并显示权限请求信息
+   * @description 通过 PopupManager 创建 PermissionNoticeFrame 并显示权限请求信息
    */
   private showPermissionNotice(info: PermissionRequestInfo): void {
-    const noticeFrame = windowFactory.getPermissionNoticeFrame()
-    noticeFrame.showPermissionNotice(info)
+    const popupManager = windowFactory.getPopupManager()
+    popupManager.showPermissionNotice(
+      // 创建窗口的回调函数
+      () => {
+        const frame = windowFactory.getPermissionNoticeFrame()
+        frame.create()
+        return frame.getWindow()!
+      },
+      // 弹窗配置
+      { type: 'permission', width: 520, height: 140 },
+      // 显示内容的回调函数
+      () => {
+        const frame = windowFactory.getPermissionNoticeFrame()
+        frame.showPermissionNotice(info)
+      }
+    )
     log.info(`[ClaudeCode] 显示权限确认窗口: ${info.toolName}`)
   }
 
   /**
+   * 显示 Claude Code 状态通知（供权限请求场景使用）
+   * @description 通过 PopupManager 创建 NoticeNewFrame 并显示持久状态通知
+   * @param text - 状态文本
+   */
+  private showClaudeStatusForPermission(text: string): void {
+    const popupManager = windowFactory.getPopupManager()
+    popupManager.showClaudeStatus(
+      'waiting_permission',
+      text,
+      // 创建窗口的回调函数
+      () => {
+        const frame = new NoticeNewFrame()
+        frame.create()
+        return frame.getWindow()!
+      },
+      // 更新内容的回调函数
+      (window: BrowserWindow, contentText: string, type: NoticeType) => {
+        const frame = new NoticeNewFrame()
+        // 复用已有窗口实例
+        ;(frame as unknown as { window: BrowserWindow }).window = window
+        frame.setMsg(contentText, false, type, true)
+      }
+    )
+  }
+
+  /**
    * 显示事件通知
-   * @description 非权限事件通过 NoticeManager 更新常驻状态通知
+   * @description 非权限事件通过 PopupManager 更新常驻状态通知
    */
   private showEventNotification(event: ClaudeCodeHookEvent): void {
-    const noticeManager = windowFactory.getNoticeManager()
+    const popupManager = windowFactory.getPopupManager()
+
+    /** 创建 NoticeNewFrame 窗口的回调函数 */
+    const createWindowFn = (): BrowserWindow => {
+      const frame = new NoticeNewFrame()
+      frame.create()
+      return frame.getWindow()!
+    }
+
+    /** 更新 NoticeNewFrame 内容的回调函数 */
+    const updateContentFn = (window: BrowserWindow, text: string, type: NoticeType): void => {
+      const frame = new NoticeNewFrame()
+      // 复用已有窗口实例
+      ;(frame as unknown as { window: BrowserWindow }).window = window
+      frame.setMsg(text, false, type, true)
+    }
+
+    /** 普通通知弹窗配置 */
+    const noticePopupOptions: PopupOptions = { type: 'notice', width: 500, height: 60 }
 
     // 检测是否有等待中的权限请求弹窗，如果有则自动关闭
     if (event.eventName === 'PreToolUse' || event.eventName === 'PostToolUse') {
@@ -574,13 +633,13 @@ class ClaudeCodeService {
         this.sessionCount++
         this.cancelHideTimer()
         // 同时显示一个简短通知
-        noticeManager.show({
+        popupManager.showNotice(createWindowFn, noticePopupOptions, {
           text: '🟢 Claude Code 会话已开始',
           duration: 3000
         })
         // 5 秒后自动隐藏状态通知
         this.hideTimer = setTimeout(() => {
-          noticeManager.hideClaudeCodeStatus()
+          popupManager.hideClaudeStatus()
         }, 5000)
         break
 
@@ -589,11 +648,11 @@ class ClaudeCodeService {
         if (this.sessionCount === 0) {
           // 延迟 3 秒后隐藏状态通知
           this.hideTimer = setTimeout(() => {
-            noticeManager.hideClaudeCodeStatus()
+            popupManager.hideClaudeStatus()
           }, 3000)
         }
         // 显示简短通知
-        noticeManager.show({
+        popupManager.showNotice(createWindowFn, noticePopupOptions, {
           text: '🏁 Claude Code 会话已结束',
           duration: 3000
         })
@@ -601,38 +660,38 @@ class ClaudeCodeService {
 
       case 'UserPromptSubmit':
         // 用户发送了请求，准备工作
-        noticeManager.showClaudeCodeStatus('thinking', '📝 准备工作中...')
+        popupManager.showClaudeStatus('thinking', '📝 准备工作中...', createWindowFn, updateContentFn)
         break
 
       case 'PreToolUse': {
         // 工具即将执行，显示具体工具名
         const toolName = event.toolName || '未知工具'
-        noticeManager.showClaudeCodeStatus('executing', `🔨 正在调用 ${toolName}...`)
+        popupManager.showClaudeStatus('executing', `🔨 正在调用 ${toolName}...`, createWindowFn, updateContentFn)
         break
       }
 
       case 'PostToolUse': {
         // 工具执行完毕
         const toolName = event.toolName || '未知工具'
-        noticeManager.showClaudeCodeStatus('executing', `✍️ ${toolName} 执行完毕`)
+        popupManager.showClaudeStatus('executing', `✍️ ${toolName} 执行完毕`, createWindowFn, updateContentFn)
         break
       }
 
       case 'Stop':
         // 任务完成，3 秒后自动隐藏状态通知
-        noticeManager.showClaudeCodeStatus('completed', '✅ 任务完成')
+        popupManager.showClaudeStatus('completed', '✅ 任务完成', createWindowFn, updateContentFn)
         this.cancelHideTimer()
         this.hideTimer = setTimeout(() => {
-          noticeManager.hideClaudeCodeStatus()
+          popupManager.hideClaudeStatus()
         }, 3000)
         break
 
       case 'StopFailure':
         // 任务异常结束，3 秒后自动隐藏
-        noticeManager.showClaudeCodeStatus('completed', '❌ 任务异常结束')
+        popupManager.showClaudeStatus('completed', '❌ 任务异常结束', createWindowFn, updateContentFn)
         this.cancelHideTimer()
         this.hideTimer = setTimeout(() => {
-          noticeManager.hideClaudeCodeStatus()
+          popupManager.hideClaudeStatus()
         }, 3000)
         break
 
@@ -654,11 +713,8 @@ class ClaudeCodeService {
       this.respondPermission(sessionId, null)
     }
 
-    // 关闭弹窗
-    const noticeFrame = windowFactory.getPermissionNoticeFrame()
-    if (noticeFrame.isAlive()) {
-      noticeFrame.hideWithAnimation()
-    }
+    // 通过 PopupManager 关闭权限弹窗
+    windowFactory.getPopupManager().destroyPermissionNotice()
   }
 
   /**
@@ -681,11 +737,8 @@ class ClaudeCodeService {
       // 响应已结束，忽略
     }
 
-    // 隐藏权限确认窗口（带淡出动画）
-    const noticeFrame = windowFactory.getPermissionNoticeFrame()
-    if (noticeFrame.isAlive()) {
-      noticeFrame.hideWithAnimation()
-    }
+    // 通过 PopupManager 销毁权限确认窗口
+    windowFactory.getPopupManager().destroyPermissionNotice()
 
     log.info(`[ClaudeCode] 权限决策已写回: session=${sessionId}, decision=${decision}`)
     return true
@@ -799,8 +852,8 @@ class ClaudeCodeService {
   destroy(): void {
     this.cancelHideTimer()
     this.stopServer()
-    // 销毁状态通知窗口
-    windowFactory.getNoticeManager().hideClaudeCodeStatus()
+    // 通过 PopupManager 销毁状态通知窗口
+    windowFactory.getPopupManager().hideClaudeStatus()
     log.info('[ClaudeCode] 服务已销毁')
   }
 }
