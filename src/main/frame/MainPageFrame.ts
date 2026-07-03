@@ -289,6 +289,16 @@ export default class MainPageFrame extends BaseFrame {
       windowFactory.createMarkdownPreviewFrame().show()
     })
 
+    // 打开 JSON 工具（先隐藏主界面，再显示 JSON 工具窗口）
+    this.recvOne('to-main-MainPage:openJsonTool', () => {
+      // 隐藏主界面
+      if (this.isAlive()) {
+        this.close()
+      }
+      // 显示 JSON 工具窗口
+      windowFactory.createJsonToolFrame().show()
+    })
+
     // 从剪贴板打开 Markdown 编辑器
     this.recvOne('to-main-MainPage:openClipboardInMarkdown', (_event, content: string) => {
       console.log('[MainPageFrame] Received openClipboardInMarkdown IPC, content length:', content.length)
