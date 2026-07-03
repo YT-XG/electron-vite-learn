@@ -268,7 +268,7 @@ onUnmounted(() => {
 .update-card {
   position: relative;
   width: 340px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.92));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 18px;
@@ -276,7 +276,7 @@ onUnmounted(() => {
     0 8px 32px rgba(0, 0, 0, 0.08),
     0 2px 8px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.6));
   overflow: hidden;
 }
 
@@ -294,20 +294,20 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   border: none;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--btn-ghost-bg, rgba(0, 0, 0, 0.04));
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--text-secondary, #999);
   transition: all 0.2s ease;
   z-index: 1;
 }
 
 .close-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #555;
+  background: var(--btn-ghost-hover-bg, rgba(0, 0, 0, 0.08));
+  color: var(--text-primary, #555);
 }
 
 /* ─── 内容区 ─── */
@@ -327,7 +327,7 @@ onUnmounted(() => {
 .update-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary, #1a1a1a);
   margin: 0 0 4px;
   letter-spacing: 0.3px;
 }
@@ -336,7 +336,7 @@ onUnmounted(() => {
 .update-version {
   font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
   font-size: 13px;
-  color: #3b82f6;
+  color: var(--accent, #3b82f6);
   margin: 0 0 8px;
   font-weight: 500;
 }
@@ -375,7 +375,7 @@ onUnmounted(() => {
 .progress-bar {
   flex: 1;
   height: 4px;
-  background: rgba(196, 96, 58, 0.1);
+  background: var(--border, rgba(196, 96, 58, 0.1));
   border-radius: 2px;
   overflow: hidden;
 }
@@ -390,7 +390,7 @@ onUnmounted(() => {
 .progress-text {
   font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
   font-size: 11px;
-  color: #888;
+  color: var(--text-secondary, #888);
   min-width: 32px;
   text-align: right;
 }
