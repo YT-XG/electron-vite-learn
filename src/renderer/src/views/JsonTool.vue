@@ -105,15 +105,16 @@
       <textarea
         v-model="inputText"
         class="editor-input"
+        :class="{ 'has-error': errorMsg }"
         placeholder="在此粘贴或输入 JSON 内容...（支持拖拽文件导入）"
         spellcheck="false"
       ></textarea>
-      <div class="editor-divider"></div>
-      <div class="editor-output" :class="{ 'has-error': errorMsg, 'has-success': successMsg }">
-        <pre v-if="errorMsg" class="error-msg">{{ errorMsg }}</pre>
-        <pre v-else-if="successMsg" class="success-msg">{{ successMsg }}</pre>
-        <pre v-else class="output-text">{{ outputText }}</pre>
-      </div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div v-if="errorMsg || successMsg" class="status-bar" :class="{ 'has-error': errorMsg }">
+      <span v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
+      <span v-else-if="successMsg" class="success-msg">{{ successMsg }}</span>
     </div>
 
     <!-- 拖拽遮罩层 -->
@@ -134,7 +135,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const inputText = ref('')
-const outputText = ref('')
 const errorMsg = ref('')
 const successMsg = ref('')
 const isDragOver = ref(false)
@@ -178,7 +178,7 @@ const openFile = async (): Promise<void> => {
  * 保存文件
  */
 const saveFile = async (): Promise<void> => {
-  const content = outputText.value || inputText.value
+  const content = inputText.value
   if (!content) {
     errorMsg.value = '没有内容可保存'
     return
@@ -201,7 +201,7 @@ const formatJson = (): void => {
   successMsg.value = ''
   try {
     const parsed = JSON.parse(inputText.value)
-    outputText.value = JSON.stringify(parsed, null, 2)
+    inputText.value = JSON.stringify(parsed, null, 2)
   } catch (e) {
     errorMsg.value = `格式化失败: ${(e as Error).message}`
   }
@@ -215,7 +215,7 @@ const compressJson = (): void => {
   successMsg.value = ''
   try {
     const parsed = JSON.parse(inputText.value)
-    outputText.value = JSON.stringify(parsed)
+    inputText.value = JSON.stringify(parsed)
   } catch (e) {
     errorMsg.value = `压缩失败: ${(e as Error).message}`
   }
@@ -227,7 +227,7 @@ const compressJson = (): void => {
 const escapeJson = (): void => {
   errorMsg.value = ''
   successMsg.value = ''
-  outputText.value = JSON.stringify(inputText.value)
+  inputText.value = JSON.stringify(inputText.value)
 }
 
 /**
@@ -237,7 +237,7 @@ const unescapeJson = (): void => {
   errorMsg.value = ''
   successMsg.value = ''
   try {
-    outputText.value = JSON.parse(inputText.value)
+    inputText.value = JSON.parse(inputText.value)
   } catch (e) {
     errorMsg.value = `反转义失败: ${(e as Error).message}`
   }
@@ -261,7 +261,7 @@ const validateJson = (): void => {
  * 复制结果到剪贴板
  */
 const copyResult = async (): Promise<void> => {
-  const text = outputText.value || inputText.value
+  const text = inputText.value
   if (!text) {
     errorMsg.value = '没有内容可复制'
     setTimeout(() => {
@@ -547,45 +547,32 @@ onUnmounted(() => {
   color: var(--text-tertiary);
 }
 
-.editor-divider {
-  width: 1px;
-  background: var(--border);
-}
-
-.editor-output {
-  flex: 1;
-  padding: 16px;
-  overflow: auto;
-  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-
-.editor-output.has-error {
+.editor-input.has-error {
   background: var(--danger-bg);
 }
 
-.editor-output.has-success {
-  background: var(--success-bg);
+/* 状态栏 */
+.status-bar {
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
-.output-text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
+.status-bar.has-error {
+  background: var(--danger-bg);
 }
 
 .error-msg {
-  margin: 0;
   color: var(--danger);
+  font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
 }
 
 .success-msg {
-  margin: 0;
   color: var(--success);
+  font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
 }
