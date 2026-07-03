@@ -88,6 +88,7 @@ export default class PopupManager {
     // 如果已达到上限，销毁最早的（最上面的）弹窗
     if (this.popups.length >= this.MAX_POPUPS) {
       const oldest = this.popups[this.popups.length - 1]
+      // 异步销毁，不等待完成
       this.removePopup(oldest)
     }
 
@@ -165,6 +166,7 @@ export default class PopupManager {
    */
   hideClaudeStatus(): void {
     if (this.claudeStatusPopup) {
+      // 异步销毁，不等待完成
       this.removePopup(this.claudeStatusPopup)
       this.claudeStatusPopup = null
     }
@@ -212,6 +214,7 @@ export default class PopupManager {
    */
   destroyPermissionNotice(): void {
     if (this.permissionPopup) {
+      // 异步销毁，不等待完成
       this.removePopup(this.permissionPopup)
       this.permissionPopup = null
     }
@@ -232,6 +235,7 @@ export default class PopupManager {
     // 如果已达到上限，销毁最早的弹窗
     if (this.popups.length >= this.MAX_POPUPS) {
       const oldest = this.popups[this.popups.length - 1]
+      // 异步销毁，不等待完成
       this.removePopup(oldest)
     }
 
@@ -258,14 +262,14 @@ export default class PopupManager {
    * 移除指定弹窗并重新排列
    * @param popup - 要移除的弹窗
    */
-  private removePopup(popup: PopupItem): void {
+  private async removePopup(popup: PopupItem): Promise<void> {
     const index = this.popups.indexOf(popup)
     if (index !== -1) {
       this.popups.splice(index, 1)
     }
 
     // 销毁弹窗（带动画）
-    popup.destroy()
+    await popup.destroy()
 
     // 重新排列所有弹窗
     this.repositionAll()
