@@ -1,4 +1,5 @@
 import NoticeManager from './NoticeManager'
+import PopupManager from './PopupManager'
 import UpdateNewFrame from './UpdateNewFrame'
 import MainPageFrame from './MainPageFrame'
 import PermissionNoticeFrame from './PermissionNoticeFrame'
@@ -14,6 +15,9 @@ import JsonToolFrame from './JsonToolFrame'
 export default class WindowFactory {
   /** 多通知管理器 */
   #noticeManager: NoticeManager | null = null
+
+  /** 统一弹窗管理器 */
+  #popupManager: PopupManager | null = null
 
   /** 新版更新窗口实例 */
   #updateNewFrame: UpdateNewFrame | null = null
@@ -45,6 +49,17 @@ export default class WindowFactory {
       this.#noticeManager = new NoticeManager()
     }
     return this.#noticeManager
+  }
+
+  /**
+   * 获取统一弹窗管理器
+   * @returns PopupManager 实例
+   */
+  getPopupManager(): PopupManager {
+    if (!this.#popupManager) {
+      this.#popupManager = new PopupManager()
+    }
+    return this.#popupManager
   }
 
   /**
@@ -208,6 +223,7 @@ export default class WindowFactory {
    * 销毁所有窗口
    */
   destroyAll(): void {
+    this.#popupManager?.destroyAll()
     this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.destroy()
     this.#mainPageFrame?.destroy()
@@ -222,6 +238,7 @@ export default class WindowFactory {
    * 关闭所有窗口（隐藏）
    */
   closeAll(): void {
+    this.#popupManager?.destroyAll()
     this.#noticeManager?.destroyAll()
     this.#updateNewFrame?.hide()
     this.#mainPageFrame?.close()

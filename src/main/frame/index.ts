@@ -13,5 +13,9 @@ export { default as MainPageFrame } from './MainPageFrame'
 export { default as PermissionNoticeFrame } from './PermissionNoticeFrame'
 export { default as JsonToolFrame } from './JsonToolFrame'
 
+// 统一弹窗管理器
+export { default as PopupManager } from './PopupManager'
+export type { NoticeOptions, NoticeType, ClaudeCodeStatus } from './PopupManager'
+
 // 窗口工厂
 export { default as WindowFactory, windowFactory } from './WindowFactory'
