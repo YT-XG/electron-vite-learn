@@ -118,6 +118,22 @@ class SearchService {
       icon: '⚙️',
       description: '应用设置',
       action: function () { windowFactory.getMainPageFrame().showAndPage('settings') }
+    },
+    {
+      id: 'json-tool',
+      name: 'JSON 工具',
+      aliases: ['json', 'json工具', '格式化'],
+      category: 'tool',
+      icon: '🔧',
+      description: 'JSON 格式化、压缩、转义、校验',
+      action: function () {
+        // 先隐藏主界面，再打开 JSON 工具窗口
+        const mainPage = windowFactory.getMainPageFrame()
+        if (mainPage.isAlive()) {
+          mainPage.close()
+        }
+        windowFactory.createJsonToolFrame().show()
+      }
     }
   ]
 

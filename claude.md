@@ -683,6 +683,7 @@ electron-vite-learn/
   | `download-manager` | 下载管理 | xiazai, 下载, download | 打开下载管理页面 |
   | `check-update` | 检查更新 | gx, 更新, update | 检查应用更新 |
   | `settings` | 设置 | sz, 设置, settings | 打开设置页面 |
+  | `json-tool` | JSON 工具 | json, json工具, 格式化 | JSON 格式化、压缩、转义、校验 |
 - **搜索匹配方式**（按优先级排序）：
   - 精确匹配：工具名称完全匹配
   - 前缀匹配：工具名称以查询词开头
@@ -718,6 +719,7 @@ electron-vite-learn/
   searchService.executeTool('download-manager')  // 打开下载管理
   searchService.executeTool('check-update')      // 检查更新
   searchService.executeTool('settings')          // 打开设置
+  searchService.executeTool('json-tool')         // 打开 JSON 工具
   ```
 
 ### 搜索框窗口 (src/main/frame/SearchBoxFrame.ts)

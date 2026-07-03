@@ -49,7 +49,24 @@
       </div>
 
       <!-- 收藏工具栏 -->
-      <div class="cm-toolbar" v-if="activeTab === 'favorites'">
+      <div class="cm-toolbar favorites-toolbar" v-if="activeTab === 'favorites'">
+        <div class="favorites-search-row">
+          <div class="search-wrapper">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16">
+              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" fill="none" stroke-width="1.5" />
+              <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+            <input
+              v-model="searchKeywordFavorites"
+              type="text"
+              class="search-input"
+              placeholder="搜索收藏内容或描述..."
+            />
+          </div>
+          <button class="btn toolbar-btn primary" @click="showAddDialog = true" title="手动添加收藏">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加
+          </button>
+        </div>
         <div class="category-filter">
           <button
             class="category-btn"
@@ -69,9 +86,6 @@
             <span class="cat-count">{{ cat.count }}</span>
           </button>
         </div>
-        <button class="btn toolbar-btn primary" @click="showAddDialog = true" title="手动添加收藏">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加
-        </button>
       </div>
 
       <!-- 加载状态 - 骨架屏 -->
@@ -109,9 +123,16 @@
           @click="copyItem(item.content)"
         >
           <div class="item-content">{{ item.content }}</div>
-          <div class="item-meta" v-if="activeTab === 'favorites' && 'category' in item && (item as FavoriteItem).category">
-            <span class="item-category">{{ (item as FavoriteItem).category }}</span>
-          </div>
+          <!-- 收藏卡片：展示分类和描述 -->
+          <template v-if="activeTab === 'favorites'">
+            <div class="fav-meta" v-if="(item as FavoriteItem).category || (item as FavoriteItem).description">
+              <span class="fav-category" v-if="(item as FavoriteItem).category">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                {{ (item as FavoriteItem).category }}
+              </span>
+              <span class="fav-description" v-if="(item as FavoriteItem).description">{{ (item as FavoriteItem).description }}</span>
+            </div>
+          </template>
           <div class="item-footer">
             <span class="item-time">{{ formatTime(item.created_at) }}</span>
             <div class="item-actions" @click.stop>
@@ -272,8 +293,11 @@ const categories = ref<CategoryItem[]>([])
 /** 选中的分类 */
 const selectedCategory = ref('')
 
-/** 搜索关键词 */
+/** 搜索关键词（历史记录） */
 const searchKeyword = ref('')
+
+/** 搜索关键词（收藏） */
+const searchKeywordFavorites = ref('')
 
 /** 加载状态 */
 const loading = ref(true)
@@ -305,11 +329,23 @@ const displayList = computed<DisplayItem[]>(() => {
     return historyList.value
   }
 
-  // 收藏列表：按分类筛选
+  // 收藏列表：按分类筛选 + 搜索关键词过滤（搜内容和描述）
+  let filtered = favoritesList.value
+
   if (selectedCategory.value) {
-    return favoritesList.value.filter((item) => item.category === selectedCategory.value)
+    filtered = filtered.filter((item) => item.category === selectedCategory.value)
   }
-  return favoritesList.value
+
+  if (searchKeywordFavorites.value) {
+    const kw = searchKeywordFavorites.value.toLowerCase()
+    filtered = filtered.filter(
+      (item) =>
+        item.content.toLowerCase().includes(kw) ||
+        (item.description && item.description.toLowerCase().includes(kw))
+    )
+  }
+
+  return filtered
 })
 
 /**
@@ -733,6 +769,23 @@ onUnmounted(() => {
   opacity: 0.7;
 }
 
+/* ========== 收藏工具栏（搜索 + 分类筛选） ========== */
+.favorites-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.favorites-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.favorites-search-row .search-wrapper {
+  flex: 1;
+}
+
 /* ========== 空状态 ========== */
 .cm-empty {
   flex: 1;
@@ -807,16 +860,41 @@ onUnmounted(() => {
   word-break: break-all;
 }
 
-.item-meta {
-  margin-top: 6px;
+/* ========== 收藏卡片元信息 ========== */
+.fav-meta {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.item-category {
+.fav-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
+  font-weight: 500;
   color: var(--accent);
   background: rgba(var(--accent-rgb), 0.08);
   padding: 2px 8px;
   border-radius: 10px;
+  white-space: nowrap;
+}
+
+.fav-category svg {
+  flex-shrink: 0;
+}
+
+.fav-description {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  /* 最多显示 2 行 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .item-footer {
