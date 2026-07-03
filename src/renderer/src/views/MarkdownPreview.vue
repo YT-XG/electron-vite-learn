@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
@@ -499,6 +499,12 @@ onMounted(() => {
     })
     activeTabId.value = newId
   })
+})
+
+onUnmounted(() => {
+  // 清理 IPC 监听器，防止内存泄漏
+  window.electron.ipcRenderer.removeAllListeners('broadcast:context-menu-action')
+  window.electron.ipcRenderer.removeAllListeners('to-renderer-MarkdownPreview:newTab')
 })
 </script>
 
