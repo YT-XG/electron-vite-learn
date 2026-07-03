@@ -1,6 +1,22 @@
+# Task 2: 创建 PopupManager 类
+
+**Files:**
+- Create: `src/main/frame/PopupManager.ts`
+
+**Interfaces:**
+- Consumes: `PopupItem` (from Task 1)
+- Produces: `PopupManager` 类，供 WindowFactory 和 claudeCodeService 使用
+
+## 任务描述
+
+创建 PopupManager 类，统一管理所有底部弹窗的位置和生命周期。
+
+## 完整代码
+
+```typescript
 // src/main/frame/PopupManager.ts
-import { BrowserWindow, screen } from 'electron'
-import PopupItem, { type PopupOptions } from './PopupItem'
+import { screen } from 'electron'
+import PopupItem, { type PopupOptions, type PopupType } from './PopupItem'
 import { getBottomMargin } from '../utils/platform'
 
 /** 通知类型 */
@@ -132,9 +148,6 @@ export default class PopupManager {
 
       this.claudeStatusPopup = popup
       this.popups.unshift(popup)
-
-      // 显示弹窗
-      window.showInactive()
     }
 
     // 重新排列所有弹窗位置
@@ -180,9 +193,6 @@ export default class PopupManager {
     this.permissionPopup = popup
     this.popups.unshift(popup)
 
-    // 显示弹窗
-    window.showInactive()
-
     // 重新排列所有弹窗位置
     this.repositionAll()
 
@@ -225,9 +235,6 @@ export default class PopupManager {
 
     // 添加到列表头部
     this.popups.unshift(popup)
-
-    // 显示弹窗
-    window.showInactive()
 
     // 重新排列所有弹窗位置
     this.repositionAll()
@@ -319,3 +326,15 @@ export default class PopupManager {
     return [...this.popups]
   }
 }
+```
+
+## 验证
+
+运行 `npm run typecheck` 确保无类型错误
+
+## 提交
+
+```bash
+git add src/main/frame/PopupManager.ts
+git commit -m "feat: add PopupManager for unified popup management"
+```

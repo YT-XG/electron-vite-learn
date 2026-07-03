@@ -586,6 +586,8 @@ class ClaudeCodeService {
       () => {
         const frame = new NoticeNewFrame()
         frame.create()
+        // 窗口创建后显示弹窗
+        frame.showAtBottomCenter().catch(() => {})
         return frame.getWindow()!
       },
       // 更新内容的回调函数
@@ -609,6 +611,8 @@ class ClaudeCodeService {
     const createWindowFn = (): BrowserWindow => {
       const frame = new NoticeNewFrame()
       frame.create()
+      // 窗口创建后显示弹窗
+      frame.showAtBottomCenter().catch(() => {})
       return frame.getWindow()!
     }
 

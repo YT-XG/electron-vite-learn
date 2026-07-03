@@ -55,15 +55,22 @@ export default class WindowFactory {
   showNotice(options: import('./PopupManager').NoticeOptions): void {
     const { text, showTranslate = false, duration = 5000, type = 'default' } = options
 
+    // 创建 NoticeNewFrame 实例
+    const frame = new NoticeNewFrame()
+    frame.setMsg(text, showTranslate, type)
+    frame.setDuration(duration)
+
     // 通过 PopupManager 管理弹窗生命周期
     this.getPopupManager().showNotice(
       () => {
-        const frame = new NoticeNewFrame()
         return frame.create()
       },
       { type: 'notice', width: 500, height: 60 },
       { text, showTranslate, duration, type }
     )
+
+    // 窗口创建后，显示弹窗
+    frame.showAtBottomCenter().catch(() => {})
   }
 
   /**
