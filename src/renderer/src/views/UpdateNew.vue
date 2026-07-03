@@ -409,13 +409,13 @@ onUnmounted(() => {
 
 /* 安装按钮 - 渐变绿色，区分下载按钮 */
 .btn-install {
-  background: linear-gradient(135deg, var(--success-color), #15803d);
+  background: linear-gradient(135deg, var(--success), #15803d);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+  box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.25);
 }
 
 .btn-install:hover {
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+  box-shadow: 0 4px 14px rgba(var(--success-rgb), 0.35);
   transform: translateY(-1px);
 }
 
