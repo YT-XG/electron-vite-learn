@@ -17,6 +17,7 @@ import semver from 'semver'
 import { settingsService } from '../service/settingsService'
 import { githubUpdateService, GitHubUpdateInfo } from '../service/githubUpdateService'
 import { getBottomMargin, isMacOS } from '../utils/platform'
+import { windowFactory } from './WindowFactory'
 
 /** 更新信息接口 */
 export interface UpdateInfo {
@@ -786,6 +787,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 计算屏幕底部居中位置
+   * @description 如果有通知弹窗存在，往上移动避免覆盖
    * @returns 窗口左上角坐标 { x, y }
    */
   #calcBottomCenterPosition(): { x: number; y: number } {
@@ -799,7 +801,16 @@ export default class UpdateNewFrame extends BaseFrame {
     const x = workArea.x + (workArea.width - popupW) / 2
     // 距底部 60px（macOS 会额外加上 Dock 高度）
     const bottomMargin = getBottomMargin(UpdateNewFrame.BOTTOM_MARGIN)
-    const y = workArea.y + workArea.height - popupH - bottomMargin
+    let y = workArea.y + workArea.height - popupH - bottomMargin
+
+    // 如果有通知弹窗存在，往上移动（每个通知 60px 高度 + 8px 间距）
+    const noticeManager = windowFactory.getNoticeManager()
+    const noticeCount = noticeManager.getCount()
+    if (noticeCount > 0) {
+      const noticeHeight = 60 // 通知弹窗高度
+      const noticeGap = 8 // 通知间距
+      y -= (noticeHeight + noticeGap) * noticeCount
+    }
 
     return { x: Math.round(x), y: Math.round(y) }
   }
