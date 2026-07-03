@@ -302,8 +302,12 @@ export default class MainPageFrame extends BaseFrame {
         // 窗口不存在，创建并等待加载完成后发送内容
         const win = mdFrame.create(true)
         win.webContents.on('did-finish-load', () => {
-          console.log('[MainPageFrame] Markdown window loaded, sending content...')
-          win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+          console.log('[MainPageFrame] Markdown window loaded, waiting for Vue mount...')
+          // 延迟 500ms 等待 Vue 组件挂载并注册 IPC 监听器
+          setTimeout(() => {
+            console.log('[MainPageFrame] Sending content to renderer...')
+            win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+          }, 500)
         })
       } else {
         // 窗口已存在，直接显示并发送内容
