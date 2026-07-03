@@ -7,7 +7,7 @@
         :class="{ active: activeTab === 'history' }"
         @click="switchTab('history')"
       >
-        <span class="tab-icon">📋</span>
+        <span class="tab-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
         <span class="tab-label">历史记录</span>
         <span class="tab-count" v-if="historyList.length">{{ historyList.length }}</span>
       </button>
@@ -16,7 +16,7 @@
         :class="{ active: activeTab === 'favorites' }"
         @click="switchTab('favorites')"
       >
-        <span class="tab-icon">⭐</span>
+        <span class="tab-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
         <span class="tab-label">收藏</span>
         <span class="tab-count" v-if="favoritesList.length">{{ favoritesList.length }}</span>
       </button>
@@ -44,7 +44,7 @@
           @click="confirmClearHistory"
           title="清空历史记录"
         >
-          🗑️ 清空
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 清空
         </button>
       </div>
 
@@ -70,7 +70,7 @@
           </button>
         </div>
         <button class="btn toolbar-btn primary" @click="showAddDialog = true" title="手动添加收藏">
-          ➕ 添加
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加
         </button>
       </div>
 
@@ -84,7 +84,10 @@
 
       <!-- 空状态 -->
       <div v-else-if="displayList.length === 0" class="cm-empty">
-        <div class="empty-icon">{{ activeTab === 'history' ? '📋' : '⭐' }}</div>
+        <div class="empty-icon">
+          <svg v-if="activeTab === 'history'" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          <svg v-else width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
         <div class="empty-text">
           {{ activeTab === 'history' ? '暂无历史记录' : '暂无收藏' }}
         </div>
@@ -118,7 +121,15 @@
                 @click="translateItem(item as HistoryItem)"
                 title="翻译"
               >
-                🌐
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </button>
+              <button
+                v-if="activeTab === 'history'"
+                class="action-btn edit-action"
+                @click="editInMarkdown(item as HistoryItem)"
+                title="在 Markdown 编辑器中编辑"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
               <button
                 v-if="activeTab === 'history'"
@@ -126,7 +137,7 @@
                 @click="quickFavorite(item as HistoryItem)"
                 title="收藏"
               >
-                ⭐
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               </button>
               <button
                 v-if="activeTab === 'favorites'"
@@ -134,10 +145,10 @@
                 @click="editFavorite(item as FavoriteItem)"
                 title="编辑"
               >
-                ✏️
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
               <button class="action-btn delete-btn" @click="deleteItem(item)" title="删除">
-                ✕
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
             </div>
           </div>
@@ -150,7 +161,6 @@
       <div class="dialog" @click.stop>
         <div class="dialog-header">
           <h3>{{ editingFavorite ? '编辑收藏' : '添加收藏' }}</h3>
-          <button class="dialog-close" @click="closeDialog">✕</button>
         </div>
         <div class="dialog-body">
           <div class="form-group">
@@ -378,6 +388,14 @@ const translateItem = (item: HistoryItem): void => {
 }
 
 /**
+ * 在 Markdown 编辑器中编辑剪贴板内容
+ * @param item - 历史记录项
+ */
+const editInMarkdown = (item: HistoryItem): void => {
+  window.electron.ipcRenderer.send('to-main-MarkdownPreview:openWithContent', item.content)
+}
+
+/**
  * 删除历史记录项
  * @param item - 记录项
  */
@@ -513,7 +531,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   overflow: hidden;
 }
 
@@ -541,11 +559,11 @@ onUnmounted(() => {
 }
 
 .cm-tab:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
 }
 
 .cm-tab.active {
-  background: linear-gradient(135deg, rgba(196, 96, 58, 0.06), rgba(212, 135, 74, 0.06));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.06), rgba(212, 135, 74, 0.06));
 }
 
 .cm-tab.active::after {
@@ -555,7 +573,7 @@ onUnmounted(() => {
   left: 20%;
   right: 20%;
   height: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   border-radius: 1px;
 }
 
@@ -578,7 +596,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   padding: 1px 6px;
   border-radius: 10px;
   min-width: 18px;
@@ -621,13 +639,13 @@ onUnmounted(() => {
   width: 100%;
   height: 36px;
   padding: 0 12px 0 36px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   font-size: 13px;
   color: var(--text-primary);
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
@@ -637,8 +655,8 @@ onUnmounted(() => {
 
 .search-input:focus {
   border-color: var(--accent);
-  background: var(--bg-primary);
-  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.08);
+  background: var(--bg-base);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 /* 工具栏按钮：继承共享 .btn 基类 */
@@ -649,7 +667,7 @@ onUnmounted(() => {
 }
 
 .toolbar-btn.primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   color: #fff;
   box-shadow: var(--btn-shadow-primary);
 }
@@ -661,7 +679,7 @@ onUnmounted(() => {
 
 .toolbar-btn.danger {
   background: var(--danger-bg);
-  color: var(--danger-color);
+  color: var(--danger);
   box-shadow: none;
 }
 
@@ -684,13 +702,13 @@ onUnmounted(() => {
 
 .category-btn {
   padding: 6px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   font-size: 12px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -703,7 +721,7 @@ onUnmounted(() => {
 }
 
 .category-btn.active {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   border-color: transparent;
   color: #fff;
 }
@@ -755,22 +773,22 @@ onUnmounted(() => {
 }
 
 .cm-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border);
   border-radius: 2px;
 }
 
 .cm-item {
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .cm-item:hover {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
+  background: var(--bg-surface);
+  border-color: var(--border);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
@@ -794,7 +812,7 @@ onUnmounted(() => {
 .item-category {
   font-size: 11px;
   color: var(--accent);
-  background: rgba(196, 96, 58, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -827,7 +845,7 @@ onUnmounted(() => {
   height: 26px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text-tertiary);
@@ -838,7 +856,7 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
@@ -849,7 +867,7 @@ onUnmounted(() => {
 
 .delete-btn:hover {
   background: var(--danger-bg);
-  color: var(--danger-color);
+  color: var(--danger);
 }
 
 .translate-action {
@@ -857,7 +875,15 @@ onUnmounted(() => {
 }
 
 .translate-action:hover {
-  background: rgba(196, 96, 58, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.edit-action {
+  color: var(--accent);
+}
+
+.edit-action:hover {
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 /* 减弱动效 */
@@ -874,7 +900,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -883,10 +909,10 @@ onUnmounted(() => {
 }
 
 .dialog {
-  background: var(--bg-glass);
+  background: var(--bg-elevated);
   backdrop-filter: blur(20px) saturate(1.3);
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 16px;
   width: 90%;
   max-width: 400px;
@@ -930,18 +956,18 @@ onUnmounted(() => {
   height: 28px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .dialog-close:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
@@ -973,20 +999,20 @@ onUnmounted(() => {
 }
 
 .required {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-primary);
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
@@ -999,7 +1025,7 @@ onUnmounted(() => {
 .form-input:focus,
 .form-textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(196, 96, 58, 0.08);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 .category-input-wrapper {
@@ -1020,17 +1046,17 @@ onUnmounted(() => {
 }
 
 .dialog-btn.cancel {
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   color: var(--text-secondary);
   box-shadow: none;
 }
 
 .dialog-btn.cancel:hover {
-  background: var(--border-color);
+  background: var(--border);
 }
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  background: var(--accent);
   color: #fff;
   box-shadow: var(--btn-shadow-primary);
 }
@@ -1048,14 +1074,14 @@ onUnmounted(() => {
 }
 
 .dialog-btn.danger {
-  background: var(--danger-color);
+  background: var(--danger);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+  box-shadow: 0 2px 8px rgba(var(--danger-rgb), 0.2);
 }
 
 .dialog-btn.danger:hover {
-  background: var(--danger-color);
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+  background: var(--danger);
+  box-shadow: 0 4px 14px rgba(var(--danger-rgb), 0.3);
   transform: translateY(-1px);
 }
 
@@ -1069,13 +1095,13 @@ onUnmounted(() => {
 .skeleton-item {
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   margin-bottom: 8px;
 }
 
 .skeleton-content {
   height: 40px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 6px;
   position: relative;
   overflow: hidden;
@@ -1097,7 +1123,7 @@ onUnmounted(() => {
 .skeleton-meta {
   height: 16px;
   width: 60px;
-  background: var(--bg-secondary);
+  background: var(--bg-surface);
   border-radius: 4px;
   margin-top: 8px;
   position: relative;
