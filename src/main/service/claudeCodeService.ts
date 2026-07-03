@@ -636,15 +636,8 @@ class ClaudeCodeService {
       case 'SessionStart':
         this.sessionCount++
         this.cancelHideTimer()
-        // 同时显示一个简短通知
-        popupManager.showNotice(createWindowFn, noticePopupOptions, {
-          text: '🟢 Claude Code 会话已开始',
-          duration: 3000
-        })
-        // 5 秒后自动隐藏状态通知
-        this.hideTimer = setTimeout(() => {
-          popupManager.hideClaudeStatus()
-        }, 5000)
+        // 显示常驻状态通知
+        popupManager.showClaudeStatus('running', undefined, createWindowFn, updateContentFn)
         break
 
       case 'SessionEnd':
