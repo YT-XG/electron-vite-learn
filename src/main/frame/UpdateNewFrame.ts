@@ -809,11 +809,14 @@ export default class UpdateNewFrame extends BaseFrame {
 
     // 如果有通知弹窗存在，往上移动（每个通知 60px 高度 + 8px 间距）
     const popupManager = windowFactory.getPopupManager()
-    const popupCount = popupManager.getPopupCount()
-    if (popupCount > 0) {
-      const noticeHeight = 60 // 通知弹窗高度
-      const noticeGap = 8 // 通知间距
-      y -= (noticeHeight + noticeGap) * popupCount
+    const popups = popupManager.getPopups()
+    if (popups.length > 0) {
+      // 计算所有弹窗的总高度
+      let totalHeight = 0
+      for (const popup of popups) {
+        totalHeight += popup.height + 8 // height + gap
+      }
+      y -= totalHeight
     }
 
     return { x: Math.round(x), y: Math.round(y) }

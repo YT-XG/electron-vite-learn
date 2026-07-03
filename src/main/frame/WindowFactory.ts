@@ -88,6 +88,34 @@ export default class WindowFactory {
   }
 
   /**
+   * 显示更新通知（通过 PopupManager 管理）
+   * @param data - 更新信息
+   */
+  async showUpdateNotice(data?: {
+    version?: string
+    description?: string
+    updateInfo?: import('./UpdateNewFrame').UpdateInfo
+  }): Promise<void> {
+    const frame = this.getUpdateNewFrame()
+
+    // 通过 PopupManager 管理弹窗生命周期
+    this.getPopupManager().showUpdateNotice(
+      () => {
+        // 如果窗口不存在，创建窗口
+        if (!frame.isAlive()) {
+          frame.create()
+        }
+        return frame.getWindow()!
+      },
+      { type: 'update', width: 380, height: 280 },
+      () => {
+        // 显示更新窗口
+        frame.showUpdate(data)
+      }
+    )
+  }
+
+  /**
    * 获取主页面窗口
    * @returns MainPageFrame 实例
    */
