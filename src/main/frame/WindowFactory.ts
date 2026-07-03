@@ -115,9 +115,9 @@ export default class WindowFactory {
         return frame.getWindow()!
       },
       { type: 'update', width: 380, height: 280 },
-      () => {
-        // 显示更新窗口
-        frame.showUpdate(data)
+      (_window, y) => {
+        // 显示更新窗口，使用 PopupManager 计算的位置
+        frame.showUpdateAtPosition(data, y)
       }
     )
   }

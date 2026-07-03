@@ -221,13 +221,13 @@ export default class PopupManager {
    * 显示更新通知
    * @param createWindowFn - 创建窗口的函数，返回 BrowserWindow
    * @param popupOptions - 弹窗配置
-   * @param showContentFn - 显示内容的函数
+   * @param showContentFn - 显示内容的函数，接收 window 和 y 坐标
    * @returns PopupItem 实例
    */
   showUpdateNotice(
     createWindowFn: () => BrowserWindow,
     popupOptions: PopupOptions,
-    showContentFn: (window: BrowserWindow) => void
+    showContentFn: (window: BrowserWindow, y: number) => void
   ): PopupItem {
     // 如果已达到上限，销毁最早的弹窗
     if (this.popups.length >= this.MAX_POPUPS) {
@@ -239,13 +239,12 @@ export default class PopupManager {
     const window = createWindowFn()
     const popup = new PopupItem(popupOptions, window)
 
-    showContentFn(window)
-
     // 添加到列表头部
     this.popups.unshift(popup)
 
-    // 显示弹窗
-    window.showInactive()
+    // 计算位置并显示
+    const targetY = this.calcY(0) // 更新弹窗在最底部
+    showContentFn(window, targetY)
 
     // 重新排列所有弹窗位置
     this.repositionAll()

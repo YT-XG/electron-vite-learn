@@ -874,36 +874,51 @@ export default class UpdateNewFrame extends BaseFrame {
     updateInfo?: UpdateInfo
   }): Promise<void> {
     const pos = this.#calcBottomCenterPosition()
-    const display = screen.getPrimaryDisplay()
-    const { workArea, bounds } = display
-    // macOS 需要加上 Dock 高度
-    const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
-    const screenHeight = workArea.height + workArea.y + dockHeight
+    await this.showUpdateAtPosition(data, pos.y)
+  }
 
-    // 起始位置：屏幕底部外（窗口完全隐藏在底部）
+  /**
+   * 在指定位置显示更新窗口
+   * @description 使用 PopupManager 计算的位置显示更新窗口
+   * @param data - 更新信息
+   * @param targetY - 目标 Y 坐标
+   */
+  async showUpdateAtPosition(data: {
+    version?: string
+    description?: string
+    updateInfo?: UpdateInfo
+  } | undefined, targetY: number): Promise<void> {
+    const display = screen.getPrimaryDisplay()
+    const { workArea } = display
+
+    // 水平居中
+    const x = workArea.x + (workArea.width - UpdateNewFrame.POPUP_WIDTH) / 2
+
+    // 起始位置：屏幕底部外
+    const screenHeight = workArea.height + workArea.y
     const startY = screenHeight + 10
 
     if (!this.isAlive()) {
       // 窗口不存在 → 创建并播放弹出动画
       this.create()
-      this.window!.setPosition(pos.x, startY)
+      this.window!.setPosition(x, startY)
       this.window!.show()
       this.#isShowing = true
 
       // 播放弹出动画：从底部外滑入到目标位置
-      await this.#animateWindow(startY, pos.y, 400)
+      await this.#animateWindow(startY, targetY, 400)
 
       if (data) {
         this.sendOne('to-renderer-UpdateNewFrame:info', data)
       }
     } else {
       // 窗口已存在（隐藏状态）→ 定位 + 播放弹出动画 + 发送数据
-      this.window!.setPosition(pos.x, startY)
+      this.window!.setPosition(x, startY)
       this.window!.show()
       this.#isShowing = true
 
       // 播放弹出动画
-      await this.#animateWindow(startY, pos.y, 400)
+      await this.#animateWindow(startY, targetY, 400)
 
       if (data) {
         this.sendOne('to-renderer-UpdateNewFrame:info', data)
