@@ -612,14 +612,19 @@ class ClaudeCodeService {
       const frame = new NoticeNewFrame()
       // 设置为持久通知，不自动销毁
       frame.setMsg('', false, 'default', true)
+      // 设置鼠标穿透
       frame.create()
+      frame.getWindow()!.setIgnoreMouseEvents(true, { forward: true })
       return frame.getWindow()!
     }
 
     /** 更新 NoticeNewFrame 内容的回调函数 */
     const updateContentFn = (window: BrowserWindow, text: string, type: NoticeType): void => {
-      // 直接通过 IPC 发送消息到渲染进程
-      window.webContents.send('to-renderer-NoticeNewFrame:sendMsg', text, false, false, false, type, true)
+      // 检查窗口是否存活且渲染进程已就绪
+      if (window && !window.isDestroyed() && window.webContents) {
+        // 直接通过 IPC 发送消息到渲染进程
+        window.webContents.send('to-renderer-NoticeNewFrame:sendMsg', text, false, false, false, type, true)
+      }
     }
 
     /** 普通通知弹窗配置 */

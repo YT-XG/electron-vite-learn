@@ -317,8 +317,8 @@ export default class UpdateNewFrame extends BaseFrame {
         updateInfo.msg = `发现新版本 v${githubInfo.version}（已缓存）`
       }
 
-      // 显示更新窗口
-      await this.showUpdate({ version: githubInfo.version, updateInfo })
+      // 显示更新窗口（通过 PopupManager 管理）
+      await windowFactory.showUpdateNotice({ version: githubInfo.version, updateInfo })
       return updateInfo
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -438,8 +438,8 @@ export default class UpdateNewFrame extends BaseFrame {
         this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
       }
 
-      // 显示更新窗口
-      await this.showUpdate({ version: remoteVersion, updateInfo })
+      // 显示更新窗口（通过 PopupManager 管理）
+      await windowFactory.showUpdateNotice({ version: remoteVersion, updateInfo })
       return updateInfo
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
