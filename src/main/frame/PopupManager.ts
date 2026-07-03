@@ -139,13 +139,20 @@ export default class PopupManager {
         window
       )
 
-      updateContentFn(window, text, 'default')
-
       this.claudeStatusPopup = popup
       this.popups.unshift(popup)
 
-      // 显示弹窗
-      window.showInactive()
+      // 等待渲染进程就绪后发送消息并显示窗口
+      window.webContents.once('did-finish-load', () => {
+        updateContentFn(window, text, 'default')
+        window.showInactive()
+      })
+
+      // 如果渲染进程已经就绪，直接发送消息
+      if (window.webContents.isLoading() === false) {
+        updateContentFn(window, text, 'default')
+        window.showInactive()
+      }
     }
 
     // 重新排列所有弹窗位置

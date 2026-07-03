@@ -613,8 +613,6 @@ class ClaudeCodeService {
       // 设置为持久通知，不自动销毁
       frame.setMsg('', false, 'default', true)
       frame.create()
-      // 窗口创建后显示弹窗
-      frame.showAtBottomCenter().catch(() => {})
       return frame.getWindow()!
     }
 
