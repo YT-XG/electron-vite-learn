@@ -26,11 +26,6 @@ export const AppRoutes = [
     component: () => import('@renderer/views/PermissionNotice.vue')
   },
   {
-    path: '/claudeCodeStatus',
-    name: 'Claude Code 状态',
-    component: () => import('@renderer/views/ClaudeCodeStatus.vue')
-  },
-  {
     path: '/searchBox',
     name: '搜索框',
     component: () => import('@renderer/views/SearchBox.vue')

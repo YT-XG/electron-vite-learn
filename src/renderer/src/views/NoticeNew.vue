@@ -2,13 +2,18 @@
   <div class="notice-container">
     <div
       class="notice-border"
-      :class="[{ 'scale-in': isVisible }, `notice-${noticeType}`]"
+      :class="[{ 'scale-in': isVisible }, `notice-${noticeType}`, { 'notice-persistent': isPersistent }]"
       @mouseenter="onCardEnter"
       @mouseleave="onCardLeave"
     >
       <div class="notice-card">
+        <!-- Claude 标识（仅持久通知显示） -->
+        <div v-if="isPersistent" class="claude-badge">
+          <span class="claude-icon">Claude</span>
+        </div>
         <span class="notice-text">{{ msg }}</span>
-        <div v-if="showOpenLink || showTranslate || showJsonTool" class="btn-group">
+        <!-- 按钮组（持久通知不显示按钮） -->
+        <div v-if="!isPersistent && (showOpenLink || showTranslate || showJsonTool)" class="btn-group">
           <button v-if="showJsonTool" class="json-btn" @click="openJsonTool" title="在 JSON 工具中打开">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/>
@@ -50,6 +55,9 @@ const showJsonTool = ref(false)
 /** 通知类型 */
 const noticeType = ref<'default' | 'success' | 'error' | 'warning'>('default')
 
+/** 是否为持久通知（Claude Code 状态通知） */
+const isPersistent = ref(false)
+
 /** 是否可见（触发入场缩放动画） */
 const isVisible = ref(false)
 
@@ -60,13 +68,15 @@ const isVisible = ref(false)
  * @param openLink - 是否显示打开链接按钮
  * @param jsonTool - 是否显示 JSON 工具按钮
  * @param type - 通知类型
+ * @param persistent - 是否为持久通知
  */
-const setMsg = (data: string, translate = false, openLink = false, jsonTool = false, type: 'default' | 'success' | 'error' | 'warning' = 'default') => {
+const setMsg = (data: string, translate = false, openLink = false, jsonTool = false, type: 'default' | 'success' | 'error' | 'warning' = 'default', persistent = false) => {
   msg.value = data
   showTranslate.value = translate
   showOpenLink.value = openLink
   showJsonTool.value = jsonTool
   noticeType.value = type
+  isPersistent.value = persistent
 }
 
 /**
@@ -115,8 +125,8 @@ onMounted(() => {
   // 监听主进程发送的消息
   window.electron.ipcRenderer.on(
     'to-renderer-NoticeNewFrame:sendMsg',
-    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean, type: 'default' | 'success' | 'error' | 'warning') => {
-      setMsg(data, translate, openLink, jsonTool, type)
+    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean, type: 'default' | 'success' | 'error' | 'warning', persistent: boolean) => {
+      setMsg(data, translate, openLink, jsonTool, type, persistent)
       // 下一帧触发 CSS 缩放动画（从 scale(0.2) → scale(1)）
       nextTick(() => {
         isVisible.value = true
@@ -216,6 +226,46 @@ onMounted(() => {
     #d97706,
     #f59e0b
   );
+}
+
+/* 持久通知样式 - 蓝紫渐变边框 */
+.notice-persistent::before {
+  background: conic-gradient(
+    from var(--border-angle),
+    #667eea,
+    #764ba2,
+    #667eea,
+    #5a67d8,
+    #667eea,
+    #764ba2,
+    #667eea
+  );
+}
+
+/* 持久通知卡片 */
+.notice-persistent .notice-card {
+  padding: 0 16px;
+  gap: 0;
+}
+
+/* Claude 标识容器 */
+.claude-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+  border-radius: 12px;
+  padding: 2px 10px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+/* Claude 标识文本 */
+.claude-icon {
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.5px;
 }
 
 /* 入场动画触发：缩放到正常大小并显现 */

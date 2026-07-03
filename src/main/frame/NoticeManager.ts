@@ -1,11 +1,27 @@
 // src/main/frame/NoticeManager.ts
 import { screen } from 'electron'
 import NoticeNewFrame from './NoticeNewFrame'
-import ClaudeCodeStatusFrame, { type ClaudeCodeStatus } from './ClaudeCodeStatusFrame'
 import { getBottomMargin } from '../utils/platform'
 
 /** 通知类型 */
 export type NoticeType = 'default' | 'success' | 'error' | 'warning'
+
+/** Claude Code 状态类型 */
+export type ClaudeCodeStatus =
+  | 'running' // 🟢 会话运行中
+  | 'thinking' // 💭 思考中...
+  | 'executing' // ⚡ 执行任务中
+  | 'waiting_permission' // ⏳ 等待权限确认
+  | 'completed' // ✅ 任务完成
+
+/** 状态配置映射 */
+const STATUS_CONFIG: Record<ClaudeCodeStatus, { icon: string; text: string }> = {
+  running: { icon: '🟢', text: 'Claude Code 会话运行中' },
+  thinking: { icon: '💭', text: '思考中...' },
+  executing: { icon: '⚡', text: '执行任务中' },
+  waiting_permission: { icon: '⏳', text: '等待权限确认' },
+  completed: { icon: '✅', text: '任务完成' }
+}
 
 /** 通知配置选项 */
 export interface NoticeOptions {
@@ -40,18 +56,26 @@ export default class NoticeManager {
   /** 当前存活的通知实例列表（索引 0 = 最新，越往后越旧） */
   private notices: NoticeNewFrame[] = []
 
-  /** Claude Code 常驻状态通知实例 */
-  private claudeCodeStatusFrame: ClaudeCodeStatusFrame | null = null
+  /** 持久通知实例（Claude Code 状态通知） */
+  private persistentNotice: NoticeNewFrame | null = null
 
-  /** Claude Code 状态通知是否正在显示 */
-  private claudeCodeStatusVisible = false
+  /** 持久通知是否正在显示 */
+  private persistentNoticeVisible = false
 
   /**
    * 显示一个新通知
    * @param options - 通知配置
+   * @param isPersistent - 是否为持久通知，默认 false
    */
-  show(options: NoticeOptions): void {
+  show(options: NoticeOptions, isPersistent = false): void {
     const { text, showTranslate = false, duration = 5000, type = 'default' } = options
+
+    // 持久通知：如果已存在，只更新内容
+    if (isPersistent && this.persistentNotice) {
+      this.persistentNotice.setMsg(text, false, type, true)
+      this.persistentNotice.showAtBottomCenter()
+      return
+    }
 
     // 如果已达到上限，销毁最早的（最上面的）通知
     if (this.notices.length >= this.MAX_NOTICES) {
@@ -66,38 +90,42 @@ export default class NoticeManager {
       this.removeNotice(notice)
     }
 
-    // 设置消息和时长（setMsg 会自动检测 URL 并设置 showOpenLink）
-    notice.setMsg(text, showTranslate, type)
+    // 设置消息和时长
+    notice.setMsg(text, showTranslate, type, isPersistent)
     notice.setDuration(duration)
 
-    // 插入到列表头部（最新）
-    this.notices.unshift(notice)
+    if (isPersistent) {
+      // 持久通知单独管理
+      this.persistentNotice = notice
+      this.persistentNoticeVisible = true
+    } else {
+      // 普通通知插入到列表头部
+      this.notices.unshift(notice)
+    }
 
     // 重新排列所有通知位置
     this.repositionAll()
 
-    // 显示新通知（在底部位置）
-    notice.showAtBottomCenter().catch(() => {
-      // Window creation failed, notice will be cleaned up by onDestroyCallback
-    })
+    // 显示通知
+    notice.showAtBottomCenter().catch(() => {})
   }
 
   /**
    * 重新计算所有通知位置并平滑移动
-   * @description Claude Code 状态通知作为堆叠最顶部元素参与计算
+   * @description 持久通知始终在最顶部，普通通知从底部开始堆叠
    */
   private repositionAll(): void {
-    // 先重排普通通知
+    // 持久通知始终在最顶部（索引 = notices.length）
+    if (this.persistentNoticeVisible && this.persistentNotice) {
+      const statusY = this.calcY(this.notices.length)
+      this.persistentNotice.moveTo(statusY, true)
+    }
+
+    // 普通通知从底部开始堆叠
     for (let i = 0; i < this.notices.length; i++) {
       const notice = this.notices[i]
       const targetY = this.calcY(i)
       notice.moveTo(targetY, true)
-    }
-
-    // Claude Code 状态通知放在堆叠最顶部（索引 = notices.length）
-    if (this.claudeCodeStatusVisible && this.claudeCodeStatusFrame) {
-      const statusY = this.calcY(this.notices.length)
-      this.claudeCodeStatusFrame.moveTo(statusY, true)
     }
   }
 
@@ -121,23 +149,39 @@ export default class NoticeManager {
    * @param notice - 要移除的通知实例
    */
   private removeNotice(notice: NoticeNewFrame): void {
+    // 如果是持久通知，清空引用
+    if (notice === this.persistentNotice) {
+      this.persistentNotice = null
+      this.persistentNoticeVisible = false
+    }
+
     const index = this.notices.indexOf(notice)
     if (index !== -1) {
       this.notices.splice(index, 1)
-      // 重新排列剩余通知
-      this.repositionAll()
     }
+
+    // 重新排列所有通知
+    this.repositionAll()
   }
 
   /**
    * 销毁所有通知
    */
   destroyAll(): void {
+    // 销毁普通通知
     for (const notice of this.notices) {
       notice.onDestroyCallback = null
       notice.destroy()
     }
     this.notices = []
+
+    // 销毁持久通知（Claude Code 状态通知）
+    if (this.persistentNotice) {
+      this.persistentNotice.onDestroyCallback = null
+      this.persistentNotice.destroy()
+      this.persistentNotice = null
+      this.persistentNoticeVisible = false
+    }
   }
 
   /**
@@ -151,43 +195,14 @@ export default class NoticeManager {
 
   /**
    * 显示 Claude Code 状态通知
-   * @description 状态通知作为堆叠最顶部元素，位于所有普通通知之上
+   * @description 状态通知作为持久通知，始终在最顶部，不自动销毁
    * @param status - 状态类型
    * @param customText - 自定义状态文本（可选）
    */
   showClaudeCodeStatus(status: ClaudeCodeStatus, customText?: string): void {
-    if (!this.claudeCodeStatusFrame) {
-      this.claudeCodeStatusFrame = new ClaudeCodeStatusFrame()
-      this.claudeCodeStatusFrame.onDestroyCallback = () => {
-        this.claudeCodeStatusFrame = null
-        this.claudeCodeStatusVisible = false
-      }
-    }
-
-    this.claudeCodeStatusFrame.updateStatus(status, customText)
-    this.claudeCodeStatusVisible = true
-
-    // 计算初始位置：放在当前通知堆叠的顶部
-    const initialY = this.calcY(this.notices.length)
-    this.claudeCodeStatusFrame.show(initialY)
-  }
-
-  /**
-   * 隐藏 Claude Code 状态通知（带淡出动画）
-   * @description 隐藏后将下方普通通知向上移动填补空位
-   * @param delay - 延迟隐藏时间（毫秒），默认 0
-   */
-  hideClaudeCodeStatus(delay = 0): void {
-    if (this.claudeCodeStatusFrame) {
-      this.claudeCodeStatusVisible = false
-      this.claudeCodeStatusFrame.hideWithAnimation(delay)
-
-      // 淡出动画结束后重排普通通知
-      const animDuration = 300
-      setTimeout(() => {
-        this.repositionAll()
-      }, delay + animDuration)
-    }
+    const config = STATUS_CONFIG[status]
+    const text = customText || config.text
+    this.show({ text, duration: 0 }, true) // duration=0 表示不自动销毁
   }
 
   /**
@@ -196,23 +211,21 @@ export default class NoticeManager {
    * @param customText - 自定义状态文本（可选）
    */
   updateClaudeCodeStatus(status: ClaudeCodeStatus, customText?: string): void {
-    if (this.claudeCodeStatusFrame) {
-      this.claudeCodeStatusFrame.updateStatus(status, customText)
+    if (this.persistentNotice) {
+      const config = STATUS_CONFIG[status]
+      const text = customText || config.text
+      this.persistentNotice.setMsg(text, false, 'default', true)
+      this.persistentNotice.showAtBottomCenter()
     }
   }
 
   /**
-   * 销毁 Claude Code 状态通知
-   * @description 销毁后重排普通通知
+   * 隐藏 Claude Code 状态通知（带淡出动画）
+   * @description 隐藏后将下方普通通知向上移动填补空位
    */
-  destroyClaudeCodeStatus(): void {
-    if (this.claudeCodeStatusFrame) {
-      this.claudeCodeStatusFrame.onDestroyCallback = null
-      this.claudeCodeStatusFrame.destroy()
-      this.claudeCodeStatusFrame = null
-      this.claudeCodeStatusVisible = false
-      // 重排普通通知，填补空位
-      this.repositionAll()
+  hideClaudeCodeStatus(): void {
+    if (this.persistentNotice) {
+      this.persistentNotice.destroy()
     }
   }
 }

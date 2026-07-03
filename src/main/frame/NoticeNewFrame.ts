@@ -45,6 +45,12 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 动画帧 ID（仅用于收起动画） */
   #animationFrameId: ReturnType<typeof setTimeout> | null = null
 
+  /** 是否为持久通知（Claude Code 状态通知） */
+  #isPersistent = false
+
+  /** 是否已显示（持久通知复用同一实例） */
+  #isShown = false
+
   /** 消息是否已发送给渲染进程（避免窗口未加载时 send 丢失） */
   #msgSent = false
 
@@ -115,11 +121,13 @@ export default class NoticeNewFrame extends BaseFrame {
    * @param data - 通知文本内容
    * @param showTranslate - 是否显示翻译按钮，默认 false
    * @param type - 通知类型，默认 'default'
+   * @param isPersistent - 是否为持久通知，默认 false
    */
-  setMsg(data: string, showTranslate = false, type: NoticeType = 'default') {
+  setMsg(data: string, showTranslate = false, type: NoticeType = 'default', isPersistent = false) {
     this.#msg = data
     this.#showTranslate = showTranslate
     this.#type = type
+    this.#isPersistent = isPersistent
     // 自动检测链接并设置显示打开链接按钮
     this.#showOpenLink = NoticeNewFrame.#containsUrl(data)
     // 自动检测 JSON 格式并设置显示 JSON 工具按钮
@@ -161,7 +169,8 @@ export default class NoticeNewFrame extends BaseFrame {
           this.#showTranslate,
           this.#showOpenLink,
           this.#showJsonTool,
-          this.#type
+          this.#type,
+          this.#isPersistent  // 新增参数
         )
       }
       await this.showAtBottomCenter()
@@ -276,10 +285,29 @@ export default class NoticeNewFrame extends BaseFrame {
    * 在屏幕底部居中显示通知弹窗
    * @description 定位 → 发送消息 → 显示窗口（CSS 处理入场放大动画）
    *              支持重复调用：窗口销毁后会自动重建
+   *              持久通知：如果已显示，只更新内容，不重新创建
    */
   async showAtBottomCenter(): Promise<void> {
-    // 清除之前的自动销毁定时器
-    this.#clearDestroyTimer()
+    // 持久通知：如果已显示，只更新内容，不重新创建
+    if (this.#isPersistent && this.#isShown) {
+      if (this.isAlive()) {
+        this.sendOne(
+          'to-renderer-NoticeNewFrame:sendMsg',
+          this.#msg,
+          this.#showTranslate,
+          this.#showOpenLink,
+          this.#showJsonTool,
+          this.#type,
+          this.#isPersistent  // 新增参数
+        )
+      }
+      return
+    }
+
+    // 非持久通知：清除定时器
+    if (!this.#isPersistent) {
+      this.#clearDestroyTimer()
+    }
 
     const pos = this.#calcBottomCenterPosition()
 
@@ -297,7 +325,8 @@ export default class NoticeNewFrame extends BaseFrame {
         this.#showTranslate,
         this.#showOpenLink,
         this.#showJsonTool,
-        this.#type
+        this.#type,
+        this.#isPersistent  // 新增参数
       )
       this.#msgSent = true
     }
@@ -313,10 +342,15 @@ export default class NoticeNewFrame extends BaseFrame {
     // 显示窗口（不抢占焦点，避免影响搜索框等前台窗口）
     this.window!.showInactive()
 
-    // 启动自动销毁定时器（使用实例级 duration）
-    this.#destroyTimer = setTimeout(() => {
-      this.destroy()
-    }, this.#duration)
+    // 持久通知：标记已显示，不启动自动销毁定时器
+    if (this.#isPersistent) {
+      this.#isShown = true
+    } else {
+      // 启动自动销毁定时器（使用实例级 duration）
+      this.#destroyTimer = setTimeout(() => {
+        this.destroy()
+      }, this.#duration)
+    }
   }
 
   /**
@@ -369,6 +403,22 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
+   * 获取是否为持久通知
+   * @returns 是否为持久通知
+   */
+  isPersistent(): boolean {
+    return this.#isPersistent
+  }
+
+  /**
+   * 获取是否已显示（持久通知复用判断）
+   * @returns 是否已显示
+   */
+  isShown(): boolean {
+    return this.#isShown
+  }
+
+  /**
    * 清除自动销毁定时器
    */
   #clearDestroyTimer(): void {
@@ -398,6 +448,8 @@ export default class NoticeNewFrame extends BaseFrame {
 
     // 重置消息发送状态，下次 showAtBottomCenter 时重新创建窗口并发送消息
     this.#msgSent = false
+    // 重置持久通知状态
+    this.#isShown = false
 
     super.destroy()
   }

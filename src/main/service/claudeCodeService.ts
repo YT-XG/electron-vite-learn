@@ -800,7 +800,7 @@ class ClaudeCodeService {
     this.cancelHideTimer()
     this.stopServer()
     // 销毁状态通知窗口
-    windowFactory.getNoticeManager().destroyClaudeCodeStatus()
+    windowFactory.getNoticeManager().hideClaudeCodeStatus()
     log.info('[ClaudeCode] 服务已销毁')
   }
 }

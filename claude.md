@@ -23,7 +23,6 @@ electron-vite-learn/
 │   │       ├── NoticeNewFrame.ts   # 通知弹窗（底部居中，支持翻译按钮）
 │   │       ├── NoticeManager.ts    # 通知管理器（多通知堆叠、自定义时长、移动动画）
 │   │       ├── PermissionNoticeFrame.ts # 权限确认弹窗（Claude Code 权限请求交互）
-│   │       ├── ClaudeCodeStatusFrame.ts # Claude Code 状态通知（常驻状态条）
 │   │       ├── UpdateNewFrame.ts # 更新窗口（底部居中弹出，含局域网更新逻辑）
 │   │       ├── MainPageFrame.ts  # 主页面窗口（无边框，屏幕正中心显示）
 │   │       ├── SearchBoxFrame.ts  # 搜索框窗口（全局搜索，快捷键呼出）
@@ -65,7 +64,6 @@ electron-vite-learn/
 │           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 收藏）
 │           │   ├── Translate.vue    # 翻译页面
 │           │   ├── PermissionNotice.vue # 权限确认弹窗（Claude Code 权限请求交互）
-│           │   ├── ClaudeCodeStatus.vue # Claude Code 状态通知（常驻状态条）
 │           │   ├── SearchBox.vue    # 搜索框组件（全局搜索）
 │           │   ├── MarkdownPreview.vue # Markdown 预览组件（多标签页分屏）
 │           │   ├── ContextMenu.vue  # 右键菜单组件（Markdown 编辑器菜单）
@@ -168,7 +166,7 @@ electron-vite-learn/
   ```
 
 ### 通知弹窗 (src/main/frame/NoticeNewFrame.ts)
-- **职责**: 底部居中弹出的通知提示窗口，支持翻译按钮和打开链接按钮
+- **职责**: 底部居中弹出的通知提示窗口，支持翻译按钮、打开链接按钮和 Claude Code 状态通知
 - **功能**:
   - 窗口宽度固定为屏幕宽度（透明背景），给渲染进程更多扩展空间
   - 通知卡片在窗口内居中显示，宽度根据文字内容自动适应（160px~500px）
@@ -181,6 +179,7 @@ electron-vite-learn/
   - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
   - **翻译按钮**：仅剪贴板复制文字时显示，其他通知（如检查更新）不显示
   - **打开链接按钮**：自动检测文本中是否包含链接，如果包含则显示打开链接按钮（绿色渐变）
+  - **Claude Code 状态通知**：通过 `isPersistent` 属性支持持久通知模式，显示 "Claude" 标识，不自动销毁
 - **IPC 接口**:
   - `to-main-NoticeNewFrame:ready` - 渲染进程已就绪，触发消息发送
   - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（包含 showTranslate、showOpenLink 参数）
@@ -220,6 +219,7 @@ electron-vite-learn/
   - 每个通知可自定义显示时长
   - 超过上限时自动销毁最早的通知
   - **Claude Code 状态管理**: 管理常驻状态通知的显示/更新/隐藏/销毁
+  - **持久通知特殊堆叠**: 持久通知始终显示在最顶部，不受普通通知上限限制
 - **IPC 接口**: 无（内部管理，不直接暴露 IPC）
 - **使用方式**:
   ```typescript
