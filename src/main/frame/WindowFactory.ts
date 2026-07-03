@@ -44,6 +44,13 @@ export default class WindowFactory {
   getPopupManager(): PopupManager {
     if (!this.#popupManager) {
       this.#popupManager = new PopupManager()
+      // 设置弹窗数量变化回调，让 UpdateNewFrame 重新定位
+      this.#popupManager.setOnPopupCountChange(() => {
+        const updateFrame = this.getUpdateNewFrame()
+        if (updateFrame.isAlive() && updateFrame.isShowing()) {
+          updateFrame.reposition()
+        }
+      })
     }
     return this.#popupManager
   }

@@ -58,6 +58,17 @@ export default class PopupManager {
   /** 权限请求弹窗（特殊管理，单例） */
   private permissionPopup: PopupItem | null = null
 
+  /** 弹窗数量变化回调函数 */
+  private onPopupCountChange: (() => void) | null = null
+
+  /**
+   * 设置弹窗数量变化回调函数
+   * @param callback - 回调函数
+   */
+  setOnPopupCountChange(callback: () => void): void {
+    this.onPopupCountChange = callback
+  }
+
   // ========== 显示方法 ==========
 
   /**
@@ -263,6 +274,11 @@ export default class PopupManager {
       const popup = this.popups[i]
       const targetY = this.calcY(i)
       popup.moveTo(targetY, true)
+    }
+
+    // 通知 UpdateNewFrame 重新定位
+    if (this.onPopupCountChange) {
+      this.onPopupCountChange()
     }
   }
 

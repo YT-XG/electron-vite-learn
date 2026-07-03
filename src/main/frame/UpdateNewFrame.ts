@@ -974,6 +974,14 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
+   * 获取是否正在显示
+   * @returns 是否正在显示
+   */
+  isShowing(): boolean {
+    return this.#isShowing
+  }
+
+  /**
    * 平滑移动窗口到目标 Y 坐标
    * @param targetY - 目标 Y 坐标
    * @param animated - 是否使用动画，默认 true
