@@ -124,9 +124,6 @@ export default class WindowFactory {
       this.#markdownPreviewFrame.onDestroyCallback = () => {
         this.#markdownPreviewFrame = null
       }
-      // 设置实例引用并注册 IPC
-      MarkdownPreviewFrame.setInstance(this.#markdownPreviewFrame)
-      MarkdownPreviewFrame.registerOpenWithContentIPC()
     }
     return this.#markdownPreviewFrame
   }

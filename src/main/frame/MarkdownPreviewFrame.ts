@@ -20,9 +20,6 @@ export default class MarkdownPreviewFrame extends BaseFrame {
   /** 最小高度 */
   static readonly MIN_HEIGHT = 400
 
-  /** MarkdownPreviewFrame 实例引用（用于 openWithContent IPC） */
-  static #instance: MarkdownPreviewFrame | null = null
-
   /** 窗口配置 - 透明无边框，与渲染进程大小一致 */
   protected readonly options: BrowserWindowConstructorOptions = {
     width: MarkdownPreviewFrame.WIDTH,
@@ -45,75 +42,10 @@ export default class MarkdownPreviewFrame extends BaseFrame {
   /** 是否已注册 IPC */
   static #ipcRegistered = false
 
-  /** 是否已注册 openWithContent IPC（独立于窗口生命周期） */
-  static #openWithContentRegistered = false
-
-  /**
-   * 设置实例引用
-   * @description 由 WindowFactory 调用，确保静态方法可以访问实例
-   */
-  static setInstance(instance: MarkdownPreviewFrame): void {
-    MarkdownPreviewFrame.#instance = instance
-  }
-
-  /**
-   * 注册 openWithContent IPC 处理器（独立于窗口生命周期）
-   * @description 在应用启动时调用，确保 IPC 在窗口创建前就已注册
-   */
-  static registerOpenWithContentIPC(): void {
-    if (MarkdownPreviewFrame.#openWithContentRegistered) {
-      return
-    }
-
-    console.log('[MarkdownPreviewFrame] Registering openWithContent IPC...')
-
-    // 从剪贴板打开并填充内容
-    ipcMain.on('to-main-MarkdownPreview:openWithContent', (_event, content: string) => {
-      console.log('[MarkdownPreviewFrame] Received openWithContent IPC, content length:', content.length)
-
-      const instance = MarkdownPreviewFrame.#instance
-      if (!instance) {
-        console.error('[MarkdownPreviewFrame] No instance available')
-        return
-      }
-
-      console.log('[MarkdownPreviewFrame] Window alive:', instance.isAlive())
-
-      // 如果窗口未创建，先创建并等待加载完成
-      if (!instance.isAlive()) {
-        console.log('[MarkdownPreviewFrame] Creating new window...')
-        const win = instance.create(true)
-        // 等待页面加载完成后再发送内容
-        win.webContents.on('did-finish-load', () => {
-          console.log('[MarkdownPreviewFrame] Window did-finish-load, sending content...')
-          if (instance.window && !instance.window.isDestroyed()) {
-            instance.window.webContents.send('to-renderer-MarkdownPreview:newTab', content)
-            console.log('[MarkdownPreviewFrame] Content sent to renderer')
-          }
-        })
-      } else {
-        console.log('[MarkdownPreviewFrame] Window already exists, showing...')
-        instance.show()
-        // 窗口已存在，直接发送内容
-        instance.window!.webContents.send('to-renderer-MarkdownPreview:newTab', content)
-        console.log('[MarkdownPreviewFrame] Content sent to renderer')
-      }
-    })
-
-    MarkdownPreviewFrame.#openWithContentRegistered = true
-    console.log('[MarkdownPreviewFrame] openWithContent IPC registered')
-  }
-
   /**
    * 创建窗口，同时预加载右键菜单窗口
    */
   create(autoShow = false): import('electron').BrowserWindow {
-    // 保存实例引用
-    MarkdownPreviewFrame.#instance = this
-
-    // 注册 openWithContent IPC（首次创建窗口时）
-    MarkdownPreviewFrame.registerOpenWithContentIPC()
-
     const win = super.create(autoShow)
 
     // 预加载右键菜单窗口，避免右键时等待
