@@ -54,6 +54,9 @@ app.whenReady().then(async () => {
   // 初始化下载服务（多线程下载）
   downloadService.init()
 
+  // 预注册 Markdown 预览窗口的 openWithContent IPC
+  windowFactory.getMarkdownPreviewFrame()
+
   // 注册全局快捷键 Ctrl+K 呼出搜索框
   globalShortcut.register('CommandOrControl+K', () => {
     windowFactory.getSearchBoxFrame().toggle()
