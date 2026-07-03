@@ -48,6 +48,18 @@ export default class JsonToolFrame extends BaseFrame {
       }
     })
 
+    // 最大化/还原窗口
+    this.recvOne('to-main-JsonTool:toggleMaximize', (event) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender)
+      if (senderWindow && !senderWindow.isDestroyed()) {
+        if (senderWindow.isMaximized()) {
+          senderWindow.unmaximize()
+        } else {
+          senderWindow.maximize()
+        }
+      }
+    })
+
     // 打开文件 - 弹出文件选择对话框，读取选中的 JSON 文件
     this.recvTwo('to-main-JsonTool:openFile', async () => {
       const result = await dialog.showOpenDialog({

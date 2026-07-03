@@ -20,6 +20,11 @@
             <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" />
           </svg>
         </button>
+        <button class="control-btn maximize-btn" @click="toggleMaximize" title="最大化">
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none" />
+          </svg>
+        </button>
         <button class="control-btn close-btn" @click="close" title="关闭">
           <svg width="12" height="12" viewBox="0 0 12 12">
             <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5" />
@@ -139,6 +144,13 @@ const isDragOver = ref(false)
  */
 const minimize = (): void => {
   window.electron.ipcRenderer.send('to-main-JsonTool:minimize')
+}
+
+/**
+ * 最大化/还原窗口
+ */
+const toggleMaximize = (): void => {
+  window.electron.ipcRenderer.send('to-main-JsonTool:toggleMaximize')
 }
 
 /**
@@ -383,6 +395,8 @@ onUnmounted(() => {
   background: var(--bg-base);
   overflow: hidden;
   position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--border);
 }
 
 /* 顶部渐变色条 */
@@ -440,6 +454,11 @@ onUnmounted(() => {
 .control-btn:hover {
   background: var(--accent-light);
   color: var(--text-primary);
+}
+
+.maximize-btn:hover {
+  background: var(--success);
+  color: white;
 }
 
 .close-btn:hover {
