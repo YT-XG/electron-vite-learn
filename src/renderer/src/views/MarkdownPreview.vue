@@ -501,6 +501,9 @@ onMounted(() => {
     activeTabId.value = newId
     console.log('[MarkdownPreview] New tab created, tabId:', newId)
   })
+
+  // 通知主进程渲染进程已就绪
+  window.electron.ipcRenderer.send('to-main-MarkdownPreview:ready')
 })
 
 onUnmounted(() => {

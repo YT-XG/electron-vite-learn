@@ -1,4 +1,4 @@
-import { app, BrowserWindow, BrowserWindowConstructorOptions, screen } from 'electron'
+import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
 
@@ -299,16 +299,22 @@ export default class MainPageFrame extends BaseFrame {
       // 获取或创建 Markdown 预览窗口
       const mdFrame = windowFactory.getMarkdownPreviewFrame()
       if (!mdFrame.isAlive()) {
-        // 窗口不存在，创建并等待加载完成后发送内容
+        // 窗口不存在，创建并等待 ready 信号后发送内容
         const win = mdFrame.create(true)
-        win.webContents.on('did-finish-load', () => {
-          console.log('[MainPageFrame] Markdown window loaded, waiting for Vue mount...')
-          // 延迟 500ms 等待 Vue 组件挂载并注册 IPC 监听器
-          setTimeout(() => {
-            console.log('[MainPageFrame] Sending content to renderer...')
+        // 一次性监听 ready 信号
+        const readyHandler = (): void => {
+          console.log('[MainPageFrame] Markdown renderer ready, sending content...')
+          win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
+        }
+        ipcMain.once('to-main-MarkdownPreview:ready', readyHandler)
+        // 超时保护：如果 3 秒内没收到 ready，仍然发送内容
+        setTimeout(() => {
+          ipcMain.removeListener('to-main-MarkdownPreview:ready', readyHandler)
+          if (!win.isDestroyed()) {
+            console.log('[MainPageFrame] Timeout, sending content anyway...')
             win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
-          }, 500)
-        })
+          }
+        }, 3000)
       } else {
         // 窗口已存在，直接显示并发送内容
         mdFrame.show()
