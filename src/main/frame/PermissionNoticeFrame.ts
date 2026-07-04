@@ -126,10 +126,9 @@ export default class PermissionNoticeFrame extends BaseFrame {
 
   /**
    * 在屏幕底部居中显示权限确认窗口
+   * @param targetY - 可选的目标 Y 坐标（由 PopupManager 计算），不传则自行计算
    */
-  async showAtBottomCenter(): Promise<void> {
-    const pos = this.#calcBottomCenterPosition()
-
+  async showAtBottomCenter(targetY?: number): Promise<void> {
     if (!this.isAlive()) {
       // 窗口不存在 → 创建新窗口
       this.#msgSent = false
@@ -144,7 +143,9 @@ export default class PermissionNoticeFrame extends BaseFrame {
       }
     }
 
-    // 定位
+    // 定位到目标 Y 坐标（由 PopupManager 计算）
+    const basePos = this.#calcBottomCenterPosition()
+    const pos = targetY !== undefined ? { x: basePos.x, y: targetY } : basePos
     this.window!.setBounds({
       x: pos.x,
       y: pos.y,
@@ -157,42 +158,13 @@ export default class PermissionNoticeFrame extends BaseFrame {
   }
 
   /**
-   * 平滑移动窗口到目标 Y 坐标
+   * 移动窗口到目标 Y 坐标（不再自驱动动画，由 PopupManager 帧循环驱动）
    * @param targetY - 目标 Y 坐标
-   * @param animated - 是否使用动画，默认 true
    */
-  moveTo(targetY: number, animated = true): void {
+  moveTo(targetY: number): void {
     if (!this.isAlive()) return
-
-    if (!animated) {
-      const [x] = this.window!.getPosition()
-      this.window!.setPosition(x, targetY)
-      return
-    }
-
-    const [x, startY] = this.window!.getPosition()
-    if (startY === targetY) return
-
-    const duration = 300
-    const startTime = Date.now()
-
-    const animate = (): void => {
-      if (!this.isAlive()) return
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-
-      // easeOutCubic 缓动函数：先快后慢，自然停止
-      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-      const currentY = Math.round(startY + (targetY - startY) * easeOutCubic)
-
-      this.window!.setPosition(x, currentY)
-
-      if (progress < 1) {
-        setTimeout(animate, 8)
-      }
-    }
-
-    animate()
+    const [x] = this.window!.getPosition()
+    this.window!.setPosition(x, targetY)
   }
 
   /**

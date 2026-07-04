@@ -42,9 +42,6 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 自动销毁定时器 */
   #destroyTimer: ReturnType<typeof setTimeout> | null = null
 
-  /** 动画帧 ID（仅用于收起动画） */
-  #animationFrameId: ReturnType<typeof setTimeout> | null = null
-
   /** 是否为持久通知（Claude Code 状态通知） */
   #isPersistent = false
 
@@ -238,50 +235,6 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
-   * 执行窗口收起动画（向下滑出）
-   * @description 窗口向下滑出屏幕
-   * @param duration - 动画时长（毫秒）
-   * @returns Promise 动画完成后 resolve
-   */
-  #animateSlideDown(duration: number = 250): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.#animationFrameId) {
-        clearTimeout(this.#animationFrameId)
-      }
-
-      const startTime = Date.now()
-      const [x, startY] = this.window!.getPosition()
-
-      // 目标位置：屏幕底部外（考虑 macOS Dock）
-      const display = screen.getPrimaryDisplay()
-      const { workArea, bounds } = display
-      const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
-      const screenHeight = workArea.height + workArea.y + dockHeight
-      const targetY = screenHeight + 10
-
-      const animate = (): void => {
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
-
-        // 缓动函数：easeInCubic - 先慢后快，自然离开
-        const easeInCubic = progress * progress * progress
-        const currentY = Math.round(startY + (targetY - startY) * easeInCubic)
-
-        this.window!.setPosition(x, currentY)
-
-        if (progress < 1) {
-          this.#animationFrameId = setTimeout(animate, 8)
-        } else {
-          this.#animationFrameId = null
-          resolve()
-        }
-      }
-
-      animate()
-    })
-  }
-
-  /**
    * 在屏幕底部居中显示通知弹窗
    * @description 定位 → 发送消息 → 显示窗口（CSS 处理入场放大动画）
    *              支持重复调用：窗口销毁后会自动重建
@@ -299,29 +252,22 @@ export default class NoticeNewFrame extends BaseFrame {
           this.#showOpenLink,
           this.#showJsonTool,
           this.#type,
-          this.#isPersistent  // 新增参数
+          this.#isPersistent
         )
       }
       return
     }
 
-    // 非持久通知：清除定时器
+    // 非持久通知：清除之前的定时器
     if (!this.#isPersistent) {
       this.#clearDestroyTimer()
     }
 
-    // 使用传入的 Y 坐标（PopupManager 计算），或自行计算
-    const basePos = this.#calcBottomCenterPosition()
-    const pos = targetY !== undefined ? { x: basePos.x, y: targetY } : basePos
-
     if (!this.isAlive()) {
-      // 窗口不存在 → 创建新窗口（IPC handler 会在页面加载后补发消息）
       this.#msgSent = false
       this.create()
-      // 设置鼠标穿透：透明区域可点击，forward 保证渲染进程能收到 mousemove 事件
       this.window!.setIgnoreMouseEvents(true, { forward: true })
     } else {
-      // 窗口已存在 → 直接发送消息
       this.sendOne(
         'to-renderer-NoticeNewFrame:sendMsg',
         this.#msg,
@@ -329,12 +275,14 @@ export default class NoticeNewFrame extends BaseFrame {
         this.#showOpenLink,
         this.#showJsonTool,
         this.#type,
-        this.#isPersistent  // 新增参数
+        this.#isPersistent
       )
       this.#msgSent = true
     }
 
-    // 定位到屏幕底部（窗口宽度固定为屏幕宽度）
+    // 定位到目标 Y 坐标（由 PopupManager 计算）
+    const basePos = this.#calcBottomCenterPosition()
+    const pos = targetY !== undefined ? { x: basePos.x, y: targetY } : basePos
     this.window!.setBounds({
       x: pos.x,
       y: pos.y,
@@ -342,14 +290,14 @@ export default class NoticeNewFrame extends BaseFrame {
       height: NoticeNewFrame.POPUP_HEIGHT
     })
 
-    // 显示窗口（不抢占焦点，避免影响搜索框等前台窗口）
+    // 显示窗口（不抢占焦点）
     this.window!.showInactive()
 
     // 持久通知：标记已显示，不启动自动销毁定时器
     if (this.#isPersistent) {
       this.#isShown = true
     } else {
-      // 启动自动销毁定时器（使用实例级 duration）
+      // 启动自动销毁定时器（但实际销毁由 PopupManager 的定时器管理）
       this.#destroyTimer = setTimeout(() => {
         this.destroy()
       }, this.#duration)
@@ -357,42 +305,14 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
-   * 平滑移动窗口到目标 Y 坐标
+   * 移动窗口到目标 Y 坐标（不再自驱动动画，由 PopupManager 帧循环驱
+动）
    * @param targetY - 目标 Y 坐标
-   * @param animated - 是否使用动画，默认 true
    */
-  moveTo(targetY: number, animated = true): void {
+  moveTo(targetY: number): void {
     if (!this.isAlive()) return
-
-    if (!animated) {
-      const [x] = this.window!.getPosition()
-      this.window!.setPosition(x, targetY)
-      return
-    }
-
-    const [x, startY] = this.window!.getPosition()
-    if (startY === targetY) return
-
-    const duration = 300
-    const startTime = Date.now()
-
-    const animate = (): void => {
-      if (!this.isAlive()) return
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-
-      // 缓动函数：easeOutCubic - 先快后慢，自然停止
-      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-      const currentY = Math.round(startY + (targetY - startY) * easeOutCubic)
-
-      this.window!.setPosition(x, currentY)
-
-      if (progress < 1) {
-        setTimeout(animate, 8)
-      }
-    }
-
-    animate()
+    const [x] = this.window!.getPosition()
+    this.window!.setPosition(x, targetY)
   }
 
   /**
@@ -432,28 +352,13 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
-   * 销毁窗口（附带收起动画和清理定时器）
-   * @description 向下滑出后销毁窗口
+   * 销毁窗口（清理定时器并重置状态，不再自驱动收起动画）
    */
   async destroy(): Promise<void> {
     this.#clearDestroyTimer()
-
-    if (this.isAlive()) {
-      // 播放向下滑出动画
-      await this.#animateSlideDown(250)
-    }
-
-    // 清理动画帧
-    if (this.#animationFrameId) {
-      clearTimeout(this.#animationFrameId)
-      this.#animationFrameId = null
-    }
-
-    // 重置消息发送状态，下次 showAtBottomCenter 时重新创建窗口并发送消息
+    // 重置状态
     this.#msgSent = false
-    // 重置持久通知状态
     this.#isShown = false
-
     super.destroy()
   }
 }
