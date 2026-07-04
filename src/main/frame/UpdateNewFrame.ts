@@ -881,14 +881,15 @@ export default class UpdateNewFrame extends BaseFrame {
   /**
    * 在指定位置显示更新窗口
    * @description 使用 PopupManager 计算的位置显示更新窗口
+   *   PopupManager 的 #tick 驱动入场动画，此处仅定位到底部外并显示
    * @param data - 更新信息
-   * @param targetY - 目标 Y 坐标
+   * @param _targetY - 目标 Y 坐标（由 PopupManager #tick 驱动）
    */
   async showUpdateAtPosition(data: {
     version?: string
     description?: string
     updateInfo?: UpdateInfo
-  } | undefined, targetY: number): Promise<void> {
+  } | undefined, _targetY: number): Promise<void> {
     const display = screen.getPrimaryDisplay()
     const { workArea } = display
 
@@ -900,26 +901,20 @@ export default class UpdateNewFrame extends BaseFrame {
     const startY = screenHeight + 10
 
     if (!this.isAlive()) {
-      // 窗口不存在 → 创建并播放弹出动画
+      // 窗口不存在 → 创建并定位到底部外（入场动画由 PopupManager #tick 驱动）
       this.create()
       this.window!.setPosition(x, startY)
       this.window!.show()
       this.#isShowing = true
 
-      // 播放弹出动画：从底部外滑入到目标位置
-      await this.#animateWindow(startY, targetY, 400)
-
       if (data) {
         this.sendOne('to-renderer-UpdateNewFrame:info', data)
       }
     } else {
-      // 窗口已存在（隐藏状态）→ 定位 + 播放弹出动画 + 发送数据
+      // 窗口已存在（隐藏状态）→ 定位到底部外并显示
       this.window!.setPosition(x, startY)
       this.window!.show()
       this.#isShowing = true
-
-      // 播放弹出动画
-      await this.#animateWindow(startY, targetY, 400)
 
       if (data) {
         this.sendOne('to-renderer-UpdateNewFrame:info', data)

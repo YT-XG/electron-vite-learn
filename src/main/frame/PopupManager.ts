@@ -265,18 +265,19 @@ export default class PopupManager {
     // 插入到列表头部
     this.popups.unshift(popup)
 
-    // 入口动画：预先设置 targetY + 动画参数，repositionAll 会跳过（targetY 已匹配）
+    // 先调用 showContentFn 将窗口定位到屏幕底部外（startY）
+    // 这样才能正确捕获动画起始位置
+    showContentFn(window, targetY)
+
+    // 再捕获动画起始位置（此时窗口已在 screenHeight + 10）
     // 帧循环 #tick 会驱动从下方到 targetY 的入场动画
     popup.targetY = targetY
-    popup.animStartY = popup.getY() // 窗口初始位置已由 Frame 设在 screenHeight+10
+    popup.animStartY = popup.getY()
     popup.animStartTime = Date.now()
     popup.animDuration = 400 // 入场动画稍长
 
     // 重新排列已有弹窗
     this.repositionAll()
-
-    // 通知调用方显示内容和位置
-    showContentFn(window, targetY)
 
     return popup
   }
@@ -340,6 +341,12 @@ export default class PopupManager {
     const activePopups = this.popups.filter((p) => !p.isDestroying)
     for (const popup of activePopups) {
       if (popup.animDuration <= 0) continue // 未在动画中
+
+      // 检查窗口是否被外部销毁
+      if (!popup.window || popup.window.isDestroyed()) {
+        popup.animDuration = 0
+        continue
+      }
 
       const elapsed = Date.now() - popup.animStartTime
       const progress = Math.min(elapsed / popup.animDuration, 1)
