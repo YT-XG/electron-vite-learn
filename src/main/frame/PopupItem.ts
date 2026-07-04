@@ -167,4 +167,11 @@ export default class PopupItem {
   isAlive(): boolean {
     return !this.#isDestroying && this.window !== null && !this.window.isDestroyed()
   }
+
+  /**
+   * 标记弹窗为销毁状态（由 PopupManager.removePopup 调用）
+   */
+  markDestroying(): void {
+    this.#isDestroying = true
+  }
 }

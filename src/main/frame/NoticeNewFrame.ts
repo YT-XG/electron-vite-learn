@@ -286,8 +286,9 @@ export default class NoticeNewFrame extends BaseFrame {
    * @description 定位 → 发送消息 → 显示窗口（CSS 处理入场放大动画）
    *              支持重复调用：窗口销毁后会自动重建
    *              持久通知：如果已显示，只更新内容，不重新创建
+   * @param targetY - 可选的目标 Y 坐标（由 PopupManager 计算），不传则自行计算
    */
-  async showAtBottomCenter(): Promise<void> {
+  async showAtBottomCenter(targetY?: number): Promise<void> {
     // 持久通知：如果已显示，只更新内容，不重新创建
     if (this.#isPersistent && this.#isShown) {
       if (this.isAlive()) {
@@ -309,7 +310,9 @@ export default class NoticeNewFrame extends BaseFrame {
       this.#clearDestroyTimer()
     }
 
-    const pos = this.#calcBottomCenterPosition()
+    // 使用传入的 Y 坐标（PopupManager 计算），或自行计算
+    const basePos = this.#calcBottomCenterPosition()
+    const pos = targetY !== undefined ? { x: basePos.x, y: targetY } : basePos
 
     if (!this.isAlive()) {
       // 窗口不存在 → 创建新窗口（IPC handler 会在页面加载后补发消息）

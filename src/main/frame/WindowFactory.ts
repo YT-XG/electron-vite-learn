@@ -44,13 +44,6 @@ export default class WindowFactory {
   getPopupManager(): PopupManager {
     if (!this.#popupManager) {
       this.#popupManager = new PopupManager()
-      // 设置弹窗数量变化回调，让 UpdateNewFrame 重新定位
-      this.#popupManager.setOnPopupCountChange(() => {
-        const updateFrame = this.getUpdateNewFrame()
-        if (updateFrame.isAlive() && updateFrame.isShowing()) {
-          updateFrame.reposition()
-        }
-      })
     }
     return this.#popupManager
   }
@@ -67,8 +60,8 @@ export default class WindowFactory {
     frame.setMsg(text, showTranslate, type)
     frame.setDuration(duration)
 
-    // 通过 PopupManager 管理弹窗生命周期
-    this.getPopupManager().showNotice(
+    // 通过 PopupManager 管理弹窗生命周期，获取计算好的目标 Y 坐标
+    const { targetY } = this.getPopupManager().showNotice(
       () => {
         return frame.create()
       },
@@ -76,8 +69,8 @@ export default class WindowFactory {
       { text, showTranslate, duration, type }
     )
 
-    // 窗口创建后，显示弹窗
-    frame.showAtBottomCenter().catch(() => {})
+    // 使用 PopupManager 计算的 Y 坐标显示弹窗（避免重复计算位置）
+    frame.showAtBottomCenter(targetY).catch(() => {})
   }
 
   /**

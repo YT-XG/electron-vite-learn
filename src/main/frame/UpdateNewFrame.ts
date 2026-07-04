@@ -18,6 +18,7 @@ import { settingsService } from '../service/settingsService'
 import { githubUpdateService, GitHubUpdateInfo } from '../service/githubUpdateService'
 import { getBottomMargin, isMacOS } from '../utils/platform'
 import { windowFactory } from './WindowFactory'
+import { POPUP_GAP } from './PopupManager'
 
 /** 更新信息接口 */
 export interface UpdateInfo {
@@ -807,14 +808,14 @@ export default class UpdateNewFrame extends BaseFrame {
     const bottomMargin = getBottomMargin(UpdateNewFrame.BOTTOM_MARGIN)
     let y = workArea.y + workArea.height - popupH - bottomMargin
 
-    // 如果有通知弹窗存在，往上移动（每个通知 60px 高度 + 8px 间距）
+    // 如果有通知弹窗存在，往上移动（每个通知高度 + gap 间距）
     const popupManager = windowFactory.getPopupManager()
     const popups = popupManager.getPopups()
     if (popups.length > 0) {
       // 计算所有弹窗的总高度
       let totalHeight = 0
       for (const popup of popups) {
-        totalHeight += popup.height + 8 // height + gap
+        totalHeight += popup.height + POPUP_GAP
       }
       y -= totalHeight
     }
