@@ -21,9 +21,6 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 窗口底部距屏幕边缘的间距（像素） */
   private static readonly BOTTOM_MARGIN = 60
 
-  /** 显示时长（毫秒），默认 5000 */
-  #duration = 5000
-
   /** 待发送的消息 */
   #msg = ''
 
@@ -39,14 +36,14 @@ export default class NoticeNewFrame extends BaseFrame {
   /** 通知类型 */
   #type: NoticeType = 'default'
 
-  /** 自动销毁定时器 */
-  #destroyTimer: ReturnType<typeof setTimeout> | null = null
-
   /** 是否为持久通知（Claude Code 状态通知） */
   #isPersistent = false
 
   /** 是否已显示（持久通知复用同一实例） */
   #isShown = false
+
+  /** 最后一次由 PopupManager 设定的 Y 坐标 */
+  #lastTargetY?: number
 
   /** 消息是否已发送给渲染进程（避免窗口未加载时 send 丢失） */
   #msgSent = false
@@ -133,14 +130,6 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
-   * 设置显示时长
-   * @param ms - 显示时长（毫秒）
-   */
-  setDuration(ms: number): void {
-    this.#duration = ms
-  }
-
-  /**
    * 创建窗口
    * @param autoShow - 是否自动显示，默认 false
    * @returns 窗口实例
@@ -170,7 +159,8 @@ export default class NoticeNewFrame extends BaseFrame {
           this.#isPersistent  // 新增参数
         )
       }
-      await this.showAtBottomCenter()
+      // 使用缓存的 lastTargetY 避免覆盖 PopupManager 的定位
+      await this.showAtBottomCenter(this.#lastTargetY)
     })
 
     // 鼠标进入通知卡片区域：临时关闭鼠标穿透，允许按钮交互
@@ -258,11 +248,6 @@ export default class NoticeNewFrame extends BaseFrame {
       return
     }
 
-    // 非持久通知：清除之前的定时器
-    if (!this.#isPersistent) {
-      this.#clearDestroyTimer()
-    }
-
     if (!this.isAlive()) {
       this.#msgSent = false
       this.create()
@@ -283,6 +268,9 @@ export default class NoticeNewFrame extends BaseFrame {
     // 定位到目标 Y 坐标（由 PopupManager 计算）
     const basePos = this.#calcBottomCenterPosition()
     const pos = targetY !== undefined ? { x: basePos.x, y: targetY } : basePos
+    if (targetY !== undefined) {
+      this.#lastTargetY = targetY // 缓存目标位置，供 ready 处理器使用
+    }
     this.window!.setBounds({
       x: pos.x,
       y: pos.y,
@@ -293,15 +281,11 @@ export default class NoticeNewFrame extends BaseFrame {
     // 显示窗口（不抢占焦点）
     this.window!.showInactive()
 
-    // 持久通知：标记已显示，不启动自动销毁定时器
+    // 持久通知：标记已显示
     if (this.#isPersistent) {
       this.#isShown = true
-    } else {
-      // 启动自动销毁定时器（但实际销毁由 PopupManager 的定时器管理）
-      this.#destroyTimer = setTimeout(() => {
-        this.destroy()
-      }, this.#duration)
     }
+    // 不再设置自动销毁定时器，由 PopupManager 管理生命周期
   }
 
   /**
@@ -342,21 +326,9 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
-   * 清除自动销毁定时器
-   */
-  #clearDestroyTimer(): void {
-    if (this.#destroyTimer) {
-      clearTimeout(this.#destroyTimer)
-      this.#destroyTimer = null
-    }
-  }
-
-  /**
-   * 销毁窗口（清理定时器并重置状态，不再自驱动收起动画）
+   * 销毁窗口（重置状态，不再自驱动收起动画）
    */
   async destroy(): Promise<void> {
-    this.#clearDestroyTimer()
-    // 重置状态
     this.#msgSent = false
     this.#isShown = false
     super.destroy()

@@ -58,7 +58,6 @@ export default class WindowFactory {
     // 创建 NoticeNewFrame 实例
     const frame = new NoticeNewFrame()
     frame.setMsg(text, showTranslate, type)
-    frame.setDuration(duration)
 
     // 通过 PopupManager 管理弹窗生命周期，获取计算好的目标 Y 坐标
     const { targetY } = this.getPopupManager().showNotice(
