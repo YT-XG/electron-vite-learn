@@ -1,5 +1,4 @@
-import { BrowserWindow, screen } from 'electron'
-import { isMacOS } from '../utils/platform'
+import { BrowserWindow } from 'electron'
 
 /** 弹窗类型 */
 export type PopupType = 'notice' | 'permission' | 'update'
@@ -42,11 +41,34 @@ export default class PopupItem {
   /** 创建时间（用于排序） */
   readonly createdAt: number
 
-  /** 动画帧 ID */
-  #animationFrameId: ReturnType<typeof setTimeout> | null = null
-
   /** 隐藏动画定时器 */
   #hideTimer: ReturnType<typeof setTimeout> | null = null
+
+  /** 目标 Y 坐标（由 PopupManager 设置） */
+  targetY = 0
+
+  /** 动画起始 Y 坐标 */
+  animStartY = 0
+
+  /** 动画开始时间戳 */
+  animStartTime = 0
+
+  /** 动画时长（毫秒），0 表示不在动画中 */
+  animDuration = 0
+
+  /** 销毁目标 Y 坐标（屏幕底部外，由 PopupManager 设置） */
+  destroyingTargetY = 0
+
+  /** 是否正在销毁中（动画播放期间为 true，用于 repositionAll 跳过） */
+  #isDestroying = false
+
+  /**
+   * 是否正在销毁中
+   * @description 从调用 destroy() 开始到动画完成，此标记为 true
+   */
+  get isDestroying(): boolean {
+    return this.#isDestroying
+  }
 
   /**
    * 构造函数
@@ -64,130 +86,52 @@ export default class PopupItem {
   }
 
   /**
-   * 移动到目标 Y 坐标
+   * 直接移动到目标 Y 坐标（不再做动画，动画由 PopupManager 驱动）
    * @param targetY - 目标 Y 坐标
-   * @param animated - 是否使用动画，默认 true
+   * @param _animated - 保留参数以兼容调用方，已无实际作用
    */
-  moveTo(targetY: number, animated = true): void {
+  moveTo(targetY: number, _animated?: boolean): void {
     if (!this.window || this.window.isDestroyed()) return
-
-    if (!animated) {
-      const [x] = this.window.getPosition()
-      this.window.setPosition(x, targetY)
-      return
-    }
-
-    const [x, startY] = this.window.getPosition()
-    if (startY === targetY) return
-
-    // 清除之前的动画
-    if (this.#animationFrameId) {
-      clearTimeout(this.#animationFrameId)
-    }
-
-    const duration = 300
-    const startTime = Date.now()
-
-    const animate = (): void => {
-      if (!this.window || this.window.isDestroyed()) return
-
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-
-      // easeOutCubic 缓动函数：先快后慢，自然停止
-      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-      const currentY = Math.round(startY + (targetY - startY) * easeOutCubic)
-
-      this.window.setPosition(x, currentY)
-
-      if (progress < 1) {
-        this.#animationFrameId = setTimeout(animate, 8)
-      } else {
-        this.#animationFrameId = null
-      }
-    }
-
-    animate()
+    const [x] = this.window.getPosition()
+    this.window.setPosition(x, targetY)
   }
 
   /**
-   * 执行窗口收起动画（向下滑出）
-   * @param duration - 动画时长（毫秒）
-   * @returns Promise 动画完成后 resolve
-   */
-  animateSlideDown(duration = 250): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.window || this.window.isDestroyed()) {
-        resolve()
-        return
-      }
-
-      // 清除之前的动画
-      if (this.#animationFrameId) {
-        clearTimeout(this.#animationFrameId)
-      }
-
-      const startTime = Date.now()
-      const [x, startY] = this.window.getPosition()
-
-      // 目标位置：屏幕底部外
-      const display = screen.getPrimaryDisplay()
-      const { workArea, bounds } = display
-      const dockHeight = isMacOS()
-        ? bounds.y + bounds.height - (workArea.y + workArea.height)
-        : 0
-      const screenHeight = workArea.height + workArea.y + dockHeight
-      const targetY = screenHeight + 10
-
-      const animate = (): void => {
-        if (!this.window || this.window.isDestroyed()) {
-          resolve()
-          return
-        }
-
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
-
-        // easeInCubic 缓动函数：先慢后快，自然离开
-        const easeInCubic = progress * progress * progress
-        const currentY = Math.round(startY + (targetY - startY) * easeInCubic)
-
-        this.window.setPosition(x, currentY)
-
-        if (progress < 1) {
-          this.#animationFrameId = setTimeout(animate, 8)
-        } else {
-          this.#animationFrameId = null
-          resolve()
-        }
-      }
-
-      animate()
-    })
-  }
-
-  /**
-   * 销毁弹窗（带收起动画）
-   * @returns Promise 动画完成后 resolve
+   * 销毁弹窗（不播动画，动画由 PopupManager 前置完成）
    */
   async destroy(): Promise<void> {
+    this.#isDestroying = true
     // 清除定时器
     if (this.#hideTimer) {
       clearTimeout(this.#hideTimer)
       this.#hideTimer = null
     }
+    this.#cleanupWindow()
+  }
 
-    // 播放收起动画
+  /**
+   * 立即销毁弹窗（不播放动画）
+   * @description 用于 destroyAll 等需要同步清理的场景
+   */
+  destroyImmediate(): void {
+    this.#isDestroying = true
+    // 清除定时器
+    if (this.#hideTimer) {
+      clearTimeout(this.#hideTimer)
+      this.#hideTimer = null
+    }
+    // 立即销毁窗口
     if (this.window && !this.window.isDestroyed()) {
-      await this.animateSlideDown(250)
+      this.window.destroy()
     }
+    this.window = null
+  }
 
-    // 清理动画帧
-    if (this.#animationFrameId) {
-      clearTimeout(this.#animationFrameId)
-      this.#animationFrameId = null
-    }
-
+  /**
+   * 清理窗口资源
+   * @description 动画结束后调用，销毁窗口并释放引用
+   */
+  #cleanupWindow(): void {
     // 销毁窗口
     if (this.window && !this.window.isDestroyed()) {
       this.window.destroy()
@@ -206,10 +150,21 @@ export default class PopupItem {
   }
 
   /**
+   * 仅设置窗口 Y 坐标，不做动画
+   * @param y - 目标 Y 坐标
+   */
+  setPositionY(y: number): void {
+    if (!this.window || this.window.isDestroyed()) return
+    const [x] = this.window.getPosition()
+    this.window.setPosition(x, y)
+  }
+
+  /**
    * 检查窗口是否存活
+   * @description 正在销毁中的弹窗也视为不存活
    * @returns 窗口是否存活
    */
   isAlive(): boolean {
-    return this.window !== null && !this.window.isDestroyed()
+    return !this.#isDestroying && this.window !== null && !this.window.isDestroyed()
   }
 }
