@@ -590,12 +590,19 @@ class ClaudeCodeService {
         frame.showAtBottomCenter().catch(() => {})
         return frame.getWindow()!
       },
-      // 更新内容的回调函数
+      // 更新内容的回调函数 ★ 直接发送 IPC 到渲染进程
       (window: BrowserWindow, contentText: string, type: NoticeType) => {
-        const frame = new NoticeNewFrame()
-        // 复用已有窗口实例
-        ;(frame as unknown as { window: BrowserWindow }).window = window
-        frame.setMsg(contentText, false, type, true)
+        if (window && !window.isDestroyed() && window.webContents) {
+          window.webContents.send(
+            'to-renderer-NoticeNewFrame:sendMsg',
+            contentText,
+            false,  // showTranslate
+            false,  // showOpenLink
+            false,  // showJsonTool
+            type,
+            true    // isPersistent
+          )
+        }
       }
     )
   }

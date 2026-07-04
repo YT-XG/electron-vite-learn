@@ -147,6 +147,9 @@ export default class NoticeNewFrame extends BaseFrame {
 
     // 渲染进程已就绪，发送缓存的消息并显示弹窗
     this.recvOne('to-main-NoticeNewFrame:ready', async () => {
+      // 如果窗口已被 PopupManager 销毁，不再操作（避免孤儿窗口）
+      if (!this.isAlive()) return
+
       // 如果消息还没发过（窗口创建时 send 丢失的情况），现在补发
       if (!this.#msgSent) {
         this.sendOne(
