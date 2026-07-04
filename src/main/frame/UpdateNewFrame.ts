@@ -16,9 +16,8 @@ import * as yaml from 'js-yaml'
 import semver from 'semver'
 import { settingsService } from '../service/settingsService'
 import { githubUpdateService, GitHubUpdateInfo } from '../service/githubUpdateService'
-import { getBottomMargin, isMacOS } from '../utils/platform'
+import { isMacOS } from '../utils/platform'
 import { windowFactory } from './WindowFactory'
-import { POPUP_GAP } from './PopupManager'
 
 /** 更新信息接口 */
 export interface UpdateInfo {
@@ -47,17 +46,8 @@ export default class UpdateNewFrame extends BaseFrame {
   /** 弹窗高度 */
   private static readonly POPUP_HEIGHT = 280
 
-  /** 窗口底部距屏幕边缘的间距（像素） */
-  private static readonly BOTTOM_MARGIN = 60
-
   /** 是否正在显示 */
   #isShowing = false
-
-  /** 动画是否正在播放 */
-  #isAnimating = false
-
-  /** 动画帧 ID */
-  #animationFrameId: ReturnType<typeof setTimeout> | null = null
 
   /** 窗口配置 - 透明无边框气泡 */
   protected readonly options: BrowserWindowConstructorOptions = {
@@ -791,80 +781,6 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
-   * 计算屏幕底部居中位置
-   * @description 如果有通知弹窗存在，往上移动避免覆盖
-   * @returns 窗口左上角坐标 { x, y }
-   */
-  #calcBottomCenterPosition(): { x: number; y: number } {
-    const display = screen.getPrimaryDisplay()
-    const { workArea } = display
-
-    const popupW = UpdateNewFrame.POPUP_WIDTH
-    const popupH = UpdateNewFrame.POPUP_HEIGHT
-
-    // 水平居中
-    const x = workArea.x + (workArea.width - popupW) / 2
-    // 距底部 60px（macOS 会额外加上 Dock 高度）
-    const bottomMargin = getBottomMargin(UpdateNewFrame.BOTTOM_MARGIN)
-    let y = workArea.y + workArea.height - popupH - bottomMargin
-
-    // 如果有通知弹窗存在，往上移动（每个通知高度 + gap 间距）
-    const popupManager = windowFactory.getPopupManager()
-    const popups = popupManager.getPopups()
-    if (popups.length > 0) {
-      // 计算所有弹窗的总高度
-      let totalHeight = 0
-      for (const popup of popups) {
-        totalHeight += popup.height + POPUP_GAP
-      }
-      y -= totalHeight
-    }
-
-    return { x: Math.round(x), y: Math.round(y) }
-  }
-
-  /**
-   * 执行窗口位置动画
-   * @description 使用缓动函数实现平滑的弹出/收起效果
-   * @param fromY - 起始 Y 坐标
-   * @param toY - 目标 Y 坐标
-   * @param duration - 动画时长（毫秒）
-   * @returns Promise 动画完成后 resolve
-   */
-  #animateWindow(fromY: number, toY: number, duration: number = 350): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.#animationFrameId) {
-        clearTimeout(this.#animationFrameId)
-      }
-
-      this.#isAnimating = true
-      const startTime = Date.now()
-      const x = this.window!.getPosition()[0]
-
-      const animate = (): void => {
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
-
-        // 缓动函数：easeOutCubic - 先快后慢，更自然
-        const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-        const currentY = Math.round(fromY + (toY - fromY) * easeOutCubic)
-
-        this.window!.setPosition(x, currentY)
-
-        if (progress < 1) {
-          this.#animationFrameId = setTimeout(animate, 16) // ~60fps
-        } else {
-          this.#isAnimating = false
-          this.#animationFrameId = null
-          resolve()
-        }
-      }
-
-      animate()
-    })
-  }
-
-  /**
    * 显示更新窗口
    * @description 从屏幕底部居中弹出，带动画效果
    * @param data - 更新信息（版本号、更新说明、完整更新信息）
@@ -874,8 +790,13 @@ export default class UpdateNewFrame extends BaseFrame {
     description?: string
     updateInfo?: UpdateInfo
   }): Promise<void> {
-    const pos = this.#calcBottomCenterPosition()
-    await this.showUpdateAtPosition(data, pos.y)
+    // targetY 由 PopupManager 计算并通过 showUpdateAtPosition 传入
+    // 此方法保留为公共 API 入口，但实际位置由 PopupManager 接管
+    const display = screen.getPrimaryDisplay()
+    const { workArea } = display
+    const screenHeight = workArea.height + workArea.y
+    const startY = screenHeight + 10
+    await this.showUpdateAtPosition(data, startY)
   }
 
   /**
@@ -924,63 +845,12 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 隐藏更新窗口
-   * @description 播放收起动画，然后隐藏窗口
+   * @description 由 PopupManager 管理动画，直接隐藏
    */
   async hide(): Promise<void> {
-    if (this.isAlive() && this.#isShowing && !this.#isAnimating) {
+    if (this.isAlive() && this.#isShowing) {
       this.#isShowing = false
-
-      // 计算目标位置：屏幕底部外（考虑 macOS Dock）
-      const display = screen.getPrimaryDisplay()
-      const { workArea, bounds } = display
-      const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
-      const screenHeight = workArea.height + workArea.y + dockHeight
-      const targetY = screenHeight + 10
-
-      // 播放收起动画：从当前位置滑出到底部外
-      const currentY = this.window!.getPosition()[1]
-      await this.#animateWindow(currentY, targetY, 300)
-
-      // 动画完成后隐藏窗口
-      if (!this.#isShowing) {
-        this.window?.hide()
-      }
-    }
-  }
-
-  /**
-   * 重新定位更新窗口
-   * @description 当通知数量变化时，调整位置避免覆盖
-   */
-  reposition(): void {
-    if (!this.isAlive() || !this.#isShowing || this.#isAnimating) return
-
-    const pos = this.#calcBottomCenterPosition()
-    const [, currentY] = this.window!.getPosition()
-
-    // 只有位置变化时才移动
-    if (currentY !== pos.y) {
-      // 使用动画平滑移动
-      const duration = 300
-      const startTime = Date.now()
-
-      const animate = (): void => {
-        if (!this.isAlive()) return
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
-
-        // 缓动函数：easeOutCubic
-        const eased = 1 - Math.pow(1 - progress, 3)
-        const currentPosY = Math.round(currentY + (pos.y - currentY) * eased)
-
-        this.window!.setPosition(pos.x, currentPosY)
-
-        if (progress < 1) {
-          setTimeout(animate, 16) // ~60fps
-        }
-      }
-
-      animate()
+      this.window?.hide()
     }
   }
 
@@ -997,38 +867,10 @@ export default class UpdateNewFrame extends BaseFrame {
    * @param targetY - 目标 Y 坐标
    * @param animated - 是否使用动画，默认 true
    */
-  moveTo(targetY: number, animated = true): void {
+  moveTo(targetY: number, _animated = true): void {
     if (!this.isAlive()) return
-
-    if (!animated) {
-      const [x] = this.window!.getPosition()
-      this.window!.setPosition(x, targetY)
-      return
-    }
-
-    const [x, startY] = this.window!.getPosition()
-    if (startY === targetY) return
-
-    const duration = 300
-    const startTime = Date.now()
-
-    const animate = (): void => {
-      if (!this.isAlive()) return
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-
-      // easeOutCubic 缓动函数：先快后慢，自然停止
-      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-      const currentY = Math.round(startY + (targetY - startY) * easeOutCubic)
-
-      this.window!.setPosition(x, currentY)
-
-      if (progress < 1) {
-        setTimeout(animate, 8)
-      }
-    }
-
-    animate()
+    const [x] = this.window!.getPosition()
+    this.window!.setPosition(x, targetY)
   }
 
   /**
@@ -1043,28 +885,9 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 销毁更新窗口
-   * @description 播放收起动画后销毁窗口
+   * @description 直接销毁窗口，由 PopupManager 管理动画
    */
   async destroy(): Promise<void> {
-    if (this.isAlive() && !this.#isAnimating) {
-      // 计算目标位置：屏幕底部外（考虑 macOS Dock）
-      const display = screen.getPrimaryDisplay()
-      const { workArea, bounds } = display
-      const dockHeight = process.platform === 'darwin' ? bounds.y + bounds.height - (workArea.y + workArea.height) : 0
-      const screenHeight = workArea.height + workArea.y + dockHeight
-      const targetY = screenHeight + 10
-
-      // 播放收起动画
-      const currentY = this.window!.getPosition()[1]
-      await this.#animateWindow(currentY, targetY, 300)
-    }
-
-    // 清理动画帧
-    if (this.#animationFrameId) {
-      clearTimeout(this.#animationFrameId)
-      this.#animationFrameId = null
-    }
-
     super.destroy()
     console.log('更新窗口被销毁')
   }
