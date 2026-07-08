@@ -41,8 +41,6 @@ app.whenReady().then(async () => {
 
   // 初始化托盘服务
   trayService = new TrayService()
-  // 创建新版更新窗口（未发现新版本自动销毁）
-  windowFactory.getUpdateNewFrame().create()
   // 初始化剪贴板历史服务（SQLite + IPC 注册 + 剪贴板监控）
   await clipboardService.init()
   // 初始化设置服务（加载配置文件 + 注册全局快捷键）

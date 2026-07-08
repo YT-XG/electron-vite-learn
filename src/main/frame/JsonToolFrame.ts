@@ -1,6 +1,8 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, dialog } from 'electron'
 import BaseFrame from './BaseFrame'
-import { windowFactory } from './WindowFactory'
+import { popupManager } from './PopupManager'
+import NoticeNewFrame from './NoticeNewFrame'
+import type { NoticeType } from './PopupManager'
 
 /**
  * JSON 工具窗口
@@ -110,8 +112,16 @@ export default class JsonToolFrame extends BaseFrame {
     })
 
     // 显示通知
-    this.recvOne('to-main-JsonTool:showNotice', (_event, text: string, duration?: number, type?: 'default' | 'success' | 'error' | 'warning') => {
-      windowFactory.showNotice({ text, duration, type })
+    this.recvOne('to-main-JsonTool:showNotice', (_event, text: string, duration?: number, type?: NoticeType) => {
+      popupManager.showNotice(
+        () => {
+          const frame = new NoticeNewFrame()
+          frame.setMsg(text, false, type || 'default')
+          return frame.create()
+        },
+        { type: 'notice', width: 500, height: 60 },
+        { text, duration, type }
+      )
     })
   }
 

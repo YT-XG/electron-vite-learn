@@ -1,5 +1,5 @@
 <template>
-  <div class="update-container" :class="{ 'update-visible': isVisible }">
+  <div class="update-container" :class="{ 'enter': animState === 'enter', 'exit': animState === 'exit' }">
     <div class="update-card">
       <!-- 顶部渐变装饰条（蓝→粉） -->
       <div class="accent-bar" />
@@ -114,8 +114,8 @@ const progress = ref(0)
 /** 错误信息 */
 const errorMsg = ref('')
 
-/** 页面入场动画状态 */
-const isVisible = ref(false)
+/** 动画状态：idle-初始, enter-滑入, exit-滑出 */
+const animState = ref<'idle' | 'enter' | 'exit'>('idle')
 
 /**
  * 处理下载按钮点击
@@ -141,13 +141,13 @@ const handleInstall = (): void => {
 
 /**
  * 处理关闭按钮点击
- * @description 播放关闭动画后通知主进程隐藏窗口
+ * @description 播放右侧滑出动画后通知主进程销毁窗口
  */
 const handleClose = (): void => {
-  isVisible.value = false
+  animState.value = 'exit'
   setTimeout(() => {
     window.electron.ipcRenderer.send('to-main-UpdateNewFrame:destroy')
-  }, 300)
+  }, 350)
 }
 
 /**
@@ -160,6 +160,8 @@ const handleUpdateInfo = (
 ): void => {
   version.value = data.version
   description.value = data.description
+  // 收到更新信息后触发入场滑入动画（此时渲染进程已就绪）
+  animState.value = 'enter'
 }
 
 /**
@@ -205,21 +207,19 @@ const handleError = (
 
 /**
  * 监听主进程的动画控制指令
- * @description 控制入场/退场动画的显示状态
+ * @description 支持新版 action 字段和旧版 type 字段，控制滑入/滑出
  */
 const handleAnimate = (
   _event: Electron.IpcRendererEvent,
-  data: { type: 'show' | 'hide' }
+  data: { action?: 'enter' | 'exit'; type?: 'show' | 'hide' }
 ): void => {
-  isVisible.value = data.type === 'show'
+  if (data.action === 'enter') animState.value = 'enter'
+  else if (data.action === 'exit') animState.value = 'exit'
+  else if (data.type === 'show') animState.value = 'enter'
+  else if (data.type === 'hide') animState.value = 'exit'
 }
 
 onMounted(() => {
-  // 入场动画：下一帧触发，确保初始 opacity:0 生效后再切换
-  requestAnimationFrame(() => {
-    isVisible.value = true
-  })
-
   // 注册 IPC 监听器
   window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:animate', handleAnimate)
   window.electron.ipcRenderer.on('to-renderer-UpdateNewFrame:info', handleUpdateInfo)
@@ -248,20 +248,21 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-end;
   padding-bottom: 20px;
-  opacity: 0;
-  transform: translateY(30px);
-  transition:
-    opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* 初始状态：右侧屏幕外 */
+  transform: translateX(calc(100% + 16px));
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   pointer-events: none;
 }
 
-.update-container.update-visible {
-  opacity: 1;
-  transform: translateY(0);
+.update-container.enter {
+  transform: translateX(0);
   pointer-events: auto;
+}
+
+.update-container.exit {
+  transform: translateX(calc(100% + 16px));
 }
 
 /* ─── 卡片 ─── */

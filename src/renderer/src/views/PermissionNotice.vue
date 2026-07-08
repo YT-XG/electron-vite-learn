@@ -2,7 +2,7 @@
   <div class="notice-container">
     <div
       class="notice-border"
-      :class="{ 'scale-in': isVisible }"
+      :class="{ 'enter': animState === 'enter', 'exit': animState === 'exit' }"
       @mouseenter="onCardEnter"
       @mouseleave="onCardLeave"
     >
@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 /** 权限请求信息 */
 interface PermissionInfo {
@@ -64,8 +64,8 @@ const command = ref('')
 /** 描述 */
 const description = ref('')
 
-/** 是否可见（触发入场缩放动画） */
-const isVisible = ref(false)
+/** 动画状态：idle-初始, enter-滑入, exit-滑出 */
+const animState = ref<'idle' | 'enter' | 'exit'>('idle')
 
 /** 是否为 AskUserQuestion 工具（Claude 向用户提问，不需要权限按钮） */
 const isAskUserQuestion = computed(() => toolName.value === 'AskUserQuestion')
@@ -128,22 +128,32 @@ onMounted(() => {
       toolName.value = info.toolName
       command.value = info.command
       description.value = info.description
+      // 收到信息后触发入场滑入动画（此时渲染进程已就绪）
+      animState.value = 'enter'
+    }
+  )
 
-      // 下一帧触发 CSS 缩放动画
-      nextTick(() => {
-        isVisible.value = true
-      })
+  // 监听主进程发送的动画指令，控制滑入
+  window.electron.ipcRenderer.on(
+    'to-renderer-PermissionNoticeFrame:animate',
+    (_e, data: { action: 'enter' | 'exit' }) => {
+      animState.value = data.action
     }
   )
 
   // 监听主进程发送的隐藏窗口指令（权限被解决或超时后）
   window.electron.ipcRenderer.on('to-renderer-PermissionNoticeFrame:hide', () => {
-    isVisible.value = false
-    // 动画完成后通知主进程销毁窗口
+    animState.value = 'exit'
     setTimeout(() => {
       window.electron.ipcRenderer.send('to-main-PermissionNoticeFrame:destroy')
-    }, 300)
+    }, 350)
   })
+})
+
+onUnmounted(() => {
+  window.electron.ipcRenderer.removeAllListeners('to-renderer-PermissionNoticeFrame:show')
+  window.electron.ipcRenderer.removeAllListeners('to-renderer-PermissionNoticeFrame:animate')
+  window.electron.ipcRenderer.removeAllListeners('to-renderer-PermissionNoticeFrame:hide')
 })
 </script>
 
@@ -152,8 +162,9 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
+  padding-right: 0;
   /* 允许鼠标穿透点击 */
   pointer-events: none;
 }
@@ -168,13 +179,9 @@ onMounted(() => {
   pointer-events: auto;
   padding: 2px;
 
-  /* 入场初始状态：微小 + 半透明 */
-  transform: scale(0.2);
-  opacity: 0;
-  transform-origin: center center;
-  transition:
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.25s ease-out;
+  /* 初始状态：右侧屏幕外 */
+  transform: translateX(calc(100% + 16px));
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* 渐变边框伪元素 */
@@ -195,10 +202,14 @@ onMounted(() => {
   animation: border-spin 3s linear infinite;
 }
 
-/* 入场动画触发 */
-.notice-border.scale-in {
-  transform: scale(1);
-  opacity: 1;
+/* 滑入动画：从右侧进入可视区域 */
+.notice-border.enter {
+  transform: translateX(0);
+}
+
+/* 滑出动画：从可视区域回到右侧 */
+.notice-border.exit {
+  transform: translateX(calc(100% + 16px));
 }
 
 /* 白色卡片主体 */

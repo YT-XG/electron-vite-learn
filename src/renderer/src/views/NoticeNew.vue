@@ -2,7 +2,7 @@
   <div class="notice-container">
     <div
       class="notice-border"
-      :class="[{ 'scale-in': isVisible }, `notice-${noticeType}`, { 'notice-persistent': isPersistent }]"
+      :class="[`notice-${noticeType}`, { 'notice-persistent': isPersistent, 'enter': animState === 'enter', 'exit': animState === 'exit' }]"
       @mouseenter="onCardEnter"
       @mouseleave="onCardLeave"
     >
@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 /** 通知消息文本 */
 const msg = ref('')
@@ -58,11 +58,11 @@ const noticeType = ref<'default' | 'success' | 'error' | 'warning'>('default')
 /** 是否为持久通知（Claude Code 状态通知） */
 const isPersistent = ref(false)
 
-/** 是否可见（触发入场缩放动画） */
-const isVisible = ref(false)
+/** 动画状态：idle-初始, enter-滑入, exit-滑出 */
+const animState = ref<'idle' | 'enter' | 'exit'>('idle')
 
 /**
- * 设置通知消息内容并触发入场动画
+ * 设置通知消息内容
  * @param data - 通知文本
  * @param translate - 是否显示翻译按钮
  * @param openLink - 是否显示打开链接按钮
@@ -122,17 +122,29 @@ const onCardLeave = () => {
 onMounted(() => {
   // 通知主进程渲染已就绪
   window.electron.ipcRenderer.send('to-main-NoticeNewFrame:ready')
-  // 监听主进程发送的消息
+
+  // 监听主进程发送的消息内容
   window.electron.ipcRenderer.on(
     'to-renderer-NoticeNewFrame:sendMsg',
     (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean, type: 'default' | 'success' | 'error' | 'warning', persistent: boolean) => {
       setMsg(data, translate, openLink, jsonTool, type, persistent)
-      // 下一帧触发 CSS 缩放动画（从 scale(0.2) → scale(1)）
-      nextTick(() => {
-        isVisible.value = true
-      })
+      // 收到消息后触发入场滑入动画（此时渲染进程已就绪，保证动画不会丢失）
+      animState.value = 'enter'
     }
   )
+
+  // 监听主进程发送的动画指令，控制滑入/滑出
+  window.electron.ipcRenderer.on(
+    'to-renderer-NoticeNewFrame:animate',
+    (_e, data: { action: 'enter' | 'exit' }) => {
+      animState.value = data.action
+    }
+  )
+})
+
+onUnmounted(() => {
+  window.electron.ipcRenderer.removeAllListeners('to-renderer-NoticeNewFrame:sendMsg')
+  window.electron.ipcRenderer.removeAllListeners('to-renderer-NoticeNewFrame:animate')
 })
 </script>
 
@@ -141,8 +153,9 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
+  padding-right: 0;
   /* 允许鼠标穿透点击 */
   pointer-events: none;
 }
@@ -159,13 +172,9 @@ onMounted(() => {
   pointer-events: auto;
   padding: 2px;  /* 为渐变边框留出间隙 */
 
-  /* 入场初始状态：微小 + 半透明 */
-  transform: scale(0.2);
-  opacity: 0;
-  transform-origin: center center;
-  transition:
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.25s ease-out;
+  /* 初始状态：右侧屏幕外 */
+  transform: translateX(calc(100% + 16px));
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* 渐变边框伪元素 - 精确控制渐变背景渲染区域 */
@@ -268,10 +277,14 @@ onMounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* 入场动画触发：缩放到正常大小并显现 */
-.notice-border.scale-in {
-  transform: scale(1);
-  opacity: 1;
+/* 滑入动画：从右侧进入可视区域 */
+.notice-border.enter {
+  transform: translateX(0);
+}
+
+/* 滑出动画：从可视区域回到右侧 */
+.notice-border.exit {
+  transform: translateX(calc(100% + 16px));
 }
 
 /* 白色卡片主体 - 使用 box-shadow 替代父容器的 filter:drop-shadow，

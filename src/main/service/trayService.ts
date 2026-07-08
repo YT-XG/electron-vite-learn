@@ -1,6 +1,6 @@
 import { app, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../../resources/icon.png?asset'
-import { windowFactory } from '../frame'
+import { windowFactory, popupManager, NoticeNewFrame, UpdateNewFrame } from '../frame'
 
 /**
  * 系统托盘服务
@@ -123,19 +123,29 @@ export class TrayService {
 
     this.#isChecking = true
 
-    windowFactory.showNotice({
-      text: '正在检查更新...',
-      duration: 3000
-    })
+    popupManager.showNotice(
+      () => {
+        const frame = new NoticeNewFrame()
+        frame.setMsg('正在检查更新...')
+        return frame.create()
+      },
+      { type: 'notice', width: 500, height: 60 },
+      { text: '正在检查更新...', duration: 3000 }
+    )
 
-    windowFactory
-      .getUpdateNewFrame()
+    const updateFrame = new UpdateNewFrame()
+    updateFrame
       .checkForUpdates()
       .then((res) => {
-        windowFactory.showNotice({
-          text: res?.msg || '',
-          duration: 5000
-        })
+        popupManager.showNotice(
+          () => {
+            const frame = new NoticeNewFrame()
+            frame.setMsg(res?.msg || '')
+            return frame.create()
+          },
+          { type: 'notice', width: 500, height: 60 },
+          { text: res?.msg || '', duration: 5000 }
+        )
       })
       .finally(() => {
         this.#isChecking = false

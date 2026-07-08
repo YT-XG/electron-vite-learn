@@ -1,8 +1,4 @@
-import PopupManager from './PopupManager'
-import NoticeNewFrame from './NoticeNewFrame'
-import UpdateNewFrame from './UpdateNewFrame'
 import MainPageFrame from './MainPageFrame'
-import PermissionNoticeFrame from './PermissionNoticeFrame'
 import SearchBoxFrame from './SearchBoxFrame'
 import MarkdownPreviewFrame from './MarkdownPreviewFrame'
 import ContextMenuFrame from './ContextMenuFrame'
@@ -10,20 +6,12 @@ import JsonToolFrame from './JsonToolFrame'
 
 /**
  * 窗口工厂
- * @description 统一管理所有窗口的创建和生命周期
+ * @description 统一管理所有独立窗口的创建和生命周期
+ *              通知弹窗相关由 PopupManager 管理，不在此类
  */
 export default class WindowFactory {
-  /** 统一弹窗管理器 */
-  #popupManager: PopupManager | null = null
-
-  /** 新版更新窗口实例 */
-  #updateNewFrame: UpdateNewFrame | null = null
-
   /** 主页面窗口 */
   #mainPageFrame: MainPageFrame | null = null
-
-  /** 权限确认窗口 */
-  #permissionNoticeFrame: PermissionNoticeFrame | null = null
 
   /** 搜索框窗口 */
   #searchBoxFrame: SearchBoxFrame | null = null
@@ -38,83 +26,6 @@ export default class WindowFactory {
   #jsonToolFrame: JsonToolFrame | null = null
 
   /**
-   * 获取统一弹窗管理器
-   * @returns PopupManager 实例
-   */
-  getPopupManager(): PopupManager {
-    if (!this.#popupManager) {
-      this.#popupManager = new PopupManager()
-    }
-    return this.#popupManager
-  }
-
-  /**
-   * 显示通知（便捷方法，通过 PopupManager 管理）
-   * @param options - 通知配置
-   */
-  showNotice(options: import('./PopupManager').NoticeOptions): void {
-    const { text, showTranslate = false, duration = 5000, type = 'default' } = options
-
-    // 创建 NoticeNewFrame 实例
-    const frame = new NoticeNewFrame()
-    frame.setMsg(text, showTranslate, type)
-
-    // 通过 PopupManager 管理弹窗生命周期，获取计算好的目标 Y 坐标
-    const { targetY } = this.getPopupManager().showNotice(
-      () => {
-        return frame.create()
-      },
-      { type: 'notice', width: 500, height: 60 },
-      { text, showTranslate, duration, type }
-    )
-
-    // 使用 PopupManager 计算的 Y 坐标显示弹窗（避免重复计算位置）
-    frame.showAtBottomCenter(targetY).catch(() => {})
-  }
-
-  /**
-   * 获取新版更新窗口
-   * @returns UpdateNewFrame 实例
-   */
-  getUpdateNewFrame(): UpdateNewFrame {
-    if (!this.#updateNewFrame) {
-      this.#updateNewFrame = new UpdateNewFrame()
-      this.#updateNewFrame.onDestroyCallback = () => {
-        this.#updateNewFrame = null
-      }
-    }
-    return this.#updateNewFrame
-  }
-
-  /**
-   * 显示更新通知（通过 PopupManager 管理）
-   * @param data - 更新信息
-   */
-  async showUpdateNotice(data?: {
-    version?: string
-    description?: string
-    updateInfo?: import('./UpdateNewFrame').UpdateInfo
-  }): Promise<void> {
-    const frame = this.getUpdateNewFrame()
-
-    // 通过 PopupManager 管理弹窗生命周期
-    this.getPopupManager().showUpdateNotice(
-      () => {
-        // 如果窗口不存在，创建窗口
-        if (!frame.isAlive()) {
-          frame.create()
-        }
-        return frame.getWindow()!
-      },
-      { type: 'update', width: 380, height: 280 },
-      (_window, y) => {
-        // 显示更新窗口，使用 PopupManager 计算的位置
-        frame.showUpdateAtPosition(data, y)
-      }
-    )
-  }
-
-  /**
    * 获取主页面窗口
    * @returns MainPageFrame 实例
    */
@@ -123,20 +34,6 @@ export default class WindowFactory {
       this.#mainPageFrame = new MainPageFrame()
     }
     return this.#mainPageFrame
-  }
-
-  /**
-   * 获取权限确认窗口
-   * @returns PermissionNoticeFrame 实例
-   */
-  getPermissionNoticeFrame(): PermissionNoticeFrame {
-    if (!this.#permissionNoticeFrame) {
-      this.#permissionNoticeFrame = new PermissionNoticeFrame()
-      this.#permissionNoticeFrame.onDestroyCallback = () => {
-        this.#permissionNoticeFrame = null
-      }
-    }
-    return this.#permissionNoticeFrame
   }
 
   /**
@@ -253,10 +150,7 @@ export default class WindowFactory {
    * 销毁所有窗口
    */
   destroyAll(): void {
-    this.#popupManager?.destroyAll()
-    this.#updateNewFrame?.destroy()
     this.#mainPageFrame?.destroy()
-    this.#permissionNoticeFrame?.destroy()
     this.#searchBoxFrame?.destroy()
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.destroy()
@@ -267,10 +161,7 @@ export default class WindowFactory {
    * 关闭所有窗口（隐藏）
    */
   closeAll(): void {
-    this.#popupManager?.destroyAll()
-    this.#updateNewFrame?.hide()
     this.#mainPageFrame?.close()
-    this.#permissionNoticeFrame?.destroy()
     this.#searchBoxFrame?.hide()
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.hideMenu()

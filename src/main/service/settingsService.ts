@@ -11,7 +11,7 @@ import { app, globalShortcut, ipcMain } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
-import { windowFactory } from '../frame'
+import { windowFactory, popupManager, NoticeNewFrame } from '../frame'
 
 /** 应用设置类型 */
 export interface AppSettings {
@@ -182,8 +182,16 @@ class SettingsService {
       openAtLogin: this.settings.autoStart,
       openAsHidden: true
     })
-    windowFactory
-      .showNotice({ text: '开机自启已' + (this.settings.autoStart ? '开启' : '关闭')})
+    const noticeText = '开机自启已' + (this.settings.autoStart ? '开启' : '关闭')
+    popupManager.showNotice(
+      () => {
+        const frame = new NoticeNewFrame()
+        frame.setMsg(noticeText)
+        return frame.create()
+      },
+      { type: 'notice', width: 500, height: 60 },
+      { text: noticeText, duration: 5000 }
+    )
     log.info('[Settings] 开机自启:', this.settings.autoStart ? '已开启' : '已关闭')
   }
 

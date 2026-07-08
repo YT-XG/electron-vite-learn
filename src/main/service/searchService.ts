@@ -1,5 +1,5 @@
 import { shell } from 'electron'
-import { windowFactory } from '../frame'
+import { windowFactory, popupManager, NoticeNewFrame, UpdateNewFrame } from '../frame'
 
 /**
  * 工具定义接口
@@ -88,25 +88,40 @@ class SearchService {
       description: '检查应用是否有新版本',
       action: function () {
         // 显示检查更新通知
-        windowFactory.showNotice({
-          text: '正在检查更新...',
-          duration: 3000
-        })
+        popupManager.showNotice(
+          () => {
+            const frame = new NoticeNewFrame()
+            frame.setMsg('正在检查更新...')
+            return frame.create()
+          },
+          { type: 'notice', width: 500, height: 60 },
+          { text: '正在检查更新...', duration: 3000 }
+        )
         // 调用 UpdateNewFrame 检查更新
-        windowFactory
-          .getUpdateNewFrame()
+        const updateFrame = new UpdateNewFrame()
+        updateFrame
           .checkForUpdates()
           .then((res) => {
-            windowFactory.showNotice({
-              text: res?.msg || '检查更新完成',
-              duration: 5000
-            })
+            popupManager.showNotice(
+              () => {
+                const frame = new NoticeNewFrame()
+                frame.setMsg(res?.msg || '检查更新完成')
+                return frame.create()
+              },
+              { type: 'notice', width: 500, height: 60 },
+              { text: res?.msg || '检查更新完成', duration: 5000 }
+            )
           })
           .catch((err) => {
-            windowFactory.showNotice({
-              text: '检查更新失败: ' + (err.message || '未知错误'),
-              duration: 5000
-            })
+            popupManager.showNotice(
+              () => {
+                const frame = new NoticeNewFrame()
+                frame.setMsg('检查更新失败: ' + (err.message || '未知错误'))
+                return frame.create()
+              },
+              { type: 'notice', width: 500, height: 60 },
+              { text: '检查更新失败: ' + (err.message || '未知错误'), duration: 5000 }
+            )
           })
       }
     },

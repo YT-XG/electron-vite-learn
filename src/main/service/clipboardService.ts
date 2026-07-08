@@ -3,7 +3,7 @@ import { app, BrowserWindow, clipboard, ipcMain } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
-import { windowFactory } from '../frame'
+import { popupManager, NoticeNewFrame, windowFactory } from '../frame'
 import { inputService } from './inputService'
 
 /**
@@ -196,11 +196,15 @@ class ClipboardService {
     })
 
     // 弹出通知弹窗（显示翻译按钮）
-    windowFactory.showNotice({
-      text: content,
-      showTranslate: true,
-      duration: 5000
-    })
+    popupManager.showNotice(
+      () => {
+        const frame = new NoticeNewFrame()
+        frame.setMsg(content, true)
+        return frame.create()
+      },
+      { type: 'notice', width: 500, height: 60 },
+      { text: content, showTranslate: true, duration: 5000 }
+    )
 
     log.info('[ClipboardService] 新增记录:', content.substring(0, 50))
   }

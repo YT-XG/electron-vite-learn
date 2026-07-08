@@ -1,5 +1,5 @@
-import { BaseFrame } from './index'
-import { app, BrowserWindowConstructorOptions, screen } from 'electron'
+import { BaseFrame, popupManager } from './index'
+import { app, BrowserWindowConstructorOptions, BrowserWindow } from 'electron'
 import { join } from 'path'
 import {
   createReadStream,
@@ -17,7 +17,6 @@ import semver from 'semver'
 import { settingsService } from '../service/settingsService'
 import { githubUpdateService, GitHubUpdateInfo } from '../service/githubUpdateService'
 import { isMacOS } from '../utils/platform'
-import { windowFactory } from './WindowFactory'
 
 /** 更新信息接口 */
 export interface UpdateInfo {
@@ -37,7 +36,9 @@ export interface UpdateInfo {
 }
 /**
  * 新版更新窗口
- * @description 底部居中弹出的更新提示窗口
+ * @description 从右侧滑入的更新提示窗口，位置由 PopupManager 统一管理（槽位式布局，右下角堆叠）
+ *              入场/出场动画由渲染进程 CSS 实现（从右侧滑入/滑出）
+ *              窗口透明，玻璃拟态卡片风格，蓝粉配色
  */
 export default class UpdateNewFrame extends BaseFrame {
   /** 弹窗宽度 */
@@ -45,9 +46,6 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /** 弹窗高度 */
   private static readonly POPUP_HEIGHT = 280
-
-  /** 是否正在显示 */
-  #isShowing = false
 
   /** 窗口配置 - 透明无边框气泡 */
   protected readonly options: BrowserWindowConstructorOptions = {
@@ -165,9 +163,9 @@ export default class UpdateNewFrame extends BaseFrame {
   protected registerIPC(): void {
     super.registerIPC()
 
-    // 渲染进程请求隐藏更新窗口
+    // 渲染进程请求隐藏更新窗口（由 PopupManager 管理销毁）
     this.recvOne('to-main-UpdateNewFrame:hide', async () => {
-      await this.hide()
+      await this.destroy()
     })
 
     // 渲染进程请求销毁更新窗口
@@ -175,7 +173,7 @@ export default class UpdateNewFrame extends BaseFrame {
       await this.destroy()
     })
 
-    // 渲染进程已就绪，显示窗口并发送待处理的数据
+    // 渲染进程已就绪，检查更新
     this.recvOne('to-main-UpdateNewFrame:ready', async () => {
       console.log('渲染进程加载完毕，准备检查更新')
       await this.checkForUpdates()
@@ -267,7 +265,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 检查 GitHub 更新
-   * @description 从 GitHub Releases 检查更新
+   * @description 从 GitHub Releases 检查更新，发现更新后通过 PopupManager 显示
    */
   private async checkGitHubUpdates(): Promise<UpdateInfo | null> {
     try {
@@ -303,13 +301,21 @@ export default class UpdateNewFrame extends BaseFrame {
       if (cachedPath) {
         log.info('[UpdateNew] 本地已缓存该版本，直接显示安装按钮')
         this.currentDownloadPath = cachedPath
-        // 通知渲染进程：已下载完成，可直接安装
-        this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
         updateInfo.msg = `发现新版本 v${githubInfo.version}（已缓存）`
       }
 
-      // 显示更新窗口（通过 PopupManager 管理）
-      await windowFactory.showUpdateNotice({ version: githubInfo.version, updateInfo })
+      // 通过 PopupManager 显示更新窗口
+      popupManager.showUpdateNotice(
+        () => this.create(),
+        { type: 'update', width: UpdateNewFrame.POPUP_WIDTH, height: UpdateNewFrame.POPUP_HEIGHT },
+        () => {
+          this.sendOne('to-renderer-UpdateNewFrame:info', { version: githubInfo.version, updateInfo })
+          // 如果已缓存，通知渲染进程显示安装按钮
+          if (cachedPath) {
+            this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
+          }
+        }
+      )
       return updateInfo
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -326,7 +332,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
   /**
    * 检查局域网更新
-   * @description 从共享文件夹检查更新（保留原有逻辑）
+   * @description 从共享文件夹检查更新，发现更新后通过 PopupManager 显示
    */
   private async checkLanUpdates(): Promise<UpdateInfo | null> {
     console.log('进入检测更新状态（局域网）')
@@ -425,12 +431,20 @@ export default class UpdateNewFrame extends BaseFrame {
         log.info('[UpdateNew] 本地已缓存该版本，直接显示安装按钮')
         this.currentDownloadPath = cachedPath
         updateInfo.msg = `发现新版本 v${remoteVersion}（已缓存）`
-        // 通知渲染进程：已下载完成，可直接安装
-        this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
       }
 
-      // 显示更新窗口（通过 PopupManager 管理）
-      await windowFactory.showUpdateNotice({ version: remoteVersion, updateInfo })
+      // 通过 PopupManager 显示更新窗口
+      popupManager.showUpdateNotice(
+        () => this.create(),
+        { type: 'update', width: UpdateNewFrame.POPUP_WIDTH, height: UpdateNewFrame.POPUP_HEIGHT },
+        () => {
+          this.sendOne('to-renderer-UpdateNewFrame:info', { version: remoteVersion, updateInfo })
+          // 如果已缓存，通知渲染进程显示安装按钮
+          if (cachedPath) {
+            this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: cachedPath })
+          }
+        }
+      )
       return updateInfo
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -781,106 +795,12 @@ export default class UpdateNewFrame extends BaseFrame {
   }
 
   /**
-   * 显示更新窗口
-   * @description 从屏幕底部居中弹出，带动画效果
-   * @param data - 更新信息（版本号、更新说明、完整更新信息）
+   * 创建窗口
+   * @description 由 PopupManager 调用，创建后不自动显示（由 PopupManager 控制显示时机）
+   * @returns 窗口实例
    */
-  async showUpdate(data?: {
-    version?: string
-    description?: string
-    updateInfo?: UpdateInfo
-  }): Promise<void> {
-    // targetY 由 PopupManager 计算并通过 showUpdateAtPosition 传入
-    // 此方法保留为公共 API 入口，但实际位置由 PopupManager 接管
-    const display = screen.getPrimaryDisplay()
-    const { workArea } = display
-    const screenHeight = workArea.height + workArea.y
-    const startY = screenHeight + 10
-    await this.showUpdateAtPosition(data, startY)
-  }
-
-  /**
-   * 在指定位置显示更新窗口
-   * @description 使用 PopupManager 计算的位置显示更新窗口
-   *   PopupManager 的 #tick 驱动入场动画，此处仅定位到底部外并显示
-   * @param data - 更新信息
-   * @param _targetY - 目标 Y 坐标（由 PopupManager #tick 驱动）
-   */
-  async showUpdateAtPosition(data: {
-    version?: string
-    description?: string
-    updateInfo?: UpdateInfo
-  } | undefined, _targetY: number): Promise<void> {
-    const display = screen.getPrimaryDisplay()
-    const { workArea } = display
-
-    // 水平居中
-    const x = workArea.x + (workArea.width - UpdateNewFrame.POPUP_WIDTH) / 2
-
-    // 起始位置：屏幕底部外
-    const screenHeight = workArea.height + workArea.y
-    const startY = screenHeight + 10
-
-    if (!this.isAlive()) {
-      // 窗口不存在 → 创建并定位到底部外（入场动画由 PopupManager #tick 驱动）
-      this.create()
-      this.window!.setPosition(x, startY)
-      this.window!.show()
-      this.#isShowing = true
-
-      if (data) {
-        this.sendOne('to-renderer-UpdateNewFrame:info', data)
-      }
-    } else {
-      // 窗口已存在（隐藏状态）→ 定位到底部外并显示
-      this.window!.setPosition(x, startY)
-      this.window!.show()
-      this.#isShowing = true
-
-      if (data) {
-        this.sendOne('to-renderer-UpdateNewFrame:info', data)
-      }
-    }
-  }
-
-  /**
-   * 隐藏更新窗口
-   * @description 由 PopupManager 管理动画，直接隐藏
-   */
-  async hide(): Promise<void> {
-    if (this.isAlive() && this.#isShowing) {
-      this.#isShowing = false
-      this.window?.hide()
-    }
-  }
-
-  /**
-   * 获取是否正在显示
-   * @returns 是否正在显示
-   */
-  isShowing(): boolean {
-    return this.#isShowing
-  }
-
-  /**
-   * 平滑移动窗口到目标 Y 坐标
-   * @param targetY - 目标 Y 坐标
-   * @param animated - 是否使用动画，默认 true
-   */
-  moveTo(targetY: number, _animated = true): void {
-    if (!this.isAlive()) return
-    const [x] = this.window!.getPosition()
-    this.window!.setPosition(x, targetY)
-  }
-
-  /**
-   * 获取窗口当前 Y 坐标
-   * @returns Y 坐标，窗口不存在时返回 0
-   */
-  getY(): number {
-    if (!this.isAlive()) return 0
-    const [, y] = this.window!.getPosition()
-    return y
+  create(): BrowserWindow {
+    return super.create()
   }
 
   /**

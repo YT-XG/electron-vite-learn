@@ -128,52 +128,54 @@ electron-vite-learn/
 - **依赖**: electron, @electron-toolkit/utils, sql.js, @nut-tree/nut-js
 
 ### 窗口框架 (src/main/frame/)
-- **职责**: 封装所有窗口的通用逻辑，提供统一的窗口管理接口
+- **职责**: 所有窗口类，分为两大类：**普通窗口**（WindowFactory 管理）和 **通知弹窗**（PopupManager 管理）
 - **关键文件**:
-  - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑
-  - `NoticeNewFrame.ts` - 通知弹窗，底部居中显示，蓝粉渐变胶囊风格，支持翻译按钮（仅剪贴板通知显示），时长由 PopupManager 管理
-  - `UpdateNewFrame.ts` - 更新窗口，底部居中弹出，包含局域网更新完整逻辑
+  - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑（唯一调用 `new BrowserWindow()` 的地方）
+  - `WindowFactory.ts` - 窗口工厂，管理**普通窗口**的创建和生命周期（MainPage、SearchBox、MarkdownPreview、ContextMenu、JsonTool）
+  - `PopupManager.ts` - 统一弹窗管理器，管理**通知弹窗**的槽位分配和动画（NoticeNew、UpdateNew、PermissionNotice）
+  - `PopupItem.ts` - 弹窗元数据，轻量包装 BrowserWindow，供 PopupManager 使用
+  - `NoticeNewFrame.ts` - 通知弹窗，右下角右侧滑入，蓝粉渐变胶囊风格，时长由 PopupManager 管理
+  - `UpdateNewFrame.ts` - 更新窗口，右下角右侧滑入，包含局域网/GitHub 更新完整逻辑
+  - `PermissionNoticeFrame.ts` - 权限确认弹窗，右下角右侧滑入，Claude Code 权限请求交互
   - `MainPageFrame.ts` - 主页面窗口，无边框，屏幕正中心显示，左键托盘打开
-  - `WindowFactory.ts` - 窗口工厂，统一管理所有窗口的创建和生命周期
-- **设计模式**: 工厂模式 + 模板方法模式
-- **IPC 通信方式**:
-  - `recvOne(channel, handler)` - 渲染→主 单向（通知模式）
-  - `recvTwo(channel, handler)` - 渲染→主 双向（请求模式）
-  - `sendOne(channel, ...data)` - 主→渲染 单向（通知模式）
-  - `sendTwo(channel, timeout, ...args)` - 主→渲染 双向（请求模式）
+  - `SearchBoxFrame.ts` - 搜索框窗口，屏幕居中显示，快捷键 `Ctrl+K` 呼出
+  - `MarkdownPreviewFrame.ts` - Markdown 预览窗口，多标签页分屏
+  - `ContextMenuFrame.ts` - 右键菜单窗口，Markdown 编辑器右键菜单
+  - `JsonToolFrame.ts` - JSON 工具窗口
+- **设计模式**: 工厂模式 + 模板方法模式 + 中介者模式（PopupManager 协调通知窗口）
+- **架构图**:
+  ```
+  WindowFactory                          PopupManager
+    ├── MainPageFrame                      ├── slots[5] 固定槽位
+    ├── SearchBoxFrame                     ├── NoticeNewFrame
+    ├── MarkdownPreviewFrame               ├── UpdateNewFrame
+    ├── ContextMenuFrame                   └── PermissionNoticeFrame
+    └── JsonToolFrame
+  
+  所有窗口都继承 BaseFrame（唯一 new BrowserWindow 入口）
+  ```
 - **使用方式**:
   ```typescript
+  // 普通窗口 → 通过 WindowFactory
   import { windowFactory } from './frame'
-
-  // 显示通知弹窗（底部居中，通过 PopupManager 管理）
-  windowFactory.showNotice({
-    text: '剪贴板内容',
-    showTranslate: true,
-    duration: 5000
-  })
-
-  // 显示更新通知（不显示翻译按钮）
-  windowFactory.showNotice({
-    text: '正在检查更新...',
-    duration: 3000
-  })
-
-  // 显示更新窗口（底部居中弹出）
-  windowFactory.showUpdateNew({ version: '1.0.1', description: '修复了一些 bug' })
-
-  // 显示/隐藏主页面（左键托盘自动调用）
   windowFactory.getMainPageFrame().showCentered()
+  windowFactory.createMarkdownPreviewFrame().show()
+
+  // 通知弹窗 → 通过 popupManager
+  import { popupManager } from './frame'
+  popupManager.showNotice(createWindowFn, { type: 'notice', width: 500, height: 60 }, {
+    text: '通知内容', duration: 5000
+  })
   ```
 
 ### 通知弹窗 (src/main/frame/NoticeNewFrame.ts)
-- **职责**: 底部居中弹出的通知提示窗口，支持翻译按钮、打开链接按钮和 Claude Code 状态通知
+- **职责**: 右下角右侧滑入的通知提示窗口，位置由 PopupManager 统一管理（槽位式布局）
 - **功能**:
-  - 窗口宽度固定为屏幕宽度（透明背景），给渲染进程更多扩展空间
-  - 通知卡片在窗口内居中显示，宽度根据文字内容自动适应（160px~500px）
+  - 窗口尺寸与内容匹配（非全屏），PopupManager 使用 `setBounds` 精确控制位置和尺寸
+  - 通知卡片在窗口内右对齐，宽度根据文字内容自动适应（160px~500px）
   - 透明区域鼠标穿透，仅卡片区域可交互
-  - 屏幕底部定位（距底部 60px）
-  - 按需创建，不自动启动
-  - 带有弹出/收起 CSS 动画
+  - 入场动画：从屏幕右侧滑入（CSS `translateX` transition）
+  - 出场动画：向右滑出（CSS `translateX` transition）
   - 透明无边框窗口，蓝粉渐变胶囊风格
   - 显示时长由 PopupManager 管理（可自定义）
   - **不抢占焦点**：使用 `showInactive()` 显示窗口，避免影响搜索框等前台窗口
@@ -182,41 +184,74 @@ electron-vite-learn/
   - **Claude Code 状态通知**：通过 `isPersistent` 属性支持持久通知模式，显示 "Claude" 标识，不自动销毁
 - **IPC 接口**:
   - `to-main-NoticeNewFrame:ready` - 渲染进程已就绪，触发消息发送
-  - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（包含 showTranslate、showOpenLink 参数）
+  - `to-renderer-NoticeNewFrame:sendMsg` - 主进程发送通知消息（渲染进程收到后自动触发入场动画）
+  - `to-renderer-NoticeNewFrame:animate` - 主进程控制退场动画 `{ action: 'exit' }`
   - `to-main-NoticeNewFrame:mouse-enter-card` - 鼠标进入通知卡片区域（关闭鼠标穿透）
   - `to-main-NoticeNewFrame:mouse-leave-card` - 鼠标离开通知卡片区域（恢复鼠标穿透）
   - `to-main-NoticeNewFrame:translate` - 翻译按钮点击，打开翻译页面
   - `to-main-NoticeNewFrame:openLink` - 打开链接按钮点击，使用系统默认浏览器打开链接
-- **公开方法**:
-  - `setMsg(text, showTranslate?)` - 设置通知消息，自动检测链接并设置 showOpenLink
-  - `showAtBottomCenter()` - 在屏幕底部居中显示通知弹窗
+  - `to-main-NoticeNewFrame:openJsonTool` - JSON 工具按钮点击，打开 JSON 工具窗口
 - **使用方式**:
   ```typescript
-  import { windowFactory } from './frame'
+  import { popupManager, NoticeNewFrame } from './frame'
 
-  // 获取通知弹窗实例
-  const noticeFrame = windowFactory.getNoticeNewFrame()
-
-  // 显示剪贴板通知（显示翻译按钮）
-  noticeFrame.setMsg('复制的文本内容', true)
-  noticeFrame.showAtBottomCenter()
-
-  // 显示包含链接的通知（自动显示打开链接按钮）
-  noticeFrame.setMsg('请访问 https://example.com 查看详情')
-  noticeFrame.showAtBottomCenter()
-
-  // 显示其他通知（不显示翻译按钮和打开链接按钮）
-  noticeFrame.setMsg('正在检查更新...')
-  noticeFrame.showAtBottomCenter()
+  // 通过 PopupManager 显示通知（不直接操作 NoticeNewFrame）
+  popupManager.showNotice(
+    () => {
+      const frame = new NoticeNewFrame()
+      frame.setMsg('通知内容')
+      return frame.create()
+    },
+    { type: 'notice', width: 500, height: 60 },
+    { text: '通知内容', duration: 5000 }
+  )
   ```
 
 ### 统一弹窗管理器 (src/main/frame/PopupManager.ts)
-- **职责**: 管理所有底部弹窗的位置和生命周期，支持通知堆叠、自定义时长和移动动画
+- **职责**: 管理所有通知弹窗的槽位分配、生命周期和动画控制，独立导出 `popupManager` 单例
+- **布局模型**: 固定 5 个槽位，从屏幕右下角堆叠
+  - 槽位 0 在最底部，槽位 4 在最顶部
+  - 新通知自动填充最低可用空槽位
+  - 每个槽位的 Y 坐标在创建时根据下方已填充槽位计算，之后不再变化
+  - 销毁弹窗后位置不变，空槽由后续新通知填充
+- **动画模型**: 由渲染进程 CSS 驱动
+  - 主进程创建窗口并定位到最终 (x, y) 坐标
+  - 主进程通过 IPC 发送 `{ action: 'enter' | 'exit' }`
+  - 渲染进程 CSS transition 处理滑入/滑出动画（右侧滑入，右侧滑出）
+  - 主进程等待 350ms CSS 动画完成后销毁窗口
+- **槽位间距**: 固定 8px（所有类型通知一致）
 - **功能**:
-  - 维护弹窗实例池（最多 5 个）
-  - 新弹窗从底部出现，旧弹窗被向上顶起
-  - 平滑过渡动画（300ms easeOutCubic）
-  - 每个弹窗可自定义显示时长
+  - 4 种通知类型：`showNotice`（普通通知）、`showClaudeStatus`（状态通知）、`showPermissionNotice`（权限确认）、`showUpdateNotice`（更新窗口）
+  - 惰性清理：`getFreeSlot()` 自动清理被外部销毁的槽位
+  - MAC 兼容：使用 `getBottomMargin()` 自动适配 Dock 高度
+- **IPC 接口**（由 PopupManager 统一发送）:
+  - `to-renderer-{框架名}:animate` - 控制入场/退场动画
+- **使用方式**:
+  ```typescript
+  import { popupManager, NoticeNewFrame } from './frame'
+
+  // 显示普通通知
+  popupManager.showNotice(
+    () => {
+      const frame = new NoticeNewFrame()
+      frame.setMsg('复制的内容', true)
+      return frame.create()
+    },
+    { type: 'notice', width: 500, height: 60 },
+    { text: '复制的内容', duration: 5000 }
+  )
+
+  // 显示 Claude Code 状态通知
+  popupManager.showClaudeStatus('🟢 会话运行中', createFn, updateFn)
+  popupManager.hideClaudeStatus()
+
+  // 显示权限确认弹窗
+  popupManager.showPermissionNotice(createFn, { type: 'permission', width: 520, height: 140 }, showFn)
+  popupManager.destroyPermissionNotice()
+
+  // 显示更新窗口
+  popupManager.showUpdateNotice(createFn, { type: 'update', width: 380, height: 280 }, showFn)
+  ```
   - 超过上限时自动销毁最早的弹窗
   - **Claude Code 状态管理**: 管理常驻状态通知的显示/更新/隐藏/销毁
   - **权限请求弹窗**: 单例管理权限确认窗口
