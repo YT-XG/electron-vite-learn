@@ -11,6 +11,8 @@ export { default as NoticeNewFrame } from './NoticeNewFrame'
 export { default as UpdateNewFrame } from './UpdateNewFrame'
 export { default as MainPageFrame } from './MainPageFrame'
 export { default as PermissionNoticeFrame } from './PermissionNoticeFrame'
+export { default as TransferConfirmFrame } from './TransferConfirmFrame'
+export type { TransferRequestInfo } from './TransferConfirmFrame'
 export { default as JsonToolFrame } from './JsonToolFrame'
 export { default as SnippetPickerFrame } from './SnippetPickerFrame'
 

@@ -49,5 +49,10 @@ export const AppRoutes = [
     path: '/snippetPicker',
     name: '片段选择',
     component: () => import('@renderer/views/SnippetPicker.vue')
+  },
+  {
+    path: '/transferConfirm',
+    name: '文件传输确认',
+    component: () => import('@renderer/views/TransferConfirm.vue')
   }
 ]

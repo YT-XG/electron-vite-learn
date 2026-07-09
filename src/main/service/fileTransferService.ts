@@ -54,6 +54,9 @@ interface TransferRequestInfo {
   totalSize: number
 }
 
+/** 重新导出给 TransferConfirmFrame 使用 */
+export type { TransferRequestInfo }
+
 /** 暂存的传输请求元数据 */
 interface PendingRequest {
   requestId: string
