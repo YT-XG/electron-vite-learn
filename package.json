@@ -30,6 +30,7 @@
     "electron-updater": "^6.8.9",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.3.0",
+    "multicast-dns": "^7.2.5",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "sql.js": "^1.14.1",

@@ -78,6 +78,57 @@ interface IPCChannels {
   // 监听
   on(channel: 'clipboard-history:new', listener: (event: unknown, item: HistoryItem) => void): void
   removeListener(channel: 'clipboard-history:new', listener: (event: unknown, item: HistoryItem) => void): void
+
+  // 文件互传
+  invoke(channel: 'to-service-FileTransferService:getDevices'): Promise<DeviceInfo[]>
+  invoke(channel: 'to-service-FileTransferService:sendRequest', target: DeviceInfo, files: FileEntry[]): Promise<string>
+  invoke(channel: 'to-service-FileTransferService:respondToRequest', requestId: string, action: 'accept' | 'reject', saveDir: string): Promise<void>
+  invoke(channel: 'to-service-FileTransferService:getRecords'): Promise<TransferRecord[]>
+  invoke(channel: 'to-service-FileTransferService:pickFiles'): Promise<FileEntry[]>
+  invoke(channel: 'to-service-FileTransferService:cancelTransfer', recordId: string): Promise<void>
+  invoke(channel: 'to-service-FileTransferService:getServerInfo'): Promise<{ name: string; address: string; port: number }>
+  invoke(channel: 'to-service-FileTransferService:pickDirectory'): Promise<string | null>
+  on(channel: 'broadcast:transfer-devices-updated', listener: (event: unknown, devices: DeviceInfo[]) => void): void
+  on(channel: 'broadcast:transfer-records-updated', listener: (event: unknown, records: TransferRecord[]) => void): void
+  on(channel: 'broadcast:transfer-request', listener: (event: unknown, request: TransferRequestInfo) => void): void
+  removeListener(channel: 'broadcast:transfer-devices-updated', listener: (...args: unknown[]) => void): void
+  removeListener(channel: 'broadcast:transfer-records-updated', listener: (...args: unknown[]) => void): void
+  removeListener(channel: 'broadcast:transfer-request', listener: (...args: unknown[]) => void): void
+}
+
+interface DeviceInfo {
+  name: string
+  address: string
+  port: number
+  version: string
+}
+
+interface FileEntry {
+  name: string
+  path: string
+  size: number
+}
+
+interface TransferRecord {
+  id: string
+  direction: 'sent' | 'received'
+  peerName: string
+  peerAddress: string
+  files: { name: string; size: number }[]
+  totalBytes: number
+  transferredBytes: number
+  status: 'pending' | 'transferring' | 'completed' | 'rejected' | 'failed'
+  errorMessage?: string
+  createdAt: number
+  completedAt?: number
+}
+
+interface TransferRequestInfo {
+  requestId: string
+  senderName: string
+  senderAddress: string
+  files: { name: string; size: number }[]
+  totalSize: number
 }
 
 declare global {

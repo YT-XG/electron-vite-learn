@@ -37,6 +37,10 @@ export interface AppSettings {
   githubRepo: string
   /** 下载线程数（1-16） */
   downloadThreads: number
+  /** 文件互传接收目录，默认系统下载目录 */
+  transferSaveDir: string
+  /** 文件互传设备名称，默认 os.hostname() */
+  transferDeviceName: string
 }
 
 /**
@@ -62,7 +66,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoStart: false,
   updateSource: 'github',
   githubRepo: 'YT-XG/electron-vite-learn',
-  downloadThreads: 8
+  downloadThreads: 8,
+  transferSaveDir: '',
+  transferDeviceName: ''
 }
 
 class SettingsService {
@@ -78,9 +84,8 @@ class SettingsService {
   async init(): Promise<void> {
     this.filePath = join(app.getPath('userData'), 'settings.json')
     this.settings = this.#load()
-    // 清理旧版自启项（Electron 开发框架名 和 electron-app 旧名称）
-    app.setLoginItemSettings({ openAtLogin: false, name: 'Electron' })
-    app.setLoginItemSettings({ openAtLogin: false, name: 'electron-app' })
+    // 清理旧版自启项残留
+    this.#cleanupStaleLoginItems()
     this.#registerAllShortcuts()
     this.#applyAutoStart()
     this.#registerIPC()
@@ -201,6 +206,30 @@ class SettingsService {
       { text: noticeText, duration: 5000 }
     )
     log.info('[Settings] 开机自启:', this.settings.autoStart ? '已开启' : '已关闭')
+  }
+
+  /**
+   * 清理旧版开机自启项残留
+   * @description 移除开发模式、旧名称、旧版打包注册的多个启动项
+   *   - Electron: 开发框架名（npm run dev 时 electron.exe 注册）
+   *   - electron-app: 旧版 appId 默认名称
+   *   - com.electron: 旧版 appId
+   *   - Prism: 重新注册确保路径正确（防止旧版指向 electron.exe 而非 prism.exe）
+   */
+  #cleanupStaleLoginItems(): void {
+    const staleNames = ['Electron', 'electron-app', 'com.electron']
+    for (const name of staleNames) {
+      app.setLoginItemSettings({ openAtLogin: false, name })
+    }
+    // 强制重新注册当前项，确保路径指向正确的打包后 exe
+    if (this.settings.autoStart) {
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        openAsHidden: true,
+        name: 'Prism'
+      })
+    }
+    log.info('[Settings] 旧版启动项已清理，当前自启状态:', this.settings.autoStart)
   }
 
   /**
