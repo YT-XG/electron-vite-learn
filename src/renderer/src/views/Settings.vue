@@ -318,6 +318,46 @@
         <p v-if="showTranslateApiTip" class="save-tip">✅ 翻译 API 配置已保存</p>
       </Transition>
     </div>
+
+    <!-- 文件互传 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">文件互传</span>
+        <span class="setting-hint">配置局域网文件互传相关设置</span>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">设备名称</span>
+          <span class="setting-desc">在局域网中显示的名称</span>
+        </div>
+        <input
+          class="setting-input"
+          type="text"
+          :value="transferDeviceName"
+          @change="updateSetting('transferDeviceName', ($event.target as HTMLInputElement).value)"
+          placeholder="自动使用系统主机名"
+        />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">接收文件保存位置</span>
+          <span class="setting-desc">接收文件默认保存到此目录</span>
+        </div>
+        <div class="setting-dir-row">
+          <input
+            class="setting-input"
+            type="text"
+            :value="transferSaveDir"
+            readonly
+            placeholder="系统默认下载目录"
+            style="flex:1; min-width:0;"
+          />
+          <button class="btn btn-secondary" @click="pickTransferDir">选择</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -436,6 +476,12 @@ const isTranslateApiDirty = computed(() => {
   return translateApiUrl.value !== translateApiOrig.value.apiUrl ||
          translateApiKey.value !== translateApiOrig.value.apiKey
 })
+
+/** 文件互传设备名称 */
+const transferDeviceName = ref('')
+
+/** 文件互传保存目录 */
+const transferSaveDir = ref('')
 
 /** 下拉框切换 */
 function onSelectChange(): void {
@@ -742,6 +788,24 @@ async function saveTranslateApi(): Promise<void> {
   }, 3000)
 }
 
+/**
+ * 更新单个设置项
+ */
+async function updateSetting(key: string, value: unknown): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { [key]: value })
+}
+
+/**
+ * 选择接收文件保存目录
+ */
+async function pickTransferDir(): Promise<void> {
+  const dir = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:pickDirectory')
+  if (dir) {
+    await updateSetting('transferSaveDir', dir)
+    transferSaveDir.value = dir
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  格式化
 // ═══════════════════════════════════════════════════════════════
@@ -806,6 +870,10 @@ onMounted(async () => {
     apiUrl: settings.translateApiUrl || '',
     apiKey: settings.translateApiKey || ''
   }
+
+  // 初始化文件互传配置
+  transferDeviceName.value = settings.transferDeviceName || ''
+  transferSaveDir.value = settings.transferSaveDir || ''
 })
 
 onUnmounted(() => {
@@ -1422,5 +1490,58 @@ onUnmounted(() => {
 
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(20px);
+}
+
+/* ========== 文件互传设置 ========== */
+.setting-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.setting-row .setting-info {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.setting-input {
+  width: 240px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-hover);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.setting-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.setting-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 </style>

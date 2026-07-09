@@ -7,6 +7,7 @@ import { settingsService } from './service/settingsService'
 import { translateService } from './service/translateService'
 import { claudeCodeService } from './service/claudeCodeService'
 import { downloadService } from './service/downloadService'
+import { fileTransferService } from './service/fileTransferService'
 import './service/inputService'
 import log from 'electron-log'
 
@@ -54,6 +55,8 @@ app.whenReady().then(async () => {
   await claudeCodeService.init()
   // 初始化下载服务（多线程下载）
   downloadService.init()
+  // 初始化文件互传服务（HTTP Server + mDNS）
+  await fileTransferService.init()
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
@@ -108,6 +111,7 @@ app.on('before-quit', () => {
   settingsService.destroy()
   translateService.destroy()
   claudeCodeService.destroy()
+  fileTransferService.destroy()
   trayService?.destroy()
   // 注销所有全局快捷键
   globalShortcut.unregisterAll()

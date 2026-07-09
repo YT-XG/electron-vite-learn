@@ -89,6 +89,15 @@
             <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">工具箱</span>
           </button>
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'fileTransfer' }"
+            @click="currentPage = 'fileTransfer'"
+            :title="isSidebarCollapsed ? '文件互传' : ''"
+          >
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="nav-label" v-if="!isSidebarCollapsed">文件互传</span>
+          </button>
         </nav>
       </aside>
 
@@ -105,6 +114,8 @@
           <DownloadManager v-else-if="currentPage === 'download'" key="download" />
           <!-- 工具箱 -->
           <Toolbox v-else-if="currentPage === 'toolbox'" key="toolbox" />
+          <!-- 文件互传 -->
+          <FileTransfer v-else-if="currentPage === 'fileTransfer'" key="fileTransfer" />
         </Transition>
       </main>
     </div>
@@ -118,10 +129,11 @@ import DownloadManager from './DownloadManager.vue'
 import Settings from './Settings.vue'
 import Translate from './Translate.vue'
 import Toolbox from './tools/Toolbox.vue'
+import FileTransfer from './FileTransfer.vue'
 
 const version = ref('')
 /** 当前页面 */
-const currentPage = ref<'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'>('clipboard')
+const currentPage = ref<'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox' | 'fileTransfer'>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
@@ -201,8 +213,8 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
  * @param page - 目标页面名称
  */
 const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
-  if (['clipboard', 'settings', 'translate', 'download', 'toolbox'].includes(page)) {
-    currentPage.value = page as 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox'
+  if (['clipboard', 'settings', 'translate', 'download', 'toolbox', 'fileTransfer'].includes(page)) {
+    currentPage.value = page as 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox' | 'fileTransfer'
   }
 }
 
