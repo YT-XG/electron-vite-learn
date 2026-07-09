@@ -1,6 +1,6 @@
-<h1 align="center">electron-app</h1>
+<h1 align="center">Prism</h1>
 
-<p align="center">An Electron application with Vue3 and TypeScript</p>
+<p align="center">桌面效率工具：剪贴板管理、翻译、Markdown 预览、全局搜索</p>
 
 <p align="center">
 <img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron" alt="electron-version">

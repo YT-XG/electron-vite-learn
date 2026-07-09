@@ -30,6 +30,9 @@ let trayService: TrayService | null = null
 // 设置退出标志
 ;(app as any).isQuitting = false
 
+// 设置应用名称为"Prism"，避免自启/任务栏显示"Electron"或"electron-app"
+app.setName('Prism')
+
 app.whenReady().then(async () => {
   // 设置应用用户模型 ID
   electronApp.setAppUserModelId('com.electron')
@@ -51,11 +54,6 @@ app.whenReady().then(async () => {
   await claudeCodeService.init()
   // 初始化下载服务（多线程下载）
   downloadService.init()
-
-  // 注册全局快捷键 Ctrl+K 呼出搜索框
-  globalShortcut.register('CommandOrControl+K', () => {
-    windowFactory.getSearchBoxFrame().toggle()
-  })
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {
