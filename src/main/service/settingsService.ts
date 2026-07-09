@@ -17,6 +17,8 @@ import { windowFactory, popupManager, NoticeNewFrame } from '../frame'
 export interface AppSettings {
   /** Electron accelerator 格式的全局快捷键，如 'CommandOrControl+Alt+V' */
   shortcut: string
+  /** 片段选择器快捷键，如 'CommandOrControl+Shift+V' */
+  snippetShortcut: string
   /**
    * 局域网更新服务器路径
    * - Windows: UNC 路径，如 '\\10.15.2.28\dist'
@@ -55,6 +57,7 @@ function getDefaultServerUrl(): string {
 /** 默认设置 */
 const DEFAULT_SETTINGS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+V',
+  snippetShortcut: 'CommandOrControl+Shift+V',
   serverUrl: getDefaultServerUrl(),
   autoStart: false,
   updateSource: 'github',
@@ -70,14 +73,18 @@ class SettingsService {
    * 初始化设置服务
    * - 加载 settings.json（不存在时使用默认值）
    * - 注册全局快捷键
+   * - 清理旧版自启项名称（Electron / electron-app）
    */
   async init(): Promise<void> {
     this.filePath = join(app.getPath('userData'), 'settings.json')
     this.settings = this.#load()
-    this.#registerShortcut()
+    // 清理旧版自启项（Electron 开发框架名 和 electron-app 旧名称）
+    app.setLoginItemSettings({ openAtLogin: false, name: 'Electron' })
+    app.setLoginItemSettings({ openAtLogin: false, name: 'electron-app' })
+    this.#registerAllShortcuts()
     this.#applyAutoStart()
     this.#registerIPC()
-    log.info('[Settings] 初始化完成，当前快捷键:', this.settings.shortcut)
+    log.info('[Settings] 初始化完成')
   }
 
   /**
@@ -96,9 +103,9 @@ class SettingsService {
   update(partial: Partial<AppSettings>): void {
     this.settings = { ...this.settings, ...partial }
     this.#save()
-    this.#registerShortcut()
+    this.#registerAllShortcuts()
     this.#applyAutoStart()
-    log.info('[Settings] 已更新，当前快捷键:', this.settings.shortcut)
+    log.info('[Settings] 已更新')
   }
 
   /**
@@ -180,7 +187,8 @@ class SettingsService {
   #applyAutoStart(): void {
     app.setLoginItemSettings({
       openAtLogin: this.settings.autoStart,
-      openAsHidden: true
+      openAsHidden: true,
+      name: 'Prism'
     })
     const noticeText = '开机自启已' + (this.settings.autoStart ? '开启' : '关闭')
     popupManager.showNotice(
@@ -196,24 +204,44 @@ class SettingsService {
   }
 
   /**
-   * 注册/重新注册全局快捷键
-   * 先 unregisterAll → 再 register accelerator
-   * callback 调用 MainPageFrame.showCentered()（与托盘左键行为一致）
+   * 注册/重新注册所有全局快捷键
+   * @description 统一管理三大快捷键，避免 unregisterAll 遗漏
+   *  - 主页面显示/隐藏（配置项 shortcut）
+   *  - 片段选择器（配置项 snippetShortcut）
+   *  - 搜索框（硬编码 CommandOrControl+K）
    */
-  #registerShortcut(): void {
+  #registerAllShortcuts(): void {
     globalShortcut.unregisterAll()
 
-    const accelerator = this.settings.shortcut
-    if (!accelerator) return
-
-    const registered = globalShortcut.register(accelerator, () => {
+    // 主页面快捷键
+    this.#tryRegister(this.settings.shortcut, () => {
       windowFactory.getMainPageFrame().showCentered()
-    })
+    }, '主页面')
 
+    // 片段选择器快捷键
+    this.#tryRegister(this.settings.snippetShortcut, () => {
+      windowFactory.getSnippetPickerFrame().toggle()
+    }, '片段选择器')
+
+    // 搜索框快捷键（固定 Ctrl+K）
+    this.#tryRegister('CommandOrControl+K', () => {
+      windowFactory.getSearchBoxFrame().toggle()
+    }, '搜索框')
+  }
+
+  /**
+   * 尝试注册一个全局快捷键
+   * @param accelerator - 快捷键组合
+   * @param callback - 回调函数
+   * @param label - 快捷键用途（仅日志）
+   */
+  #tryRegister(accelerator: string, callback: () => void, label: string): void {
+    if (!accelerator) return
+    const registered = globalShortcut.register(accelerator, callback)
     if (registered) {
-      log.info('[Settings] 全局快捷键已注册:', accelerator)
+      log.info(`[Settings] ${label}快捷键已注册:`, accelerator)
     } else {
-      log.warn('[Settings] 全局快捷键注册失败（可能被系统或其他应用占用）:', accelerator)
+      log.warn(`[Settings] ${label}快捷键注册失败（可能被占用）:`, accelerator)
     }
   }
 }

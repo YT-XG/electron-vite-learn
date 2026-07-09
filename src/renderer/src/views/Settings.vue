@@ -98,6 +98,54 @@
       </Transition>
     </div>
 
+    <!-- 片段选择快捷键 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">片段选择快捷键</span>
+        <span class="setting-hint">按下快捷键可呼出/隐藏片段选择窗口</span>
+      </div>
+
+      <div class="shortcut-row">
+        <!-- 空闲状态 -->
+        <div v-if="snippetState === 'idle'" class="shortcut-keys" @click="startSnippetRecording" tabindex="0" role="button">
+          <kbd v-for="key in snippetDisplayParts" :key="key" class="keycap">{{ key }}</kbd>
+          <span class="change-hint">点击修改</span>
+        </div>
+
+        <!-- 录制状态 -->
+        <div v-else class="shortcut-recorder" @keydown.prevent="onSnippetKeydown" tabindex="0" ref="snippetRecorderRef">
+          <template v-if="snippetCapturedKeys.length === 0">
+            <span class="recording-pulse">●</span>
+            <span class="recording-text">按下快捷键...</span>
+          </template>
+          <template v-else>
+            <kbd v-for="key in snippetCapturedDisplayKeys" :key="key" class="keycap active">{{ key }}</kbd>
+          </template>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="shortcut-actions">
+          <button v-if="snippetState === 'idle'" class="btn btn-secondary" @click="startSnippetRecording">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            录制
+          </button>
+          <template v-if="snippetState === 'recording'">
+            <button class="btn btn-primary" :disabled="!snippetIsValidCombo" @click="saveSnippetShortcut">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              保存
+            </button>
+            <button class="btn btn-ghost" @click="cancelSnippetRecording">
+              取消
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <Transition name="fade">
+        <p v-if="showSnippetSavedTip" class="save-tip">✅ 快捷键已更新，立即生效</p>
+      </Transition>
+    </div>
+
     <!-- 更新源选择 -->
     <div class="setting-card">
       <div class="setting-info">
@@ -320,6 +368,13 @@ const currentShortcut = ref('')
 const capturedKeys = ref<string[]>([])
 const showSavedTip = ref(false)
 
+/** 片段选择快捷键录制 */
+const snippetState = ref<State>('idle')
+const currentSnippetShortcut = ref('')
+const snippetCapturedKeys = ref<string[]>([])
+const showSnippetSavedTip = ref(false)
+const snippetRecorderRef = ref<HTMLDivElement | null>(null)
+
 /** 更新服务器配置 */
 const ipOptions = [
   { label: '10.15.8.28', value: '10.15.8.28' },
@@ -409,6 +464,20 @@ const isValidCombo = computed(() => {
     capturedKeys.value.includes(m)
   )
   return mods.length >= 1 && capturedKeys.value.length > mods.length
+})
+
+/** 片段快捷键显示分段 */
+const snippetDisplayParts = computed(() => formatAccelerator(currentSnippetShortcut.value))
+
+/** 片段快捷键录制中显示分段 */
+const snippetCapturedDisplayKeys = computed(() => snippetCapturedKeys.value)
+
+/** 片段快捷键是否有有效组合 */
+const snippetIsValidCombo = computed(() => {
+  const mods = ['CommandOrControl', 'Alt', 'Shift'].filter((m) =>
+    snippetCapturedKeys.value.includes(m)
+  )
+  return mods.length >= 1 && snippetCapturedKeys.value.length > mods.length
 })
 
 const recorderRef = ref<HTMLDivElement | null>(null)
@@ -541,6 +610,74 @@ function cancelRecording(): void {
   document.removeEventListener('keydown', onKeydown)
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  片段选择快捷键录制
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * 开始录制片段选择快捷键
+ */
+function startSnippetRecording(): void {
+  snippetState.value = 'recording'
+  snippetCapturedKeys.value = []
+  nextTick(() => {
+    snippetRecorderRef.value?.focus()
+    document.addEventListener('keydown', onSnippetKeydown)
+  })
+}
+
+/**
+ * 处理片段快捷键按键事件
+ */
+function onSnippetKeydown(event: KeyboardEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (event.key === 'Escape') {
+    cancelSnippetRecording()
+    return
+  }
+
+  const mods: string[] = []
+  if (event.ctrlKey || event.metaKey) mods.push('CommandOrControl')
+  if (event.altKey) mods.push('Alt')
+  if (event.shiftKey) mods.push('Shift')
+
+  const key = event.key
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return
+
+  const mappedKey = mapKey(event)
+  snippetCapturedKeys.value = [...mods, mappedKey]
+  snippetState.value = 'recording'
+}
+
+/**
+ * 保存片段选择快捷键
+ */
+async function saveSnippetShortcut(): Promise<void> {
+  const accelerator = snippetCapturedKeys.value.join('+')
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', {
+    snippetShortcut: accelerator
+  })
+  currentSnippetShortcut.value = accelerator
+  snippetState.value = 'idle'
+  document.removeEventListener('keydown', onSnippetKeydown)
+
+  showSnippetSavedTip.value = true
+  setTimeout(() => {
+    showSnippetSavedTip.value = false
+  }, 3000)
+}
+
+/**
+ * 取消片段快捷键录制
+ */
+function cancelSnippetRecording(): void {
+  snippetState.value = 'idle'
+  snippetCapturedKeys.value = []
+  document.removeEventListener('keydown', onSnippetKeydown)
+}
+
 /**
  * 保存更新服务器地址
  */
@@ -640,6 +777,7 @@ onMounted(async () => {
 
   const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   currentShortcut.value = settings.shortcut
+  currentSnippetShortcut.value = settings.snippetShortcut || 'CommandOrControl+Shift+V'
   autoStart.value = settings.autoStart ?? false
 
   // 初始化更新服务器
@@ -672,6 +810,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('keydown', onSnippetKeydown)
 })
 </script>
 
