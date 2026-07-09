@@ -458,7 +458,6 @@ class FileTransferService {
     }
     const savePath = resolveFileNameConflict(saveDir, fileName)
     const writeStream = createWriteStream(savePath)
-    let receivedBytes = 0
 
     // 查找或创建接收记录
     const record = this.records.find((r) =>
@@ -466,8 +465,11 @@ class FileTransferService {
     )
 
     req.on('data', (chunk: Buffer) => {
-      receivedBytes += chunk.length
-      writeStream.write(chunk)
+      const canContinue = writeStream.write(chunk)
+      if (!canContinue) {
+        req.pause()
+        writeStream.once('drain', () => req.resume())
+      }
       // 更新记录进度
       if (record) {
         record.transferredBytes += chunk.length
@@ -505,10 +507,11 @@ class FileTransferService {
     if (!online) throw new Error('设备不在线或不可达')
 
     // 发起请求
-    const requestId = await this.doPost(target, '/request', {
+    const response = await this.doPost(target, '/request', {
       files: files.map((f) => ({ name: f.name, size: f.size })),
       senderName: this.getDeviceName()
-    }).then((r) => r.requestId)
+    })
+    const requestId = response.requestId
 
     // 创建发送记录
     const totalBytes = files.reduce((s, f) => s + f.size, 0)
@@ -664,13 +667,16 @@ class FileTransferService {
     // 获取发送方端口（从 pending 中恢复，实际上我们需要在 request 中存下来）
     // 简化处理：直接用 pending.senderAddress 发起 HTTP 请求
     // 由于发送方在 /request 时会带上端口信息，此处简化
-    this.doPostByAddress(pending.senderAddress, '/respond', { requestId, action, saveDir }).catch((err) => {
-      log.error('[FileTransfer] respond 失败:', err)
-    })
-    if (action === 'reject') {
+    if (action === 'accept') {
+      pending.status = 'accepted'
+      pending.saveDir = saveDir || this.getSaveDir()
+    } else if (action === 'reject') {
       pending.status = 'rejected'
       this.pendingRequests.delete(requestId)
     }
+    this.doPostByAddress(pending.senderAddress, '/respond', { requestId, action, saveDir }).catch((err) => {
+      log.error('[FileTransfer] respond 失败:', err)
+    })
   }
 
   private doPostByAddress(address: string, path: string, body: unknown): Promise<any> {
