@@ -180,13 +180,17 @@ export default class NoticeNewFrame extends BaseFrame {
     })
 
     // 翻译按钮点击：打开主页面并切换到翻译页面
-    this.recvOne('to-main-NoticeNewFrame:translate', (_event, text: string) => {
+    this.recvOne('to-main-NoticeNewFrame:translate', (event, text: string) => {
+      // 只处理来自本窗口的事件
+      if (!this.isAlive() || event.sender.id !== this.window!.webContents.id) return
       // 打开主页面并跳转到翻译页面
       windowFactory.getMainPageFrame().showAndTranslate(text)
     })
 
     // 打开链接按钮点击：使用系统默认浏览器打开链接
-    this.recvOne('to-main-NoticeNewFrame:openLink', (_event, text: string) => {
+    this.recvOne('to-main-NoticeNewFrame:openLink', (event, text: string) => {
+      // 只处理来自本窗口的事件，防止多个通知实例重复触发（ipcMain.on 是全局的）
+      if (!this.isAlive() || event.sender.id !== this.window!.webContents.id) return
       // 从文本中提取链接并打开
       const url = NoticeNewFrame.#extractUrl(text)
       if (url) {
@@ -195,7 +199,9 @@ export default class NoticeNewFrame extends BaseFrame {
     })
 
     // JSON 工具按钮点击：打开 JSON 工具窗口并发送内容
-    this.recvOne('to-main-NoticeNewFrame:openJsonTool', (_event, text: string) => {
+    this.recvOne('to-main-NoticeNewFrame:openJsonTool', (event, text: string) => {
+      // 只处理来自本窗口的事件
+      if (!this.isAlive() || event.sender.id !== this.window!.webContents.id) return
       const frame = windowFactory.getJsonToolFrame()
       // 如果窗口不存在，创建窗口
       if (!frame.isAlive()) {

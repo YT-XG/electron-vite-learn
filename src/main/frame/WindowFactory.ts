@@ -3,6 +3,7 @@ import SearchBoxFrame from './SearchBoxFrame'
 import MarkdownPreviewFrame from './MarkdownPreviewFrame'
 import ContextMenuFrame from './ContextMenuFrame'
 import JsonToolFrame from './JsonToolFrame'
+import SnippetPickerFrame from './SnippetPickerFrame'
 
 /**
  * 窗口工厂
@@ -24,6 +25,9 @@ export default class WindowFactory {
 
   /** JSON 工具窗口 */
   #jsonToolFrame: JsonToolFrame | null = null
+
+  /** 片段选择窗口 */
+  #snippetPickerFrame: SnippetPickerFrame | null = null
 
   /**
    * 获取主页面窗口
@@ -113,6 +117,20 @@ export default class WindowFactory {
   }
 
   /**
+   * 获取片段选择窗口
+   * @returns SnippetPickerFrame 实例
+   */
+  getSnippetPickerFrame(): SnippetPickerFrame {
+    if (!this.#snippetPickerFrame) {
+      this.#snippetPickerFrame = new SnippetPickerFrame()
+      this.#snippetPickerFrame.onDestroyCallback = () => {
+        this.#snippetPickerFrame = null
+      }
+    }
+    return this.#snippetPickerFrame
+  }
+
+  /**
    * 创建 JSON 工具窗口
    * @returns JsonToolFrame 实例
    */
@@ -155,6 +173,7 @@ export default class WindowFactory {
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.destroy()
     this.#jsonToolFrame?.destroy()
+    this.#snippetPickerFrame?.destroy()
   }
 
   /**
@@ -166,6 +185,7 @@ export default class WindowFactory {
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.hideMenu()
     this.#jsonToolFrame?.destroy()
+    this.#snippetPickerFrame?.hide()
   }
 }
 

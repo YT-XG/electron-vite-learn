@@ -17,7 +17,7 @@
         @click="switchTab('favorites')"
       >
         <span class="tab-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
-        <span class="tab-label">收藏</span>
+        <span class="tab-label">片段</span>
         <span class="tab-count" v-if="favoritesList.length">{{ favoritesList.length }}</span>
       </button>
     </div>
@@ -60,10 +60,10 @@
               v-model="searchKeywordFavorites"
               type="text"
               class="search-input"
-              placeholder="搜索收藏内容或描述..."
+              placeholder="搜索片段内容或描述..."
             />
           </div>
-          <button class="btn toolbar-btn primary" @click="showAddDialog = true" title="手动添加收藏">
+          <button class="btn toolbar-btn primary" @click="showAddDialog = true" title="手动添加片段">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加
           </button>
         </div>
@@ -103,13 +103,13 @@
           <svg v-else width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </div>
         <div class="empty-text">
-          {{ activeTab === 'history' ? '暂无历史记录' : '暂无收藏' }}
+          {{ activeTab === 'history' ? '暂无历史记录' : '暂无片段' }}
         </div>
         <div class="empty-hint">
           {{
             activeTab === 'history'
               ? '复制文字后会自动出现在这里'
-              : '点击右上角"添加"按钮手动收藏内容'
+              : '点击右上角"添加"按钮手动添加片段'
           }}
         </div>
       </div>
@@ -156,7 +156,7 @@
                 v-if="activeTab === 'history'"
                 class="action-btn"
                 @click="quickFavorite(item as HistoryItem)"
-                title="收藏"
+                title="保存为片段"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               </button>
@@ -181,7 +181,7 @@
     <div v-if="showAddDialog || editingFavorite" class="dialog-overlay" @click="closeDialog">
       <div class="dialog" @click.stop>
         <div class="dialog-header">
-          <h3>{{ editingFavorite ? '编辑收藏' : '添加收藏' }}</h3>
+          <h3>{{ editingFavorite ? '编辑片段' : '添加片段' }}</h3>
         </div>
         <div class="dialog-body">
           <div class="form-group">
@@ -189,7 +189,7 @@
             <textarea
               v-model="formData.content"
               class="form-textarea"
-              placeholder="输入要收藏的内容..."
+              placeholder="输入片段内容..."
               rows="4"
             ></textarea>
           </div>
@@ -255,7 +255,7 @@ interface HistoryItem {
 }
 
 /**
- * 收藏项类型
+ * 片段项类型
  */
 interface FavoriteItem {
   id: number
@@ -284,7 +284,7 @@ const activeTab = ref<'history' | 'favorites'>('history')
 /** 历史记录列表 */
 const historyList = ref<HistoryItem[]>([])
 
-/** 收藏列表 */
+/** 片段列表 */
 const favoritesList = ref<FavoriteItem[]>([])
 
 /** 分类列表 */
@@ -296,7 +296,7 @@ const selectedCategory = ref('')
 /** 搜索关键词（历史记录） */
 const searchKeyword = ref('')
 
-/** 搜索关键词（收藏） */
+/** 搜索关键词（片段） */
 const searchKeywordFavorites = ref('')
 
 /** 加载状态 */
@@ -329,7 +329,7 @@ const displayList = computed<DisplayItem[]>(() => {
     return historyList.value
   }
 
-  // 收藏列表：按分类筛选 + 搜索关键词过滤（搜内容和描述）
+  // 片段列表：按分类筛选 + 搜索关键词过滤（搜内容和描述）
   let filtered = favoritesList.value
 
   if (selectedCategory.value) {
@@ -357,7 +357,7 @@ const fetchHistory = async (): Promise<void> => {
 }
 
 /**
- * 获取收藏列表
+ * 获取片段列表
  */
 const fetchFavorites = async (): Promise<void> => {
   const list = await window.electron.ipcRenderer.invoke('to-service-ClipboardService:getFavorites')
@@ -405,12 +405,12 @@ const copyItem = async (content: string): Promise<void> => {
 }
 
 /**
- * 快速收藏历史记录到未分类组
+ * 快速保存历史记录到片段
  * @param item - 历史记录项
  */
 const quickFavorite = async (item: HistoryItem): Promise<void> => {
   await window.electron.ipcRenderer.invoke('to-service-ClipboardService:addFavorite', item.content, '', '')
-  // 刷新收藏列表和分类，更新计数
+  // 刷新片段列表和分类，更新计数
   await fetchFavorites()
   await fetchCategories()
 }
@@ -465,8 +465,8 @@ const clearAllHistory = async (): Promise<void> => {
 }
 
 /**
- * 打开编辑收藏弹窗
- * @param item - 收藏项
+ * 打开编辑片段弹窗
+ * @param item - 片段项
  */
 const editFavorite = (item: DisplayItem): void => {
   const favItem = item as FavoriteItem
@@ -488,7 +488,7 @@ const closeDialog = (): void => {
 }
 
 /**
- * 保存收藏（添加或编辑）
+ * 保存片段（添加或编辑）
  */
 const saveFavorite = async (): Promise<void> => {
   if (!formData.value.content) return

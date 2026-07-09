@@ -80,6 +80,15 @@ export default abstract class BaseFrame {
     // 加载页面
     this.loadPage()
 
+    // 监听窗口 closed 事件，确保外部销毁窗口时也能清理 IPC 处理器
+    // 解决 PopupManager 通过 PopupItem.destroyImmediate() 直接销毁 BrowserWindow
+    // 时不经过 BaseFrame.destroy() 导致的 IPC 监听器泄漏问题
+    this.window.on('closed', () => {
+      this.clearIPCHandlers()
+      this.onDestroyCallback?.()
+      this.onDestroyCallback = null
+    })
+
     // 注册 IPC 监听器（子类可重写）
     this.registerIPC()
 

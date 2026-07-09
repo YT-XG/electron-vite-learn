@@ -12,6 +12,7 @@ export { default as UpdateNewFrame } from './UpdateNewFrame'
 export { default as MainPageFrame } from './MainPageFrame'
 export { default as PermissionNoticeFrame } from './PermissionNoticeFrame'
 export { default as JsonToolFrame } from './JsonToolFrame'
+export { default as SnippetPickerFrame } from './SnippetPickerFrame'
 
 // 统一弹窗管理器
 export { default as PopupManager, popupManager } from './PopupManager'

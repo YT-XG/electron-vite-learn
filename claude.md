@@ -27,6 +27,7 @@ electron-vite-learn/
 │   │       ├── SearchBoxFrame.ts  # 搜索框窗口（全局搜索，快捷键呼出）
 │   │       ├── MarkdownPreviewFrame.ts # Markdown 预览窗口（多标签页分屏预览）
 │   │       ├── ContextMenuFrame.ts # 右键菜单窗口（Markdown 编辑器菜单）
+│   │       ├── SnippetPickerFrame.ts # 片段选择窗口（Ctrl+Shift+V 呼出，搜索并快速插入片段）
 │   │       ├── PopupManager.ts    # 统一弹窗管理器（管理所有底部弹窗）
 │   │       ├── PopupItem.ts       # 弹窗元数据（封装窗口实例和动画）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
@@ -62,12 +63,12 @@ electron-vite-learn/
 │           │   ├── NoticeNew.vue   # 通知弹窗（蓝粉渐变胶囊样式，支持翻译按钮）
 │           │   ├── UpdateNew.vue   # 更新窗口（底部居中弹出）
 │           │   ├── MainPage.vue  # 主页面（侧边栏布局，托盘左键打开）
-│           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 收藏）
-│           │   ├── Translate.vue    # 翻译页面
+│           │   ├── ClipboardManager.vue # 剪贴板管理（历史记录 + 片段）│           │   ├── Translate.vue    # 翻译页面
 │           │   ├── PermissionNotice.vue # 权限确认弹窗（Claude Code 权限请求交互）
 │           │   ├── SearchBox.vue    # 搜索框组件（全局搜索）
 │           │   ├── MarkdownPreview.vue # Markdown 预览组件（多标签页分屏）
 │           │   ├── ContextMenu.vue  # 右键菜单组件（Markdown 编辑器菜单）
+│           │   ├── SnippetPicker.vue # 片段选择组件（Ctrl+Shift+V 呼出，搜索并快速插入片段）
 │           │   ├── Test.vue   # 测试页面
 │           │   └── tools/      # 工具页面
 │           │       └── Toolbox.vue  # 工具箱页面
@@ -131,8 +132,7 @@ electron-vite-learn/
 - **职责**: 所有窗口类，分为两大类：**普通窗口**（WindowFactory 管理）和 **通知弹窗**（PopupManager 管理）
 - **关键文件**:
   - `BaseFrame.ts` - 窗口基类，封装创建、销毁、IPC 通信等通用逻辑（唯一调用 `new BrowserWindow()` 的地方）
-  - `WindowFactory.ts` - 窗口工厂，管理**普通窗口**的创建和生命周期（MainPage、SearchBox、MarkdownPreview、ContextMenu、JsonTool）
-  - `PopupManager.ts` - 统一弹窗管理器，管理**通知弹窗**的槽位分配和动画（NoticeNew、UpdateNew、PermissionNotice）
+  - `WindowFactory.ts` - 窗口工厂，管理**普通窗口**的创建和生命周期（MainPage、SearchBox、MarkdownPreview、ContextMenu、JsonTool、SnippetPicker）  - `PopupManager.ts` - 统一弹窗管理器，管理**通知弹窗**的槽位分配和动画（NoticeNew、UpdateNew、PermissionNotice）
   - `PopupItem.ts` - 弹窗元数据，轻量包装 BrowserWindow，供 PopupManager 使用
   - `NoticeNewFrame.ts` - 通知弹窗，右下角右侧滑入，蓝粉渐变胶囊风格，时长由 PopupManager 管理
   - `UpdateNewFrame.ts` - 更新窗口，右下角右侧滑入，包含局域网/GitHub 更新完整逻辑
@@ -141,6 +141,7 @@ electron-vite-learn/
   - `SearchBoxFrame.ts` - 搜索框窗口，屏幕居中显示，快捷键 `Ctrl+K` 呼出
   - `MarkdownPreviewFrame.ts` - Markdown 预览窗口，多标签页分屏
   - `ContextMenuFrame.ts` - 右键菜单窗口，Markdown 编辑器右键菜单
+  - `SnippetPickerFrame.ts` - 片段选择窗口，快捷键 `Ctrl+Shift+V` 呼出，快速搜索并插入片段，支持变量模板
   - `JsonToolFrame.ts` - JSON 工具窗口
 - **设计模式**: 工厂模式 + 模板方法模式 + 中介者模式（PopupManager 协调通知窗口）
 - **架构图**:

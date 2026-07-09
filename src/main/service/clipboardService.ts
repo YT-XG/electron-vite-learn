@@ -321,6 +321,21 @@ class ClipboardService {
   }
 
   /**
+   * 搜索片段（收藏）
+   * @description 在 content 和 description 字段同时搜索，按创建时间倒序排列
+   * @param keyword - 搜索关键词
+   * @returns 匹配的片段列表
+   */
+  searchFavorites(keyword: string): FavoriteItem[] {
+    if (!this.db) return []
+    const result = this.db.exec(
+      'SELECT * FROM favorites WHERE content LIKE ? OR description LIKE ? ORDER BY created_at DESC',
+      [`%${keyword}%`, `%${keyword}%`]
+    )
+    return this.parseFavoritesResult(result)
+  }
+
+  /**
    * 搜索历史记录
    * @param keyword - 搜索关键词
    * @returns 匹配的记录列表
@@ -414,6 +429,11 @@ class ClipboardService {
     // 搜索历史记录
     ipcMain.handle('to-service-ClipboardService:searchHistory', (_event, keyword: string) => {
       return this.search(keyword)
+    })
+
+    // 搜索片段（收藏）
+    ipcMain.handle('to-service-ClipboardService:searchSnippets', (_event, keyword: string) => {
+      return this.searchFavorites(keyword)
     })
 
     // 删除历史记录

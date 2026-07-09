@@ -44,5 +44,10 @@ export const AppRoutes = [
     path: '/jsonTool',
     name: 'JSON 工具',
     component: () => import('@renderer/views/JsonTool.vue')
+  },
+  {
+    path: '/snippetPicker',
+    name: '片段选择',
+    component: () => import('@renderer/views/SnippetPicker.vue')
   }
 ]
