@@ -66,6 +66,11 @@ export default class TransferConfirmFrame extends BaseFrame {
         popupManager.destroyPermissionNotice()
       }, 350)
     })
+
+    // 渲染进程请求销毁窗口（退场动画完成后）
+    this.recvOne('to-main-TransferConfirmFrame:destroy', () => {
+      this.destroy()
+    })
   }
 
   create(): BrowserWindow {

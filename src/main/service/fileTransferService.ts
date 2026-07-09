@@ -660,6 +660,9 @@ class FileTransferService {
       { type: 'permission' as any, width: 420, height: 300 },
       (win) => {
         win.webContents.send('to-renderer-TransferConfirm:show', info)
+        // 手动发送入场动画到 TransferConfirm 的频道
+        // PopupManager 的 playAnimation 会发送到 PermissionNoticeFrame 频道，此处补充
+        win.webContents.send('to-renderer-TransferConfirm:animate', { action: 'enter' })
       }
     )
   }

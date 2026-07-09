@@ -1,5 +1,5 @@
 <template>
-  <div class="confirm-container" @animationend="onAnimationEnd">
+  <div class="confirm-container" :class="animState" @animationend="onAnimationEnd">
     <div
       class="confirm-card"
       @mouseenter="onMouseEnterCard"
@@ -57,7 +57,7 @@ interface TransferRequestInfo {
 const requestInfo = ref<TransferRequestInfo | null>(null)
 const saveDir = ref('')
 const saveDirDisplay = computed(() => saveDir.value || '默认下载目录')
-const animState = ref<'enter' | 'exit' | ''>('enter')
+const animState = ref<'enter' | 'exit' | ''>('')
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -118,8 +118,11 @@ onMounted(() => {
   justify-content: flex-end;
   padding: 0;
 }
-.confirm-container:not([class*="exit"]) .confirm-card {
+.confirm-container.enter .confirm-card {
   transform: translateX(0);
+}
+.confirm-container.exit .confirm-card {
+  transform: translateX(calc(100% + 16px));
 }
 .confirm-card {
   width: 100%;
