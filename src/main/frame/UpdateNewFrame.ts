@@ -173,10 +173,21 @@ export default class UpdateNewFrame extends BaseFrame {
       await this.destroy()
     })
 
-    // 渲染进程已就绪，检查更新
+    // 渲染进程已就绪，发送已缓存的数据
     this.recvOne('to-main-UpdateNewFrame:ready', async () => {
-      console.log('渲染进程加载完毕，准备检查更新')
-      await this.checkForUpdates()
+      console.log('渲染进程加载完毕，发送已缓存的更新信息')
+      // 如果已有更新信息（由 checkGitHubUpdates/checkLanUpdates 预先获取），直接发送
+      // 不再调用 checkForUpdates()，避免递归循环：
+      //   checkForUpdates → showUpdateNotice → create() → 页面加载 → ready → checkForUpdates(!!!)
+      if (this.currentUpdateInfo) {
+        this.sendOne('to-renderer-UpdateNewFrame:info', {
+          version: this.currentUpdateInfo.version,
+          updateInfo: this.currentUpdateInfo
+        })
+        if (this.currentDownloadPath) {
+          this.sendOne('to-renderer-UpdateNewFrame:downloaded', { path: this.currentDownloadPath })
+        }
+      }
     })
 
     // 渲染进程请求下载更新
