@@ -86,6 +86,21 @@ const ACCEPT_TIMEOUT_MS = 60_000
 /** 服务类型 */
 const MDNS_SERVICE_TYPE = '_prism-xfer._tcp.local'
 
+/** TCP 发现服务固定端口 */
+const DISCOVERY_PORT = 17_862
+
+/** TCP 发现端口绑定重试次数 */
+const MAX_DISCOVERY_PORT_ATTEMPTS = 3
+
+/** 子网 TCP 扫描间隔（毫秒） */
+const SUBNET_SCAN_INTERVAL_MS = 60_000
+
+/** 子网扫描并发数 */
+const SCAN_CONCURRENCY = 20
+
+/** 探针 TCP 超时（毫秒） */
+const PROBE_TIMEOUT_MS = 2_000
+
 /** 局域网 IP 段 */
 const LAN_RANGES = [
   { start: ipToInt('192.168.0.0'), end: ipToInt('192.168.255.255') },
@@ -98,6 +113,28 @@ const LAN_RANGES = [
 /** IP 字符串转整数 */
 function ipToInt(ip: string): number {
   return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0
+}
+
+/** 整数转 IP 字符串 */
+function intToIP(num: number): string {
+  return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.')
+}
+
+/**
+ * CIDR 转 IP 范围
+ * @returns { start, end } 整数形式的起始/结束 IP（不含网络地址和广播地址）
+ */
+function cidrToRange(cidr: string): { start: number; end: number } | null {
+  const parts = cidr.split('/')
+  if (parts.length !== 2) return null
+  const ip = ipToInt(parts[0])
+  const bits = parseInt(parts[1], 10)
+  if (isNaN(bits) || bits < 0 || bits > 32) return null
+  const mask = bits === 0 ? 0 : ~(2 ** (32 - bits) - 1) >>> 0
+  const network = (ip & mask) >>> 0
+  const hostCount = 2 ** (32 - bits)
+  if (hostCount <= 2) return { start: network, end: network }
+  return { start: network + 1, end: network + hostCount - 2 }
 }
 
 /** 判断 IP 是否为局域网地址 */
@@ -160,12 +197,25 @@ class FileTransferService {
   private mdnsBrowser: any = null
   private multicastDNS: any = null
 
+  /** TCP 发现服务器（固定端口，用于跨子网发现） */
+  private discoveryServer: http.Server | null = null
+  /** 实际绑定的发现端口 */
+  private discoveryPort = 0
+  /** TCP 扫描到的设备（key: address:port） */
+  private scannedDevices: Map<string, DeviceInfo & { lastSeen: number }> = new Map()
+  /** 子网扫描定时器 */
+  private subnetScanTimer: ReturnType<typeof setInterval> | null = null
+  /** 是否正在扫描 */
+  private isScanning = false
+
   async init(): Promise<void> {
     // 动态加载 multicast-dns（CJS 模块，避免 import 加载时阻塞）
     this.multicastDNS = require('multicast-dns')
     await this.startServer()
     this.startMDNS()
     this.startScanning()
+    await this.startDiscoveryServer()
+    this.startSubnetScanner()
     this.registerIPC()
     log.info('[FileTransfer] 服务初始化完成，端口:', this.port)
   }
@@ -174,6 +224,8 @@ class FileTransferService {
     this.stopScanning()
     this.stopMDNS()
     this.stopServer()
+    this.stopSubnetScanner()
+    this.stopDiscoveryServer()
     log.info('[FileTransfer] 服务已停止')
   }
 
@@ -215,14 +267,47 @@ class FileTransferService {
     ipcMain.handle('to-service-FileTransferService:pickDirectory', async () => {
       return this.pickDirectory()
     })
+
+    /** 获取当前扫描网段配置 */
+    ipcMain.handle('to-service-FileTransferService:getScanSubnets', () => {
+      return this.getScanSubnets()
+    })
+
+    /** 保存扫描网段配置 */
+    ipcMain.handle('to-service-FileTransferService:setScanSubnets', (_event, subnets: string[]) => {
+      settingsService.update({ scanSubnets: subnets })
+      return { ok: true }
+    })
+
+    /** 手动添加设备（IP + 端口） */
+    ipcMain.handle('to-service-FileTransferService:addDevice', (_event, address: string, port: number) => {
+      return this.addScannedDevice(address, port)
+    })
   }
 
   // ── 设备管理 ──
 
   getDevices(): DeviceInfo[] {
-    return Array.from(this.devices.values())
+    // 合并 mDNS 发现的设备
+    const mdnsDevices = Array.from(this.devices.values())
       .filter((d) => d.missCount < OFFLINE_THRESHOLD)
       .map(({ name, address, port, version }) => ({ name, address, port, version }))
+
+    // 合并 TCP 扫描发现的设备（去重：优先保留 mDNS 结果，因其信息更完整）
+    const existingKeys = new Set(mdnsDevices.map((d) => `${d.address}:${d.port}`))
+    for (const [, scanned] of this.scannedDevices) {
+      const key = `${scanned.address}:${scanned.port}`
+      if (!existingKeys.has(key)) {
+        mdnsDevices.push({
+          name: scanned.name,
+          address: scanned.address,
+          port: scanned.port,
+          version: scanned.version
+        })
+      }
+    }
+
+    return mdnsDevices
   }
 
   getDeviceName(): string {
@@ -726,6 +811,280 @@ class FileTransferService {
     const dir = settingsService.getAll().transferSaveDir
     if (dir) return dir
     return app.getPath('downloads')
+  }
+
+  /** 获取当前配置的扫描网段列表 */
+  private getScanSubnets(): string[] {
+    return settingsService.getAll().scanSubnets || []
+  }
+
+  /**
+   * 手动添加一个已知 IP:Port 的设备到扫描设备列表
+   * @returns true 表示添加成功（新设备），false 表示已存在
+   */
+  private async addScannedDevice(address: string, port: number): Promise<boolean> {
+    const key = `${address}:${port}`
+    if (this.scannedDevices.has(key)) return false
+    // 立即探针验证
+    const info = await this.probeDevice(address, port)
+    if (info) {
+      this.scannedDevices.set(key, { ...info, lastSeen: Date.now() })
+      this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+      return true
+    }
+    // 探针失败也添加，让后续扫描验证
+    this.scannedDevices.set(key, {
+      name: `未知 (${address})`,
+      address,
+      port,
+      version: '',
+      lastSeen: Date.now()
+    })
+    this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+    return true
+  }
+
+  // ── TCP 发现服务器（固定端口，用于跨子网发现） ──
+
+  /**
+   * 启动 TCP 发现服务器
+   * 监听固定端口 17862，仅响应 GET /ping，返回设备信息和文件传输 HTTP 端口
+   */
+  private async startDiscoveryServer(): Promise<void> {
+    return new Promise((resolve) => {
+      const tryBind = (attempt: number): void => {
+        if (attempt > MAX_DISCOVERY_PORT_ATTEMPTS) {
+          log.warn('[FileTransfer] 发现服务器端口绑定失败，已重试', MAX_DISCOVERY_PORT_ATTEMPTS, '次')
+          resolve()
+          return
+        }
+        const port = DISCOVERY_PORT + attempt
+        this.discoveryServer = http.createServer((req, res) => {
+          if (req.method === 'GET' && req.url === '/ping') {
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            })
+            res.end(JSON.stringify({
+              ok: true,
+              name: this.getDeviceName(),
+              port: this.port,
+              version: app.getVersion()
+            }))
+          } else {
+            res.writeHead(404)
+            res.end('Not Found')
+          }
+        })
+        this.discoveryServer!.listen(port, '0.0.0.0', () => {
+          this.discoveryPort = port
+          log.info('[FileTransfer] TCP 发现服务器启动，端口:', port)
+          resolve()
+        })
+        this.discoveryServer!.on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            log.warn('[FileTransfer] 发现端口', port, '被占用，尝试下一个')
+            tryBind(attempt + 1)
+          } else {
+            log.error('[FileTransfer] 发现服务器启动失败:', err)
+            resolve()
+          }
+        })
+      }
+      tryBind(0)
+    })
+  }
+
+  /** 停止 TCP 发现服务器 */
+  private stopDiscoveryServer(): void {
+    if (this.discoveryServer) {
+      this.discoveryServer.close()
+      this.discoveryServer = null
+      this.discoveryPort = 0
+      log.info('[FileTransfer] TCP 发现服务器已停止')
+    }
+  }
+
+  /** 获取发现服务器端口（0 = 未启动） */
+  getDiscoveryPort(): number {
+    return this.discoveryPort
+  }
+
+  // ── TCP 子网扫描（跨子网设备发现） ──
+
+  /** 启动子网 TCP 扫描定时器 */
+  private startSubnetScanner(): void {
+    // 首次扫描延迟 3 秒，给 mDNS 先发现同子网设备
+    setTimeout(() => {
+      this.scanAllSubnets()
+    }, 3_000)
+
+    this.subnetScanTimer = setInterval(() => {
+      this.scanAllSubnets()
+    }, SUBNET_SCAN_INTERVAL_MS)
+
+    log.info('[FileTransfer] 子网 TCP 扫描已启动，间隔:', SUBNET_SCAN_INTERVAL_MS / 1000, '秒')
+  }
+
+  /** 停止子网 TCP 扫描 */
+  private stopSubnetScanner(): void {
+    if (this.subnetScanTimer) {
+      clearInterval(this.subnetScanTimer)
+      this.subnetScanTimer = null
+      this.isScanning = false
+    }
+  }
+
+  /** 扫描所有配置的子网 */
+  private async scanAllSubnets(): Promise<void> {
+    if (this.isScanning) return
+    this.isScanning = true
+
+    try {
+      // 1. 自动检测本机子网（/24）
+      const autoSubnets = this.getAutoSubnets()
+
+      // 2. 从设置获取用户配置的额外子网
+      const configSubnets = this.getScanSubnets()
+
+      // 3. 合并去重
+      const allSubnets = [...new Set([...autoSubnets, ...configSubnets])]
+
+      if (allSubnets.length === 0) {
+        this.isScanning = false
+        return
+      }
+
+      log.info('[FileTransfer] 开始 TCP 子网扫描，网段数:', allSubnets.length)
+
+      // 4. 扫描所有子网
+      for (const cidr of allSubnets) {
+        await this.scanRange(cidr)
+      }
+
+      // 5. 清理过期扫描设备（连续 3 次扫描间隔未更新）
+      const now = Date.now()
+      for (const [key, dev] of this.scannedDevices) {
+        if (now - dev.lastSeen > SUBNET_SCAN_INTERVAL_MS * 3) {
+          this.scannedDevices.delete(key)
+          log.info('[FileTransfer] 扫描设备离线（超时）:', dev.name)
+        }
+      }
+
+      this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+      log.info('[FileTransfer] TCP 子网扫描完成')
+    } catch (err) {
+      log.error('[FileTransfer] TCP 子网扫描出错:', err)
+    } finally {
+      this.isScanning = false
+    }
+  }
+
+  /**
+   * 自动推导本机所在子网（/24）
+   * 从本机 IP 反推出 10.15.66.0/24 这样的 CIDR
+   */
+  private getAutoSubnets(): string[] {
+    const ips = getLocalIPs()
+    const subnets: string[] = []
+    for (const ip of ips) {
+      const parts = ip.split('.')
+      if (parts.length === 4) {
+        subnets.push(`${parts[0]}.${parts[1]}.${parts[2]}.0/24`)
+      }
+    }
+    return subnets
+  }
+
+  /**
+   * 扫描一个 CIDR 子网
+   * 对范围内每个 IP 尝试 TCP 连接发现端口进行探针
+   */
+  private async scanRange(cidr: string): Promise<void> {
+    const range = cidrToRange(cidr)
+    if (!range) {
+      log.warn('[FileTransfer] 无效的 CIDR:', cidr)
+      return
+    }
+
+    // 生成 IP 列表
+    const ips: string[] = []
+    for (let i = range.start; i <= range.end; i++) {
+      ips.push(intToIP(i))
+    }
+
+    if (ips.length === 0) return
+
+    // 按并发数分批扫描
+    for (let i = 0; i < ips.length; i += SCAN_CONCURRENCY) {
+      const batch = ips.slice(i, i + SCAN_CONCURRENCY)
+      const results = await Promise.allSettled(
+        batch.map((ip) => this.probeDevice(ip, DISCOVERY_PORT))
+      )
+
+      // 先探默认发现端口；若失败则尝试备选端口
+      for (let j = 0; j < batch.length; j++) {
+        const result = results[j]
+        let info: DeviceInfo | null = null
+        if (result.status === 'fulfilled') {
+          info = result.value
+        }
+
+        // 默认端口失败，尝试 17863
+        if (!info) {
+          info = await this.probeDevice(batch[j], DISCOVERY_PORT + 1)
+        }
+        if (!info) {
+          info = await this.probeDevice(batch[j], DISCOVERY_PORT + 2)
+        }
+
+        if (info) {
+          const key = `${batch[j]}:${info.port}`
+          this.scannedDevices.set(key, {
+            name: info.name,
+            address: batch[j],
+            port: info.port,
+            version: info.version,
+            lastSeen: Date.now()
+          })
+        }
+      }
+    }
+  }
+
+  /**
+   * 探针：TCP 连接目标 IP:端口 → GET /ping
+   * @returns 设备信息（成功）或 null（失败）
+   */
+  private probeDevice(ip: string, port: number): Promise<DeviceInfo | null> {
+    return new Promise((resolve) => {
+      const req = http.get(`http://${ip}:${port}/ping`, (res) => {
+        let data = ''
+        res.on('data', (chunk: Buffer) => { data += chunk.toString() })
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.ok === true) {
+              resolve({
+                name: parsed.name || ip,
+                address: ip,
+                port: parsed.port || port,
+                version: parsed.version || ''
+              })
+            } else {
+              resolve(null)
+            }
+          } catch {
+            resolve(null)
+          }
+        })
+      })
+      req.setTimeout(PROBE_TIMEOUT_MS, () => {
+        req.destroy()
+        resolve(null)
+      })
+      req.on('error', () => resolve(null))
+    })
   }
 
   // ── mDNS 广播 + 扫描 ──

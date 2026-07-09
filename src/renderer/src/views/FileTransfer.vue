@@ -40,6 +40,34 @@
           <EmptyState v-else icon="search" text="扫描中..." hint="正在搜索局域网内的妙妙屋设备" />
         </div>
 
+        <!-- 手动添加设备 -->
+        <div class="section">
+          <div class="section-title manual-add-toggle" @click="showManualAdd = !showManualAdd">
+            <span>手动添加设备</span>
+            <span class="toggle-arrow" :class="{ open: showManualAdd }">▶</span>
+          </div>
+          <Transition name="slide">
+            <div v-if="showManualAdd" class="manual-add-row">
+              <input
+                v-model="manualIP"
+                type="text"
+                class="manual-input"
+                placeholder="IP 地址"
+                spellcheck="false"
+                @keydown.enter="manualAddDevice"
+              />
+              <input
+                v-model="manualPort"
+                type="number"
+                class="manual-input manual-port"
+                placeholder="端口"
+                @keydown.enter="manualAddDevice"
+              />
+              <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim()">添加</button>
+            </div>
+          </Transition>
+        </div>
+
         <!-- 已选文件 -->
         <div class="section" v-if="selectedFiles.length > 0">
           <div class="section-title">
@@ -160,6 +188,11 @@ const selectedFiles = ref<FileEntry[]>([])
 const records = ref<TransferRecord[]>([])
 const sending = ref(false)
 
+/** 手动添加设备 */
+const showManualAdd = ref(false)
+const manualIP = ref('')
+const manualPort = ref(17862)
+
 // ── 计算属性 ──
 
 const canSend = computed(() => selectedDevice.value !== null && selectedFiles.value.length > 0 && !sending.value)
@@ -227,6 +260,21 @@ async function sendFiles(): Promise<void> {
     console.error('发送失败:', err.message)
   } finally {
     sending.value = false
+  }
+}
+
+/**
+ * 手动添加设备（IP + 发现端口）
+ */
+async function manualAddDevice(): Promise<void> {
+  const ip = manualIP.value.trim()
+  if (!ip) return
+  const port = manualPort.value || 17862
+  try {
+    await window.electron.ipcRenderer.invoke('to-service-FileTransferService:addDevice', ip, port)
+    manualIP.value = ''
+  } catch (err: any) {
+    console.error('添加设备失败:', err.message)
   }
 }
 
@@ -564,5 +612,72 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .progress-fill { transition: none; }
   .status-dot.online { animation: none; }
+}
+
+/* ── 手动添加设备 ── */
+.manual-add-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.manual-add-toggle:hover {
+  color: var(--accent);
+}
+.toggle-arrow {
+  font-size: 10px;
+  transition: transform 200ms;
+}
+.toggle-arrow.open {
+  transform: rotate(90deg);
+}
+.manual-add-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.manual-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: JetBrains Mono, monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+}
+.manual-input:focus {
+  border-color: var(--accent);
+}
+.manual-port {
+  max-width: 70px;
+  flex: none;
+}
+.btn-add-device {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* slide transition */
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 200ms ease;
+  overflow: hidden;
+}
+.slide-enter-from,
+.slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+.slide-enter-to,
+.slide-leave-from {
+  opacity: 1;
+  max-height: 40px;
+  margin-top: 8px;
 }
 </style>

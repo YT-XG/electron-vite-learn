@@ -41,6 +41,8 @@ export interface AppSettings {
   transferSaveDir: string
   /** 文件互传设备名称，默认 os.hostname() */
   transferDeviceName: string
+  /** TCP 跨子网扫描网段列表，如 ["10.15.8.0/24"] */
+  scanSubnets: string[]
 }
 
 /**
@@ -68,7 +70,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   githubRepo: 'YT-XG/electron-vite-learn',
   downloadThreads: 8,
   transferSaveDir: '',
-  transferDeviceName: ''
+  transferDeviceName: '',
+  scanSubnets: []
 }
 
 class SettingsService {

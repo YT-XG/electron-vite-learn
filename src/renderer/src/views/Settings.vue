@@ -357,6 +357,35 @@
           <button class="btn btn-secondary" @click="pickTransferDir">选择</button>
         </div>
       </div>
+
+      <!-- TCP 扫描网段 -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">扫描网段</span>
+          <span class="setting-desc">TCP 扫描这些网段发现跨子网设备（如 10.15.8.0/24）</span>
+        </div>
+        <div class="scan-subnets-col">
+          <div class="scan-subnet-tags" v-if="scanSubnets.length > 0">
+            <div v-for="(subnet, idx) in scanSubnets" :key="idx" class="scan-subnet-tag">
+              <span>{{ subnet }}</span>
+              <button class="tag-remove" @click="removeSubnet(idx)" title="移除">×</button>
+            </div>
+          </div>
+          <div class="scan-subnet-add-row">
+            <input
+              v-model="newSubnetInput"
+              type="text"
+              class="form-input"
+              placeholder="10.15.8.0/24"
+              spellcheck="false"
+              @keydown.enter="addSubnet"
+              @keydown.comma="addSubnet"
+            />
+            <button class="btn btn-ghost" @click="addSubnet" :disabled="!newSubnetInput.trim()">添加</button>
+          </div>
+          <p class="scan-hint">每 60 秒自动扫描一次。本机所在 /24 子网会自动加入扫描</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -482,6 +511,12 @@ const transferDeviceName = ref('')
 
 /** 文件互传保存目录 */
 const transferSaveDir = ref('')
+
+/** TCP 扫描网段列表 */
+const scanSubnets = ref<string[]>([])
+
+/** 新增扫描网段输入 */
+const newSubnetInput = ref('')
 
 /** 下拉框切换 */
 function onSelectChange(): void {
@@ -806,6 +841,31 @@ async function pickTransferDir(): Promise<void> {
   }
 }
 
+/**
+ * 添加扫描网段
+ */
+async function addSubnet(): Promise<void> {
+  const val = newSubnetInput.value.trim().replace(/,+$/, '')
+  if (!val) return
+  // 简单格式校验：x.x.x.x/xx
+  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/.test(val)) return
+  if (scanSubnets.value.includes(val)) {
+    newSubnetInput.value = ''
+    return
+  }
+  scanSubnets.value.push(val)
+  newSubnetInput.value = ''
+  await window.electron.ipcRenderer.invoke('to-service-FileTransferService:setScanSubnets', scanSubnets.value)
+}
+
+/**
+ * 移除扫描网段
+ */
+async function removeSubnet(idx: number): Promise<void> {
+  scanSubnets.value.splice(idx, 1)
+  await window.electron.ipcRenderer.invoke('to-service-FileTransferService:setScanSubnets', scanSubnets.value)
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  格式化
 // ═══════════════════════════════════════════════════════════════
@@ -874,6 +934,7 @@ onMounted(async () => {
   // 初始化文件互传配置
   transferDeviceName.value = settings.transferDeviceName || ''
   transferSaveDir.value = settings.transferSaveDir || ''
+  scanSubnets.value = settings.scanSubnets || []
 })
 
 onUnmounted(() => {
@@ -1543,5 +1604,67 @@ onUnmounted(() => {
   gap: 8px;
   flex: 1;
   min-width: 0;
+}
+
+/* ── 扫描网段 ── */
+.scan-subnets-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.scan-subnet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.scan-subnet-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-family: JetBrains Mono, monospace;
+  background: var(--accent-light, rgba(59,130,246,0.12));
+  color: var(--accent);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.tag-remove:hover {
+  color: var(--danger);
+}
+.scan-subnet-add-row {
+  display: flex;
+  gap: 6px;
+}
+.scan-subnet-add-row .form-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: JetBrains Mono, monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 200ms;
+}
+.scan-subnet-add-row .form-input:focus {
+  border-color: var(--accent);
+}
+.scan-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
 }
 </style>
