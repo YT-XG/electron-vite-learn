@@ -536,9 +536,9 @@ class ClipboardService {
    * @description 更新自身属性、持久化到 settingsService、立即执行清理
    */
   setRetentionDays(days: number): void {
-    if (days < 1) return
+    if (typeof days !== 'number' || !Number.isFinite(days) || days < 1) return
     this.retentionDays = Math.floor(days)
-    settingsService.update({ clipboardRetentionDays: days })
+    settingsService.update({ clipboardRetentionDays: Math.floor(days) })
     this.autoCleanup()
   }
 

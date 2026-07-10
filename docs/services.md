@@ -149,6 +149,7 @@ inputService.pasteToPreviousWindow()
 | `translateApiKey` | string | - | 翻译 API Key（可选） |
 | `updateSource` | `'lan'` \| `'github'` | `'lan'` | 更新源选择 |
 | `githubRepo` | string | `YT-XG/electron-vite-learn` | GitHub 仓库地址（格式：owner/repo） |
+| `clipboardRetentionDays` | number | `30` | 剪贴板历史保留天数（10/30/90） |
 
 ### IPC 接口
 

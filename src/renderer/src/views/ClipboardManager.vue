@@ -507,6 +507,7 @@ const setRetentionDays = async (days: number): Promise<void> => {
   retentionDays.value = days
   try {
     await window.electron.ipcRenderer.invoke('to-service-ClipboardService:setRetentionDays', days)
+    await fetchHistory() // 刷新列表反映清理结果
   } catch (err) {
     console.error('[ClipboardManager] 设置保留天数失败:', err)
   }
