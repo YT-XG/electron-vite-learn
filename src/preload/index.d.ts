@@ -91,12 +91,15 @@ interface IPCChannels {
   invoke(channel: 'to-service-FileTransferService:getScanSubnets'): Promise<string[]>
   invoke(channel: 'to-service-FileTransferService:setScanSubnets', subnets: string[]): Promise<{ ok: boolean }>
   invoke(channel: 'to-service-FileTransferService:addDevice', address: string, port: number): Promise<boolean>
+  invoke(channel: 'to-service-FileTransferService:scanNow'): Promise<{ ok: boolean }>
   on(channel: 'broadcast:transfer-devices-updated', listener: (event: unknown, devices: DeviceInfo[]) => void): void
   on(channel: 'broadcast:transfer-records-updated', listener: (event: unknown, records: TransferRecord[]) => void): void
   on(channel: 'broadcast:transfer-request', listener: (event: unknown, request: TransferRequestInfo) => void): void
+  on(channel: 'broadcast:transfer-scan-completed', listener: (event: unknown) => void): void
   removeListener(channel: 'broadcast:transfer-devices-updated', listener: (...args: unknown[]) => void): void
   removeListener(channel: 'broadcast:transfer-records-updated', listener: (...args: unknown[]) => void): void
   removeListener(channel: 'broadcast:transfer-request', listener: (...args: unknown[]) => void): void
+  removeListener(channel: 'broadcast:transfer-scan-completed', listener: (...args: unknown[]) => void): void
 }
 
 interface DeviceInfo {

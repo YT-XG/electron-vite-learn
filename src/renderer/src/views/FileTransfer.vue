@@ -16,8 +16,16 @@
       <div class="transfer-left">
         <!-- 在线设备 -->
         <div class="section">
-          <div class="section-title">
-            在线设备 ({{ devices.length }})
+          <div class="section-title section-title-row">
+            <span>在线设备 ({{ devices.length }})</span>
+            <button class="btn-refresh" :class="{ refreshing: isRefreshing }" @click="refreshScan" :disabled="isRefreshing" title="重新扫描网段">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              <span v-if="!isRefreshing">刷新</span>
+              <span v-else>扫描中...</span>
+            </button>
           </div>
           <div class="device-list" v-if="devices.length > 0">
             <div
@@ -64,6 +72,36 @@
                 @keydown.enter="manualAddDevice"
               />
               <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim()">添加</button>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- 添加扫描网段 -->
+        <div class="section">
+          <div class="section-title manual-add-toggle" @click="showAddSubnet = !showAddSubnet">
+            <span>添加扫描网段</span>
+            <span class="toggle-arrow" :class="{ open: showAddSubnet }">▶</span>
+          </div>
+          <Transition name="slide">
+            <div v-if="showAddSubnet" class="subnet-config">
+              <div class="scan-subnet-tags" v-if="scanSubnets.length > 0">
+                <div v-for="(subnet, idx) in scanSubnets" :key="idx" class="scan-subnet-tag">
+                  <span>{{ subnet }}</span>
+                  <button class="tag-remove" @click="removeSubnet(idx)" title="移除">×</button>
+                </div>
+              </div>
+              <div class="manual-add-row">
+                <input
+                  v-model="newSubnet"
+                  type="text"
+                  class="manual-input"
+                  placeholder="10.15.66.0/24"
+                  spellcheck="false"
+                  @keydown.enter="addSubnet"
+                />
+                <button class="btn btn-ghost btn-add-device" @click="addSubnet" :disabled="!newSubnet.trim()">添加</button>
+              </div>
+              <p class="scan-hint">每 60 秒自动扫描一次，本机所在 /24 会自动加入</p>
             </div>
           </Transition>
         </div>
@@ -193,6 +231,12 @@ const showManualAdd = ref(false)
 const manualIP = ref('')
 const manualPort = ref(17862)
 
+/** 扫描网段 */
+const showAddSubnet = ref(false)
+const newSubnet = ref('')
+const scanSubnets = ref<string[]>([])
+const isRefreshing = ref(false)
+
 // ── 计算属性 ──
 
 const canSend = computed(() => selectedDevice.value !== null && selectedFiles.value.length > 0 && !sending.value)
@@ -250,10 +294,11 @@ async function sendFiles(): Promise<void> {
   if (!canSend.value) return
   sending.value = true
   try {
+    // 展开 Proxy 对象，避免 Electron IPC 克隆失败
     await window.electron.ipcRenderer.invoke(
       'to-service-FileTransferService:sendRequest',
-      selectedDevice.value,
-      selectedFiles.value
+      { ...selectedDevice.value },
+      selectedFiles.value.map(f => ({ ...f }))
     )
     selectedFiles.value = []
   } catch (err: any) {
@@ -278,6 +323,57 @@ async function manualAddDevice(): Promise<void> {
   }
 }
 
+/**
+ * 立即重新扫描所有配置的网段
+ * 扫描完成后 broadcast:transfer-devices-updated 会自动更新设备列表
+ */
+async function refreshScan(): Promise<void> {
+  if (isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    await window.electron.ipcRenderer.invoke('to-service-FileTransferService:scanNow')
+  } catch {
+    isRefreshing.value = false
+  }
+  // 超时保护：60 秒后仍未收到广播则恢复按钮状态
+  setTimeout(() => {
+    if (isRefreshing.value) isRefreshing.value = false
+  }, 60_000)
+}
+
+/**
+ * 添加扫描网段
+ */
+async function addSubnet(): Promise<void> {
+  const val = newSubnet.value.trim()
+  console.log('[FileTransfer] addSubnet 输入:', JSON.stringify(val))
+  if (!val) { console.log('[FileTransfer] 输入为空，忽略'); return }
+  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/.test(val)) {
+    console.log('[FileTransfer] 格式校验失败:', val)
+    return
+  }
+  if (scanSubnets.value.includes(val)) {
+    console.log('[FileTransfer] 已存在，忽略:', val)
+    newSubnet.value = ''
+    return
+  }
+  scanSubnets.value.push(val)
+  newSubnet.value = ''
+  console.log('[FileTransfer] 调用 setScanSubnets:', JSON.stringify(scanSubnets.value))
+  // 展开数组避免 Vue Proxy 导致 Electron IPC "An object could not be cloned" 错误
+  await window.electron.ipcRenderer.invoke('to-service-FileTransferService:setScanSubnets', [...scanSubnets.value])
+  console.log('[FileTransfer] setScanSubnets 完成')
+}
+
+/**
+ * 删除扫描网段
+ */
+async function removeSubnet(idx: number): Promise<void> {
+  scanSubnets.value.splice(idx, 1)
+  // 展开数组避免 Vue Proxy 导致 Electron IPC 克隆错误
+  await window.electron.ipcRenderer.invoke('to-service-FileTransferService:setScanSubnets', [...scanSubnets.value])
+}
+
 // ── 生命周期 ──
 
 onMounted(async () => {
@@ -297,11 +393,18 @@ onMounted(async () => {
   // 初始加载
   devices.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getDevices')
   records.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getRecords')
+  scanSubnets.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getScanSubnets')
+
+  // 监听手动扫描完成
+  window.electron.ipcRenderer.on('broadcast:transfer-scan-completed', () => {
+    isRefreshing.value = false
+  })
 })
 
 onUnmounted(() => {
   window.electron.ipcRenderer.removeListener('broadcast:transfer-devices-updated', () => {})
   window.electron.ipcRenderer.removeListener('broadcast:transfer-records-updated', () => {})
+  window.electron.ipcRenderer.removeListener('broadcast:transfer-scan-completed', () => {})
 })
 </script>
 
@@ -679,5 +782,81 @@ onUnmounted(() => {
   opacity: 1;
   max-height: 40px;
   margin-top: 8px;
+}
+
+/* ── 刷新按钮 ── */
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 200ms;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.btn-refresh:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-refresh.refreshing svg {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 扫描网段配置 ── */
+.subnet-config {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scan-subnet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.scan-subnet-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--accent-light);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.tag-remove:hover {
+  color: var(--danger);
+}
+.scan-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
 }
 </style>

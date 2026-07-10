@@ -95,11 +95,11 @@ const MAX_DISCOVERY_PORT_ATTEMPTS = 3
 /** 子网 TCP 扫描间隔（毫秒） */
 const SUBNET_SCAN_INTERVAL_MS = 60_000
 
-/** 子网扫描并发数 */
-const SCAN_CONCURRENCY = 20
+/** 子网扫描并发数（/24 一次扫完） */
+const SCAN_CONCURRENCY = 254
 
-/** 探针 TCP 超时（毫秒） */
-const PROBE_TIMEOUT_MS = 2_000
+/** 探针 TCP 超时（毫秒）—— 局域网内 500ms 足矣 */
+const PROBE_TIMEOUT_MS = 500
 
 /** 局域网 IP 段 */
 const LAN_RANGES = [
@@ -148,12 +148,15 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-/** 获取本机局域网 IPv4 地址列表 */
+/** 获取本机局域网 IPv4 地址列表（排除虚拟网卡） */
 function getLocalIPs(): string[] {
   const interfaces = networkInterfaces()
   const ips: string[] = []
-  for (const [, netList] of Object.entries(interfaces)) {
+  for (const [name, netList] of Object.entries(interfaces)) {
     if (!netList) continue
+    // 排除虚拟网卡（WSL / Hyper-V / VMware / VirtualBox / Docker 等）
+    const isVirtual = /vEthernet|VMware|VirtualBox|docker/i.test(name)
+    if (isVirtual) continue
     for (const net of netList) {
       if (net.family === 'IPv4' && !net.internal) {
         ips.push(net.address)
@@ -275,13 +278,25 @@ class FileTransferService {
 
     /** 保存扫描网段配置 */
     ipcMain.handle('to-service-FileTransferService:setScanSubnets', (_event, subnets: string[]) => {
+      log.info('[FileTransfer] setScanSubnets:', JSON.stringify(subnets))
       settingsService.update({ scanSubnets: subnets })
+      // 验证是否保存成功
+      const saved = settingsService.getAll().scanSubnets
+      log.info('[FileTransfer] setScanSubnets 验证:', JSON.stringify(saved))
       return { ok: true }
     })
 
     /** 手动添加设备（IP + 端口） */
     ipcMain.handle('to-service-FileTransferService:addDevice', (_event, address: string, port: number) => {
       return this.addScannedDevice(address, port)
+    })
+
+    /** 立即执行一次网段扫描 */
+    ipcMain.handle('to-service-FileTransferService:scanNow', () => {
+      const configured = this.getScanSubnets()
+      log.info('[FileTransfer] scanNow 读取配置:', JSON.stringify(configured))
+      this.scanAllSubnets()
+      return { ok: true }
     })
   }
 
@@ -912,18 +927,10 @@ class FileTransferService {
 
   // ── TCP 子网扫描（跨子网设备发现） ──
 
-  /** 启动子网 TCP 扫描定时器 */
+  /** 启动子网 TCP 扫描定时器（已禁用自动扫描，改为手动触发） */
   private startSubnetScanner(): void {
-    // 首次扫描延迟 3 秒，给 mDNS 先发现同子网设备
-    setTimeout(() => {
-      this.scanAllSubnets()
-    }, 3_000)
-
-    this.subnetScanTimer = setInterval(() => {
-      this.scanAllSubnets()
-    }, SUBNET_SCAN_INTERVAL_MS)
-
-    log.info('[FileTransfer] 子网 TCP 扫描已启动，间隔:', SUBNET_SCAN_INTERVAL_MS / 1000, '秒')
+    // 不再自动启动定时扫描，由用户通过界面"刷新"按钮手动触发
+    // 保留此方法防止 init() 中调用报错
   }
 
   /** 停止子网 TCP 扫描 */
@@ -936,21 +943,19 @@ class FileTransferService {
   }
 
   /** 扫描所有配置的子网 */
-  private async scanAllSubnets(): Promise<void> {
-    if (this.isScanning) return
+  async scanAllSubnets(): Promise<void> {
+    if (this.isScanning) {
+      log.warn('[FileTransfer] 扫描已在进行中，忽略本次请求')
+      return
+    }
     this.isScanning = true
 
     try {
-      // 1. 自动检测本机子网（/24）
-      const autoSubnets = this.getAutoSubnets()
-
-      // 2. 从设置获取用户配置的额外子网
-      const configSubnets = this.getScanSubnets()
-
-      // 3. 合并去重
-      const allSubnets = [...new Set([...autoSubnets, ...configSubnets])]
+      // 只扫描用户配置的网段（本机所在子网由 mDNS 自动发现）
+      const allSubnets = this.getScanSubnets()
 
       if (allSubnets.length === 0) {
+        log.info('[FileTransfer] 无用户配置的扫描网段，跳过 TCP 扫描')
         this.isScanning = false
         return
       }
@@ -959,6 +964,7 @@ class FileTransferService {
 
       // 4. 扫描所有子网
       for (const cidr of allSubnets) {
+        log.info('[FileTransfer] 扫描网段:', cidr)
         await this.scanRange(cidr)
       }
 
@@ -972,6 +978,7 @@ class FileTransferService {
       }
 
       this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+      this.broadcast('broadcast:transfer-scan-completed', null)
       log.info('[FileTransfer] TCP 子网扫描完成')
     } catch (err) {
       log.error('[FileTransfer] TCP 子网扫描出错:', err)
@@ -984,18 +991,6 @@ class FileTransferService {
    * 自动推导本机所在子网（/24）
    * 从本机 IP 反推出 10.15.66.0/24 这样的 CIDR
    */
-  private getAutoSubnets(): string[] {
-    const ips = getLocalIPs()
-    const subnets: string[] = []
-    for (const ip of ips) {
-      const parts = ip.split('.')
-      if (parts.length === 4) {
-        subnets.push(`${parts[0]}.${parts[1]}.${parts[2]}.0/24`)
-      }
-    }
-    return subnets
-  }
-
   /**
    * 扫描一个 CIDR 子网
    * 对范围内每个 IP 尝试 TCP 连接发现端口进行探针
@@ -1015,30 +1010,26 @@ class FileTransferService {
 
     if (ips.length === 0) return
 
+    log.info(`[FileTransfer] 扫描范围 ${cidr}: ${ips.length} 个 IP`)
+    let foundCount = 0
+
     // 按并发数分批扫描
     for (let i = 0; i < ips.length; i += SCAN_CONCURRENCY) {
       const batch = ips.slice(i, i + SCAN_CONCURRENCY)
-      const results = await Promise.allSettled(
-        batch.map((ip) => this.probeDevice(ip, DISCOVERY_PORT))
+
+      // 对批次内每个 IP 探测发现端口 17862
+      const batchInfos = await Promise.all(
+        batch.map(async (ip) => {
+          const info = await this.probeDevice(ip, DISCOVERY_PORT)
+          return info
+        })
       )
 
-      // 先探默认发现端口；若失败则尝试备选端口
       for (let j = 0; j < batch.length; j++) {
-        const result = results[j]
-        let info: DeviceInfo | null = null
-        if (result.status === 'fulfilled') {
-          info = result.value
-        }
-
-        // 默认端口失败，尝试 17863
-        if (!info) {
-          info = await this.probeDevice(batch[j], DISCOVERY_PORT + 1)
-        }
-        if (!info) {
-          info = await this.probeDevice(batch[j], DISCOVERY_PORT + 2)
-        }
-
+        const info = batchInfos[j]
         if (info) {
+          foundCount++
+          log.info(`[FileTransfer] 探针发现设备: ${batch[j]}:${info.port} (${info.name})`)
           const key = `${batch[j]}:${info.port}`
           this.scannedDevices.set(key, {
             name: info.name,
@@ -1050,6 +1041,7 @@ class FileTransferService {
         }
       }
     }
+    log.info(`[FileTransfer] 网段 ${cidr} 扫描完成，发现 ${foundCount} 台设备`)
   }
 
   /**
@@ -1102,19 +1094,19 @@ class FileTransferService {
               answers: [{
                 name: MDNS_SERVICE_TYPE,
                 type: 'PTR',
-                class: 1,
+                class: 'IN',
                 ttl: 120,
                 data: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`
               }, {
                 name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
                 type: 'SRV',
-                class: 1,
+                class: 'IN',
                 ttl: 120,
                 data: { port: this.port, target: hostname() + '.local' }
               }, {
                 name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
                 type: 'TXT',
-                class: 1,
+                class: 'IN',
                 ttl: 120,
                 data: Buffer.from(`name=${this.getDeviceName()} port=${this.port} version=${app.getVersion()}`)
               }]
@@ -1156,7 +1148,8 @@ class FileTransferService {
 
     for (const a of answers) {
       if (a.type === 'TXT' && a.data) {
-        const txt = a.data.toString()
+        /** dns-packet 解码 TXT 记录时 data 为 Buffer 数组，需合并 */
+        const txt = (Array.isArray(a.data) ? Buffer.concat(a.data) : a.data).toString()
         const nameMatch = txt.match(/name=([^ ]+)/)
         const portMatch = txt.match(/port=(\d+)/)
         const verMatch = txt.match(/version=([^ ]+)/)
