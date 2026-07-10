@@ -345,6 +345,8 @@ export default class PopupManager {
         return 'to-renderer-PermissionNoticeFrame:animate'
       case 'update':
         return 'to-renderer-UpdateNewFrame:animate'
+      case 'shareSelect':
+        return 'to-renderer-ShareSelectFrame:animate'
     }
   }
 

@@ -1,7 +1,7 @@
 import { BrowserWindow } from 'electron'
 
 /** 弹窗类型 */
-export type PopupType = 'notice' | 'permission' | 'update'
+export type PopupType = 'notice' | 'permission' | 'update' | 'shareSelect'
 
 /** 弹窗配置选项 */
 export interface PopupOptions {

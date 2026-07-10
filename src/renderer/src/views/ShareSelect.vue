@@ -1,6 +1,11 @@
 <template>
   <div class="share-select">
-    <div class="share-card" @mouseenter="onCardEnter" @mouseleave="onCardLeave">
+    <div
+      class="share-card"
+      :class="{ enter: animState === 'enter', exit: animState === 'exit' }"
+      @mouseenter="onCardEnter"
+      @mouseleave="onCardLeave"
+    >
       <!-- 标题 -->
       <div class="share-header">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -89,6 +94,9 @@ const statusMsg = ref('')
 /** 状态类型 */
 const statusType = ref<'success' | 'error'>('success')
 
+/** 动画状态：idle-初始, enter-入场, exit-退场 */
+const animState = ref<'idle' | 'enter' | 'exit'>('idle')
+
 /**
  * 选择设备
  */
@@ -111,9 +119,13 @@ async function send(): Promise<void> {
 
 /**
  * 关闭弹窗
+ * @description 先播放退场动画，再通知主进程销毁窗口
  */
 function close(): void {
-  window.electron.ipcRenderer.send('to-main-ShareSelectFrame:close')
+  animState.value = 'exit'
+  setTimeout(() => {
+    window.electron.ipcRenderer.send('to-main-ShareSelectFrame:close')
+  }, 300)
 }
 
 /**
@@ -160,8 +172,8 @@ onMounted(() => {
   // 接收动画指令
   window.electron.ipcRenderer.on(
     'to-renderer-ShareSelectFrame:animate',
-    () => {
-      // 动画由 CSS transition 控制
+    (_e, data: { action: 'enter' | 'exit' }) => {
+      animState.value = data.action
     }
   )
 
@@ -200,6 +212,25 @@ onUnmounted(() => {
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.3),
     0 2px 8px rgba(0, 0, 0, 0.2);
+
+  /* 初始状态：缩小 + 透明 */
+  transform: scale(0.85);
+  opacity: 0;
+  transition:
+    transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    opacity 0.3s ease;
+}
+
+/* 入场动画：放大到正常 + 显现 */
+.share-card.enter {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* 退场动画：缩小 + 淡出 */
+.share-card.exit {
+  transform: scale(0.85);
+  opacity: 0;
 }
 
 .share-header {

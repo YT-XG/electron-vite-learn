@@ -294,24 +294,30 @@ class ClaudeCodeService {
   private sessionCount = 0
   /** 隐藏状态通知的定时器 */
   private hideTimer: ReturnType<typeof setTimeout> | null = null
+  /** 服务是否启用（由 showClaudeStatus 设置控制） */
+  private enabled = false
 
   /**
    * 初始化服务
    * - 计算文件路径
    * - 注册 IPC 通道
-   * - 自动安装 Hook 并启动 HTTP 服务器
+   * - 仅当 showClaudeStatus 启用时才自动安装 Hook 并启动 HTTP 服务器
    */
   async init(): Promise<void> {
     this.settingsPath = join(app.getPath('home'), '.claude', 'settings.json')
     this.hookScriptPath = join(app.getPath('userData'), 'claude-code-hook.cjs')
     this.registerIPC()
 
-    // 自动安装 Hook 并启动 HTTP 服务器
-    try {
-      await this.installHook()
-      log.info('[ClaudeCode] Hook 自动安装成功')
-    } catch (error) {
-      log.warn('[ClaudeCode] Hook 自动安装失败（非致命）:', error)
+    // 仅当设置启用时才自动安装 Hook 并启动 HTTP 服务器
+    if (settingsService.getAll().showClaudeStatus) {
+      try {
+        await this.installHook()
+        log.info('[ClaudeCode] Hook 自动安装成功')
+      } catch (error) {
+        log.warn('[ClaudeCode] Hook 自动安装失败（非致命）:', error)
+      }
+    } else {
+      log.info('[ClaudeCode] 设置已关闭，跳过 Hook 安装')
     }
 
     log.info('[ClaudeCode] 服务初始化完成')
@@ -380,10 +386,12 @@ class ClaudeCodeService {
 
   /**
    * 停止 HTTP 服务器
-   * @description 释放所有等待中的权限请求，关闭服务器
+   * @description 释放所有等待中的权限请求，关闭服务器，禁用服务
    */
   stopServer(): void {
     if (!this.server) return
+
+    this.enabled = false
 
     // 释放所有等待中的权限请求
     Array.from(this.permissionWaiters.keys()).forEach((sessionId) => {
@@ -398,11 +406,19 @@ class ClaudeCodeService {
   /**
    * 处理 HTTP 请求
    * @description 接收 Hook 脚本发送的事件，权限请求会被暂存等待用户决策
+   *              如果服务已禁用（设置关闭），直接返回 503 拒绝处理
    */
   private handleRequest(request: http.IncomingMessage, response: http.ServerResponse): void {
     if (request.method !== 'POST' || request.url !== '/claude-code/hook') {
       response.writeHead(404)
       response.end()
+      return
+    }
+
+    // 服务已禁用，拒绝处理
+    if (!this.enabled) {
+      response.writeHead(503, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ ok: false, error: '服务已禁用' }))
       return
     }
 
@@ -550,8 +566,15 @@ class ClaudeCodeService {
   /**
    * 显示权限确认窗口
    * @description 通过 PopupManager 创建 PermissionNoticeFrame 并显示权限请求信息
+   *              如果服务已禁用（设置关闭），不显示任何弹窗
    */
   private showPermissionNotice(info: PermissionRequestInfo): void {
+    // 服务已禁用，不显示权限弹窗
+    if (!this.enabled) {
+      log.info(`[ClaudeCode] 服务已禁用，跳过权限弹窗: ${info.toolName}`)
+      return
+    }
+
     let permissionFrame: PermissionNoticeFrame
     popupManager.showPermissionNotice(
       // 创建窗口的回调函数
@@ -784,6 +807,7 @@ class ClaudeCodeService {
       // 写入配置
       writeFileSync(this.settingsPath, JSON.stringify({ ...root, hooks }, null, 2), 'utf-8')
 
+      this.enabled = true
       log.info('[ClaudeCode] Hook 已安装')
       return { success: true, message: 'Claude Code 监控 Hook 已启用' }
     } catch (error) {
@@ -798,7 +822,15 @@ class ClaudeCodeService {
    */
   async uninstallHook(): Promise<{ success: boolean; message: string }> {
     try {
+      this.enabled = false
+
+      // 先清理所有 UI
+      popupManager.hideClaudeStatus()
+      popupManager.destroyPermissionNotice()
+      this.destroyPermissionWaiters()
+
       if (!existsSync(this.settingsPath)) {
+        this.stopServer()
         return { success: true, message: 'Claude Code 配置不存在' }
       }
 
@@ -849,6 +881,17 @@ class ClaudeCodeService {
       clearTimeout(this.hideTimer)
       this.hideTimer = null
     }
+  }
+
+  /**
+   * 销毁所有等待中的权限请求（不停止 HTTP 服务器）
+   * @description 解决所有等待中的权限请求（取消），并关闭权限弹窗
+   */
+  destroyPermissionWaiters(): void {
+    Array.from(this.permissionWaiters.keys()).forEach((sessionId) => {
+      this.respondPermission(sessionId, null)
+    })
+    popupManager.destroyPermissionNotice()
   }
 
   /**

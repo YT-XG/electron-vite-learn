@@ -198,6 +198,19 @@ app.whenReady().then(async () => {
   await translateService.init()
   // 初始化 Claude Code 监控服务（HTTP 服务器 + Hook 管理）
   await claudeCodeService.init()
+  // 设置 Claude Code 状态通知开关回调（settingsService ↔ claudeCodeService 解耦，避免循环依赖）
+  settingsService.setClaudeStatusHandler((enabled) => {
+    if (enabled) {
+      claudeCodeService.installHook().catch((err: Error) => {
+        log.warn('[Settings] Claude Code Hook 安装失败:', err)
+      })
+    } else {
+      // uninstallHook 内部已处理：hideClaudeStatus + destroyPermissionNotice + destroyPermissionWaiters + stopServer
+      claudeCodeService.uninstallHook().catch((err: Error) => {
+        log.warn('[Settings] Claude Code Hook 卸载失败:', err)
+      })
+    }
+  })
   // 初始化下载服务（多线程下载）
   downloadService.init()
   // 初始化文件互传服务（HTTP Server + mDNS）

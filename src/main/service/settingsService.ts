@@ -89,6 +89,16 @@ const DEFAULT_SETTINGS: AppSettings = {
 class SettingsService {
   private settings: AppSettings = { ...DEFAULT_SETTINGS }
   private filePath: string = ''
+  /** Claude Code 状态通知开关变化的回调（由 index.ts 注入，避免循环依赖） */
+  private claudeStatusHandler: ((enabled: boolean) => void) | null = null
+
+  /**
+   * 设置 Claude Code 状态通知开关回调
+   * @description 由 index.ts 在初始化所有服务后调用，避免模块间循环依赖
+   */
+  setClaudeStatusHandler(handler: (enabled: boolean) => void): void {
+    this.claudeStatusHandler = handler
+  }
 
   /**
    * 初始化设置服务
@@ -118,31 +128,23 @@ class SettingsService {
    * 更新设置
    * - 合并到现有设置
    * - 写入磁盘
-   * - 重新注册快捷键（立即生效）
-   * - 联动 Claude Code 状态通知开关：打开时安装 Hook，关闭时卸载 Hook
+   * - 仅 autoStart 变化时才触发开机自启通知
+   * - 仅快捷键变化时才重新注册快捷键
+   * - 联动 Claude Code 状态通知开关：通过回调避免循环依赖
    */
   update(partial: Partial<AppSettings>): void {
     this.settings = { ...this.settings, ...partial }
     this.#save()
-    this.#registerAllShortcuts()
-    this.#applyAutoStart()
+    if (partial.shortcut !== undefined || partial.snippetShortcut !== undefined || partial.searchBoxShortcut !== undefined) {
+      this.#registerAllShortcuts()
+    }
+    if (partial.autoStart !== undefined) {
+      this.#applyAutoStart()
+    }
 
-    // Claude Code 状态通知开关联动的 Hook 安装/卸载
-    if (partial.showClaudeStatus !== undefined) {
-      // 使用 require 避免循环依赖
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { claudeCodeService } = require('./claudeCodeService')
-      if (partial.showClaudeStatus) {
-        // 开启 → 安装 Hook 并启动监控
-        claudeCodeService.installHook().catch((err: Error) => {
-          log.warn('[Settings] Claude Code Hook 安装失败:', err)
-        })
-      } else {
-        // 关闭 → 卸载 Hook 并停止监控
-        claudeCodeService.uninstallHook().catch((err: Error) => {
-          log.warn('[Settings] Claude Code Hook 卸载失败:', err)
-        })
-      }
+    // Claude Code status notification toggle → callback to avoid circular dependency
+    if (partial.showClaudeStatus !== undefined && this.claudeStatusHandler) {
+      this.claudeStatusHandler(partial.showClaudeStatus)
     }
 
     log.info('[Settings] 已更新')

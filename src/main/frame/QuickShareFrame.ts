@@ -55,6 +55,8 @@ export default class QuickShareFrame extends BaseFrame {
 
   /**
    * 居中显示弹窗
+   * @description 只设置位置和尺寸，不显示窗口。
+   *              由渲染进程就绪后发送 animate('enter') 触发 CSS 入场动画
    */
   showCentered(): void {
     if (!this.isAlive()) return
@@ -71,7 +73,7 @@ export default class QuickShareFrame extends BaseFrame {
         width: fw,
         height: fh
       })
-      win.showInactive()
+      // 不调用 showInactive，由渲染进程 ready 后通过 animate 触发入场
     }
   }
 
@@ -97,6 +99,10 @@ export default class QuickShareFrame extends BaseFrame {
       if (this.#msgSent) return
       this.#msgSent = true
 
+      // 先显示窗口，再发数据，animate IPC 在渲染进程用双 rAF 延迟到第二帧
+      if (this.isAlive() && this.window && !this.window.isDestroyed()) {
+        this.window.showInactive()
+      }
       this.sendOne('to-renderer-QuickShareFrame:show', {
         files: this.#files,
         devices: fileTransferService.getDevices().filter((d: DeviceInfo) => !d.offline)

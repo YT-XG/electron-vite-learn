@@ -244,8 +244,7 @@ export default class NoticeNewFrame extends BaseFrame {
       // 通过 popupManager 显示
       popupManager.showPermissionNotice(
         () => win,
-        // 复用 permission 类型以使用 PopupManager 的槽位管理
-        { type: 'permission' as any, width: 380, height: 320 },
+        { type: 'shareSelect', width: 380, height: 320 },
         (w) => {
           w.webContents.send('to-renderer-ShareSelectFrame:show', {
             text,

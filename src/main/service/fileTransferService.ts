@@ -1248,36 +1248,48 @@ class FileTransferService {
 
   /**
    * 从设置中加载持久化的手动添加设备
+   * @description 加载时立即标记为离线（红色）并广播，然后并发 TCP 探针验证是否在线
+   *              探针成功 → 更新为在线（绿色）并再次广播
+   *              防止刚启动时 QuickShare 右键菜单错误显示离线设备为在线
    */
   private loadManualDevices(): void {
     const devices = settingsService.getAll().manualDevices || []
     log.info('[FileTransfer] 加载持久化手动设备:', devices.length)
+    if (devices.length === 0) return
+
+    // 先全部标记为离线（红色），并立即广播
     for (const d of devices) {
       const key = `${d.address}:${d.port}`
       if (!this.scannedDevices.has(key)) {
         this.scannedDevices.set(key, {
-          name: d.address,  // 先显示 IP，后台探针会更新为真实名称
+          name: d.address,
           address: d.address,
           port: d.port,
           version: '',
           lastSeen: Date.now(),
           missCount: 0,
-          offline: false
+          offline: true  // 启动时默认离线，探针成功后再变绿
         })
       }
     }
-    // 后台异步探针更新设备名
+    this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+
+    // 并发 TCP 探针所有手动设备，探针成功则更新为在线
     for (const d of devices) {
-      this.probeDevice(d.address, d.port).then((info) => {
+      this.probeDevice(d.address, DISCOVERY_PORT).then((info) => {
         if (info) {
           const key = `${d.address}:${d.port}`
-          this.scannedDevices.set(key, { ...info, lastSeen: Date.now(), missCount: 0, offline: false })
+          this.scannedDevices.set(key, {
+            ...info,
+            address: d.address,
+            lastSeen: Date.now(),
+            missCount: 0,
+            offline: false  // 探针成功 → 标记在线
+          })
+          log.info(`[FileTransfer] 手动设备探针在线: ${info.name} (${d.address})`)
           this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
         }
       })
-    }
-    if (devices.length > 0) {
-      this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
     }
   }
 

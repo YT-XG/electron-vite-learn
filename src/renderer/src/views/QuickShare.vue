@@ -1,6 +1,6 @@
 <template>
   <div class="quick-share">
-    <div class="share-card" @mouseenter="onCardEnter" @mouseleave="onCardLeave">
+    <div class="share-card" :class="animClass" @mouseenter="onCardEnter" @mouseleave="onCardLeave">
       <!-- 标题 -->
       <div class="share-header">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -76,6 +76,8 @@ const selectedDevice = ref<DeviceInfo | null>(null)
 const sending = ref(false)
 const statusMsg = ref('')
 const statusType = ref<'success' | 'error'>('success')
+/** 入场/退场动画状态，对应 .anim-enter / .anim-exit CSS class */
+const animClass = ref('')
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -131,7 +133,20 @@ onMounted(() => {
     }
   })
 
-  window.electron.ipcRenderer.on('to-renderer-QuickShareFrame:animate', () => {})
+  window.electron.ipcRenderer.on('to-renderer-QuickShareFrame:animate', (_e, data: { action: string }) => {
+    // 双 requestAnimationFrame 确保窗口初始帧已绘制后，再添加动画 class
+    // 第一帧 rAF → 渲染初始（无动画 class）状态
+    // 第二帧 rAF → 添加动画 class，CSS @keyframes 从 from 状态开始播放
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (data.action === 'enter') {
+          animClass.value = 'anim-enter'
+        } else if (data.action === 'exit') {
+          animClass.value = 'anim-exit'
+        }
+      })
+    })
+  })
 
   window.electron.ipcRenderer.send('to-main-QuickShareFrame:ready')
 })
@@ -165,6 +180,21 @@ onUnmounted(() => {
   gap: 10px;
   pointer-events: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.share-card.anim-enter {
+  animation: quickShareEnter 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes quickShareEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .share-header {
