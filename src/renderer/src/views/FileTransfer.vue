@@ -174,6 +174,7 @@
                 <span class="progress-text">
                   {{ formatSize(record.transferredBytes) }} / {{ formatSize(record.totalBytes) }}
                 </span>
+                <button class="btn-cancel-transfer" @click="cancelRecord(record.id)" title="取消传输">取消</button>
               </div>
               <div class="record-time" v-else-if="record.completedAt">
                 {{ formatTimeAgo(record.completedAt) }}
@@ -344,6 +345,17 @@ async function removeManualDevice(address: string, port: number): Promise<void> 
     manualDevices.value = manualDevices.value.filter((d) => !(d.address === address && d.port === port))
   } catch (err: any) {
     console.error('移除设备失败:', err.message)
+  }
+}
+
+/**
+ * 取消正在进行的传输
+ */
+async function cancelRecord(recordId: string): Promise<void> {
+  try {
+    await window.electron.ipcRenderer.invoke('to-service-FileTransferService:cancelTransfer', recordId)
+  } catch (err: any) {
+    console.error('取消传输失败:', err.message)
   }
 }
 
@@ -779,6 +791,21 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--text-tertiary);
   flex-shrink: 0;
+}
+.btn-cancel-transfer {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 1px 8px;
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition: all 200ms;
+}
+.btn-cancel-transfer:hover {
+  background: var(--danger);
+  color: white;
 }
 .record-time {
   font-size: 11px;

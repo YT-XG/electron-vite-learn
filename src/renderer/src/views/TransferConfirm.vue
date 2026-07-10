@@ -61,6 +61,9 @@
           <p class="progress-text">{{ formatSize(progressBytes) }} / {{ formatSize(totalBytes) }}</p>
           <p class="progress-file" v-if="currentFileName">当前文件: {{ currentFileName }}</p>
         </div>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" @click="cancelReceive">取消</button>
+        </div>
       </template>
 
       <!-- 传输完成视图 -->
@@ -108,6 +111,7 @@ interface TransferRequestInfo {
   requestId: string
   senderName: string
   senderAddress: string
+  senderPort: number
   files: { name: string; size: number }[]
   totalSize: number
 }
@@ -159,6 +163,22 @@ function onMouseLeaveCard(): void {
 
 function closePopup(): void {
   animState.value = 'exit'
+}
+
+/** 接收方取消接收（通知发送方停止上传） */
+function cancelReceive(): void {
+  if (!requestInfo.value) return
+  // 通知发送方取消
+  window.electron.ipcRenderer.invoke(
+    'to-service-FileTransferService:cancelRemoteTransfer',
+    requestInfo.value.senderAddress,
+    requestInfo.value.senderPort || 0,
+    requestInfo.value.requestId
+  )
+  mode.value = 'rejected'
+  setTimeout(() => {
+    animState.value = 'exit'
+  }, 800)
 }
 
 function respond(action: 'accept' | 'reject'): void {

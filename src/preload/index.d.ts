@@ -86,6 +86,7 @@ interface IPCChannels {
   invoke(channel: 'to-service-FileTransferService:getRecords'): Promise<TransferRecord[]>
   invoke(channel: 'to-service-FileTransferService:pickFiles'): Promise<FileEntry[]>
   invoke(channel: 'to-service-FileTransferService:cancelTransfer', recordId: string): Promise<void>
+  invoke(channel: 'to-service-FileTransferService:cancelRemoteTransfer', targetAddress: string, targetPort: number, requestId: string): Promise<void>
   invoke(channel: 'to-service-FileTransferService:getServerInfo'): Promise<{ name: string; address: string; port: number }>
   invoke(channel: 'to-service-FileTransferService:pickDirectory'): Promise<string | null>
   invoke(channel: 'to-service-FileTransferService:getScanSubnets'): Promise<string[]>
@@ -136,6 +137,7 @@ interface TransferRequestInfo {
   requestId: string
   senderName: string
   senderAddress: string
+  senderPort: number
   files: { name: string; size: number }[]
   totalSize: number
 }

@@ -51,6 +51,7 @@ interface TransferRequestInfo {
   requestId: string
   senderName: string
   senderAddress: string
+  senderPort: number
   files: { name: string; size: number }[]
   totalSize: number
 }
@@ -219,6 +220,10 @@ class FileTransferService {
   private isScanning = false
   /** 设备在线探针定时器 */
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null
+  /** 活跃的上传请求（key: recordId，用于取消传输） */
+  private activeUploads: Map<string, { req: http.ClientRequest; readStream: import('fs').ReadStream }> = new Map()
+  /** 当前发送中的 recordId（用于中途取消） */
+  private currentSendingRecordId: string | null = null
 
   async init(): Promise<void> {
     // 动态加载 multicast-dns（CJS 模块，避免 import 加载时阻塞）
@@ -303,6 +308,11 @@ class FileTransferService {
     /** 手动添加设备（port=0 时自动探针发现端口） */
     ipcMain.handle('to-service-FileTransferService:addDevice', (_event, address: string, port: number) => {
       return this.addScannedDevice(address, port)
+    })
+
+    /** 接收方向发送方发起取消 */
+    ipcMain.handle('to-service-FileTransferService:cancelRemoteTransfer', async (_event, targetAddress: string, targetPort: number, requestId: string) => {
+      await this.cancelRemoteTransfer(targetAddress, targetPort, requestId)
     })
 
     /** 获取手动添加的设备列表 */
@@ -431,6 +441,12 @@ class FileTransferService {
         return
       }
 
+      // POST /cancel（接收方通知发送方取消传输）
+      if (req.method === 'POST' && path === '/cancel') {
+        this.handleCancel(req, res)
+        return
+      }
+
       // GET /status/:requestId
       if (req.method === 'GET' && path.startsWith('/status/')) {
         this.handleStatus(req, res, path)
@@ -502,6 +518,7 @@ class FileTransferService {
           requestId,
           senderName: data.senderName,
           senderAddress: clientIP,
+          senderPort: data.senderPort || 0,
           files: data.files,
           totalSize
         }
@@ -533,23 +550,46 @@ class FileTransferService {
         if (action === 'accept') {
           pending.status = 'accepted'
           pending.saveDir = saveDir || this.getSaveDir()
-          // 创建接收记录
-          this.records.push({
-            id: generateId(),
-            direction: 'received',
-            peerName: pending.senderName,
-            peerAddress: pending.senderAddress,
-            files: pending.files,
-            totalBytes: pending.files.reduce((s, f) => s + f.size, 0),
-            transferredBytes: 0,
-            status: 'transferring',
-            createdAt: Date.now()
-          })
-          this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+          // 注意：接收方通过 respondToRequest 创建 'received' 记录
+          // 发送方通过 sendRequest 创建 'sent' 记录
+          // handleRespond 不在此创建记录
         } else {
           pending.status = 'rejected'
           this.pendingRequests.delete(requestId)
         }
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: true }))
+      } catch {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'Invalid JSON' }))
+      }
+    })
+  }
+
+  /** POST /cancel — 接收方请求取消传输 */
+  private handleCancel(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      try {
+        const { requestId } = JSON.parse(body)
+        log.info('[FileTransfer] 收到取消请求, requestId:', requestId)
+
+        // 在活跃上传中查找并中止
+        for (const [recordId, upload] of this.activeUploads) {
+          upload.readStream.destroy()
+          upload.req.destroy()
+          this.activeUploads.delete(recordId)
+        }
+        // 标记发送记录为取消
+        const record = this.records.find((r) => r.id && r.status === 'transferring' && r.direction === 'sent')
+        if (record) {
+          record.status = 'failed'
+          record.errorMessage = '对方已取消传输'
+          this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        }
+        this.currentSendingRecordId = null
+
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ ok: true }))
       } catch {
@@ -591,7 +631,7 @@ class FileTransferService {
       mkdirSync(saveDir, { recursive: true })
     }
     const savePath = resolveFileNameConflict(saveDir, fileName)
-    const writeStream = createWriteStream(savePath)
+    const writeStream = createWriteStream(savePath, { highWaterMark: 1024 * 1024 })  // 1MB 缓冲，减少磁盘写入阻塞
 
     // 查找或创建接收记录
     const record = this.records.find((r) =>
@@ -643,7 +683,8 @@ class FileTransferService {
     // 发起请求
     const response = await this.doPost(target, '/request', {
       files: files.map((f) => ({ name: f.name, size: f.size })),
-      senderName: this.getDeviceName()
+      senderName: this.getDeviceName(),
+      senderPort: this.port
     })
     const requestId = response.requestId
 
@@ -673,29 +714,44 @@ class FileTransferService {
 
     // 逐个上传文件
     record.status = 'transferring'
+    this.currentSendingRecordId = record.id
     this.broadcast('broadcast:transfer-records-updated', this.getRecords())
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      // 上传前广播当前进度（让 UI 显示当前在传哪个文件）
-      this.broadcast('broadcast:transfer-records-updated', this.getRecords())
-      // 控制进度广播频率：每 ~1MB 或文件最后一块时才广播
-      let accBytes = 0
-      const THROTTLE_BYTES = 1024 * 1024  // 1MB
-      await this.uploadFile(target, requestId, i, file, (bytesSent) => {
-        record.transferredBytes += bytesSent
-        accBytes += bytesSent
-        if (accBytes >= THROTTLE_BYTES) {
-          accBytes = 0
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        // 上传前广播当前进度（让 UI 显示当前在传哪个文件）
+        this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        // 控制进度广播频率：每 ~1MB 或文件最后一块时才广播
+        let accBytes = 0
+        const THROTTLE_BYTES = 1024 * 1024  // 1MB
+        await this.uploadFile(target, requestId, i, file, (bytesSent) => {
+          record.transferredBytes += bytesSent
+          accBytes += bytesSent
+          if (accBytes >= THROTTLE_BYTES) {
+            accBytes = 0
+            this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+          }
+        })
+        // 最后一块可能不足 THROTTLE_BYTES，强制广播确保 100%
+        if (accBytes > 0) {
           this.broadcast('broadcast:transfer-records-updated', this.getRecords())
         }
-      })
-      // 最后一块可能不足 THROTTLE_BYTES，强制广播确保 100%
-      if (accBytes > 0) {
-        this.broadcast('broadcast:transfer-records-updated', this.getRecords())
       }
+    } catch (err: any) {
+      // uploadFile 被取消或出错时不覆盖 cancelTransfer 已设置的错误信息
+      if ((record as TransferRecord).status !== 'failed') {
+        record.status = 'failed'
+        record.errorMessage = err.message || '传输中断'
+      }
+      this.currentSendingRecordId = null
+      this.activeUploads.delete(record.id)
+      this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+      return requestId
     }
 
+    this.currentSendingRecordId = null
+    this.activeUploads.delete(record.id)
     record.status = 'completed'
     record.completedAt = Date.now()
     this.broadcast('broadcast:transfer-records-updated', this.getRecords())
@@ -735,12 +791,22 @@ class FileTransferService {
         if (res.statusCode === 200) resolve()
         else reject(new Error(`Upload failed: ${res.statusCode}`))
       })
-      req.on('error', reject)
-      const readStream = createReadStream(file.path)
+      req.on('error', (err) => {
+        if ((err as any)?.code === 'ECONNRESET' || err.message === 'aborted') {
+          reject(new Error('用户取消'))
+        } else {
+          reject(err)
+        }
+      })
+      const readStream = createReadStream(file.path, { highWaterMark: 1024 * 1024 })
       // 监听数据块发送进度
       readStream.on('data', (chunk: Buffer) => {
         if (onProgress) onProgress(chunk.length)
       })
+      // 注册到活跃上传列表，供取消使用
+      if (this.currentSendingRecordId) {
+        this.activeUploads.set(this.currentSendingRecordId, { req, readStream })
+      }
       readStream.pipe(req)
       readStream.on('error', reject)
     })
@@ -836,6 +902,19 @@ class FileTransferService {
     if (action === 'accept') {
       pending.status = 'accepted'
       pending.saveDir = saveDir || this.getSaveDir()
+      // 创建接收记录（供 handleUpload 更新进度和 TransferConfirm 展示）
+      this.records.push({
+        id: generateId(),
+        direction: 'received',
+        peerName: pending.senderName,
+        peerAddress: pending.senderAddress,
+        files: pending.files,
+        totalBytes: pending.files.reduce((s, f) => s + f.size, 0),
+        transferredBytes: 0,
+        status: 'transferring',
+        createdAt: Date.now()
+      })
+      this.broadcast('broadcast:transfer-records-updated', this.getRecords())
     } else if (action === 'reject') {
       pending.status = 'rejected'
       this.pendingRequests.delete(requestId)
@@ -877,8 +956,42 @@ class FileTransferService {
   }
 
   cancelTransfer(recordId: string): void {
+    // 1. 中止活跃的 HTTP 请求
+    const upload = this.activeUploads.get(recordId)
+    if (upload) {
+      upload.readStream.destroy()
+      upload.req.destroy()
+      this.activeUploads.delete(recordId)
+    }
+
+    // 2. 标记发送记录
     const record = this.records.find((r) => r.id === recordId)
-    if (record && record.status === 'transferring') {
+    if (record) {
+      record.status = 'failed'
+      record.errorMessage = '用户取消'
+      this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+    }
+
+    this.currentSendingRecordId = null
+  }
+
+  /**
+   * 接收方通知发送方取消传输
+   */
+  private async cancelRemoteTransfer(targetAddress: string, targetPort: number, requestId: string): Promise<void> {
+    try {
+      await this.doPost(
+        { name: '', address: targetAddress, port: targetPort, version: '' },
+        '/cancel',
+        { requestId }
+      )
+      log.info('[FileTransfer] 已向发送方发送取消请求:', targetAddress)
+    } catch (err: any) {
+      log.warn('[FileTransfer] 通知发送方取消失败:', err.message)
+    }
+    // 标记本地的接收记录
+    const record = this.records.find((r) => r.direction === 'received' && r.status === 'transferring')
+    if (record) {
       record.status = 'failed'
       record.errorMessage = '用户取消'
       this.broadcast('broadcast:transfer-records-updated', this.getRecords())
