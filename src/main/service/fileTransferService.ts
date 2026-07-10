@@ -10,13 +10,22 @@
  */
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import http from 'http'
-import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync } from 'fs'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import { basename, join } from 'path'
 import { networkInterfaces, hostname } from 'os'
 import log from 'electron-log'
 import { popupManager } from '../frame'
 import { settingsService } from './settingsService'
 import TransferConfirmFrame from '../frame/TransferConfirmFrame'
+
+// 延迟导入 textShareService，避免循环依赖
+let _textShareService: any = null
+function getTextShareService(): any {
+  if (!_textShareService) {
+    _textShareService = require('./textShareService').textShareService
+  }
+  return _textShareService
+}
 
 // ── 类型（内部使用，外部从 preload/index.d.ts 引用） ──
 
@@ -222,6 +231,17 @@ class FileTransferService {
   private activeUploads: Map<string, { req: http.ClientRequest; readStream: import('fs').ReadStream }> = new Map()
   /** 当前发送中的 recordId（用于中途取消） */
   private currentSendingRecordId: string | null = null
+
+  /** 本地文件分享回调（由 index.ts 注册，避免循环依赖 QuickShareFrame） */
+  private localShareHandler: ((files: { name: string; path: string; size: number }[]) => void) | null = null
+
+  /**
+   * 注册本地文件分享回调
+   * @description 当 Windows 右键菜单"分享到妙妙屋"发送 HTTP 请求时调用
+   */
+  setLocalShareHandler(handler: (files: { name: string; path: string; size: number }[]) => void): void {
+    this.localShareHandler = handler
+  }
 
   async init(): Promise<void> {
     // 动态加载 multicast-dns（CJS 模块，避免 import 加载时阻塞）
@@ -434,6 +454,10 @@ class FileTransferService {
           const addr = this.server!.address()
           this.port = typeof addr === 'object' ? addr!.port : port
           log.info('[FileTransfer] HTTP Server 启动，端口:', this.port)
+          // 保存端口供 Shell 集成（右键分享）使用
+          try {
+            writeFileSync(join(app.getPath('temp'), 'psf-port'), String(this.port), 'utf-8')
+          } catch { /* ignore */ }
           resolve()
         })
         this.server!.on('error', (err: NodeJS.ErrnoException) => {
@@ -492,6 +516,18 @@ class FileTransferService {
       // POST /cancel（接收方通知发送方取消传输）
       if (req.method === 'POST' && path === '/cancel') {
         this.handleCancel(req, res)
+        return
+      }
+
+      // POST /share-text（文本分享）
+      if (req.method === 'POST' && path === '/share-text') {
+        this.handleTextShare(req, res, clientIP)
+        return
+      }
+
+      // POST /share-local-files（Windows 右键菜单"分享到妙妙屋"本地文件）
+      if (req.method === 'POST' && path === '/share-local-files') {
+        this.handleLocalShareFiles(req, res)
         return
       }
 
@@ -657,6 +693,91 @@ class FileTransferService {
     }
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ status: pending.status }))
+  }
+
+  // ── 文本分享处理 ──
+
+  /**
+   * 处理文本分享请求
+   * @description 接收来自局域网设备的文本分享，转发给 textShareService
+   */
+  private handleTextShare(req: http.IncomingMessage, res: http.ServerResponse, clientIP: string): void {
+    let body = ''
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+      // 防止恶意大文本
+      if (body.length > 100_000) {
+        res.writeHead(413)
+        res.end(JSON.stringify({ error: 'Payload too large' }))
+        req.destroy()
+      }
+    })
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body)
+        if (!data.text || !data.senderName) {
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'Invalid request format' }))
+          return
+        }
+
+        // 转发给 textShareService 处理
+        getTextShareService().onReceiveText(data.text, data.senderName, clientIP)
+
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, receivedAt: Date.now() }))
+      } catch {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'Invalid JSON' }))
+      }
+    })
+  }
+
+  // ── 本地文件分享处理（Windows 右键菜单） ──
+
+  /**
+   * 处理 Windows 右键"分享到妙妙屋"的本地文件
+   * @description PowerShell 通过 HTTP POST 发送文件路径列表
+   */
+  private handleLocalShareFiles(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body)
+        const paths: string[] = data.paths || []
+        if (paths.length === 0) {
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'No paths' }))
+          return
+        }
+
+        // 验证文件路径，构建 FileEntry[]
+        const entries = paths
+          .filter((p: string) => existsSync(p))
+          .map((p: string) => {
+            const stats = statSync(p)
+            return { name: basename(p), path: p, size: stats.size }
+          })
+
+        if (entries.length === 0) {
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'No valid files' }))
+          return
+        }
+
+        // 通过回调通知 index.ts 显示分享弹窗
+        if (this.localShareHandler) {
+          this.localShareHandler(entries)
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, count: entries.length }))
+      } catch {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'Invalid JSON' }))
+      }
+    })
   }
 
   // ── 文件上传处理 ──
