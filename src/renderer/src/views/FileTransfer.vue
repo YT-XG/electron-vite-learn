@@ -65,15 +65,8 @@
                   v-model="manualIP"
                   type="text"
                   class="manual-input"
-                  placeholder="IP 地址"
+                  placeholder="IP 地址（自动探针发现端口）"
                   spellcheck="false"
-                  @keydown.enter="manualAddDevice"
-                />
-                <input
-                  v-model="manualPort"
-                  type="number"
-                  class="manual-input manual-port"
-                  placeholder="端口"
                   @keydown.enter="manualAddDevice"
                 />
                 <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim()">添加</button>
@@ -243,7 +236,6 @@ const sending = ref(false)
 /** 手动添加设备 */
 const showManualAdd = ref(true)
 const manualIP = ref('')
-const manualPort = ref(17862)
 
 /** 扫描网段 */
 const showAddSubnet = ref(true)
@@ -327,14 +319,14 @@ async function sendFiles(): Promise<void> {
 }
 
 /**
- * 手动添加设备（IP + 发现端口）
+ * 手动添加设备（仅 IP，端口由探针自动发现）
  */
 async function manualAddDevice(): Promise<void> {
   const ip = manualIP.value.trim()
   if (!ip) return
-  const port = manualPort.value || 17862
+  // port=0 表示自动探针发现端口（17862-17864）
   try {
-    await window.electron.ipcRenderer.invoke('to-service-FileTransferService:addDevice', ip, port)
+    await window.electron.ipcRenderer.invoke('to-service-FileTransferService:addDevice', ip, 0)
     manualIP.value = ''
     // 刷新手动设备列表
     manualDevices.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getManualDevices')

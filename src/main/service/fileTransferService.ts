@@ -300,7 +300,7 @@ class FileTransferService {
       return { ok: true }
     })
 
-    /** 手动添加设备（IP + 端口） */
+    /** 手动添加设备（port=0 时自动探针发现端口） */
     ipcMain.handle('to-service-FileTransferService:addDevice', (_event, address: string, port: number) => {
       return this.addScannedDevice(address, port)
     })
@@ -677,9 +677,23 @@ class FileTransferService {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      await this.uploadFile(target, requestId, i, file)
-      record.transferredBytes += file.size
+      // 上传前广播当前进度（让 UI 显示当前在传哪个文件）
       this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+      // 控制进度广播频率：每 ~1MB 或文件最后一块时才广播
+      let accBytes = 0
+      const THROTTLE_BYTES = 1024 * 1024  // 1MB
+      await this.uploadFile(target, requestId, i, file, (bytesSent) => {
+        record.transferredBytes += bytesSent
+        accBytes += bytesSent
+        if (accBytes >= THROTTLE_BYTES) {
+          accBytes = 0
+          this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        }
+      })
+      // 最后一块可能不足 THROTTLE_BYTES，强制广播确保 100%
+      if (accBytes > 0) {
+        this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+      }
     }
 
     record.status = 'completed'
@@ -704,7 +718,7 @@ class FileTransferService {
     return false
   }
 
-  private async uploadFile(target: DeviceInfo, requestId: string, index: number, file: FileEntry): Promise<void> {
+  private async uploadFile(target: DeviceInfo, requestId: string, index: number, file: FileEntry, onProgress?: (bytes: number) => void): Promise<void> {
     return new Promise((resolve, reject) => {
       const { address, port } = target
       const req = http.request({
@@ -723,6 +737,10 @@ class FileTransferService {
       })
       req.on('error', reject)
       const readStream = createReadStream(file.path)
+      // 监听数据块发送进度
+      readStream.on('data', (chunk: Buffer) => {
+        if (onProgress) onProgress(chunk.length)
+      })
       readStream.pipe(req)
       readStream.on('error', reject)
     })
@@ -879,28 +897,47 @@ class FileTransferService {
   }
 
   /**
-   * 手动添加一个已知 IP:Port 的设备到扫描设备列表
-   * @returns true 表示添加成功（新设备），false 表示已存在
+   * 手动添加设备到扫描设备列表
+   * - port=0 时自动探针发现端口（扫 17862-17864）
+   * - port>0 时直接使用指定端口
+   * @returns true 表示添加成功，false 表示已存在
    */
   private async addScannedDevice(address: string, port: number): Promise<boolean> {
-    const key = `${address}:${port}`
+    // port=0 时自动发现
+    let actualPort = port
+    let deviceInfo: DeviceInfo | null = null
+
+    if (actualPort === 0) {
+      // 尝试发现端口 17862-17864
+      for (const p of [DISCOVERY_PORT, DISCOVERY_PORT + 1, DISCOVERY_PORT + 2]) {
+        deviceInfo = await this.probeDevice(address, p)
+        if (deviceInfo) {
+          actualPort = deviceInfo.port  // 文件传输 HTTP 端口
+          break
+        }
+      }
+    } else {
+      deviceInfo = await this.probeDevice(address, actualPort)
+    }
+
+    // 判重（以 address:actualPort 为 key）
+    const key = `${address}:${actualPort}`
     if (this.scannedDevices.has(key)) return false
 
-    // 持久化到设置
-    this.persistManualDevice(address, port)
+    // 持久化到设置（存原始发现端口 17862，用于后续健康检查）
+    this.persistManualDevice(address, DISCOVERY_PORT)
 
-    // 立即探针验证
-    const info = await this.probeDevice(address, port)
-    if (info) {
-      this.scannedDevices.set(key, { ...info, lastSeen: Date.now(), missCount: 0, offline: false })
+    if (deviceInfo) {
+      this.scannedDevices.set(key, { ...deviceInfo, lastSeen: Date.now(), missCount: 0, offline: false })
       this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
       return true
     }
-    // 探针失败也添加，让后续扫描验证
+
+    // 探针失败也添加，待后续扫描验证
     this.scannedDevices.set(key, {
-      name: address,  // 直接显示 IP，待探针/扫描更新真实名称
+      name: address,
       address,
-      port,
+      port: actualPort,
       version: '',
       lastSeen: Date.now(),
       missCount: 0,
@@ -969,17 +1006,22 @@ class FileTransferService {
   /**
    * 移除一个手动添加的设备（从内存和持久化中删除）
    */
-  private removeManualDevice(address: string, port: number): void {
-    const key = `${address}:${port}`
-    this.scannedDevices.delete(key)
+  private removeManualDevice(address: string, _port: number): void {
+    // 从内存中删除该 IP 下的所有条目（端口可能因探针更新而变化）
+    for (const [key, dev] of this.scannedDevices) {
+      if (dev.address === address) {
+        this.scannedDevices.delete(key)
+        break
+      }
+    }
 
     // 从持久化中移除
     const current = (settingsService.getAll().manualDevices || []).filter(
-      (d) => !(d.address === address && d.port === port)
+      (d) => d.address !== address
     )
     settingsService.update({ manualDevices: current })
     this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
-    log.info('[FileTransfer] 手动设备已移除:', address, port)
+    log.info('[FileTransfer] 手动设备已移除:', address)
   }
 
   // ── TCP 发现服务器（固定端口，用于跨子网发现） ──

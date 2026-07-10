@@ -57,14 +57,16 @@ export default class TransferConfirmFrame extends BaseFrame {
 
     this.recvOne('to-main-TransferConfirmFrame:respond', async (_event, requestId: string, action: 'accept' | 'reject', saveDir?: string) => {
       // 转发到主进程 fileTransferService 处理
-      // 直接调用 respondToRequest（在同一进程内无需 IPC）
       await fileTransferService.respondToRequest(requestId, action, saveDir || '')
 
-      // 播放退场动画后销毁
-      this.sendOne('to-renderer-TransferConfirm:animate', { action: 'exit' })
-      setTimeout(() => {
-        popupManager.destroyPermissionNotice()
-      }, 350)
+      if (action === 'reject') {
+        // 拒绝后退出
+        this.sendOne('to-renderer-TransferConfirm:animate', { action: 'exit' })
+        setTimeout(() => {
+          popupManager.destroyPermissionNotice()
+        }, 350)
+      }
+      // 接受后不关闭，渲染进程切换到进度视图，传输完后用户点"关闭"再销毁
     })
 
     // 渲染进程请求销毁窗口（退场动画完成后）
