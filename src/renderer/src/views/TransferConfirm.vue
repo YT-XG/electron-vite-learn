@@ -168,12 +168,13 @@ function closePopup(): void {
 /** 接收方取消接收（通知发送方停止上传） */
 function cancelReceive(): void {
   if (!requestInfo.value) return
+  const { senderAddress, senderPort, requestId } = requestInfo.value
   // 通知发送方取消
   window.electron.ipcRenderer.invoke(
     'to-service-FileTransferService:cancelRemoteTransfer',
-    requestInfo.value.senderAddress,
-    requestInfo.value.senderPort || 0,
-    requestInfo.value.requestId
+    senderAddress,
+    senderPort || 0,
+    requestId
   )
   mode.value = 'rejected'
   setTimeout(() => {
@@ -228,6 +229,9 @@ onMounted(() => {
   window.electron.ipcRenderer.on('to-renderer-TransferConfirm:show', (_event: unknown, info: TransferRequestInfo) => {
     requestInfo.value = info
     animState.value = 'enter'
+    mode.value = 'request'  // 重置模式，新请求来了不显示旧状态
+    progressBytes.value = 0
+    totalBytes.value = 0
   })
 
   window.electron.ipcRenderer.on('to-renderer-TransferConfirm:animate', (_event: unknown, { action }: { action: 'enter' | 'exit' }) => {

@@ -168,12 +168,15 @@ export default class PopupManager {
     popupOptions: PopupOptions,
     showContentFn: (window: BrowserWindow) => void
   ): PopupItem {
-    // 检查是否已有权限弹窗
-    const existing = this.slots.find((s) => s !== null && s.type === 'permission')
+    // 检查是否已有权限弹窗（排除已销毁的窗口）
+    const existing = this.slots.find((s) => s !== null && s.type === 'permission' && s.isAlive())
     if (existing) {
       showContentFn(existing.window!)
       return existing
     }
+    // 清理已销毁的 permission 槽位
+    const deadIdx = this.slots.findIndex((s) => s !== null && s.type === 'permission' && !s.isAlive())
+    if (deadIdx !== -1) this.slots[deadIdx] = null
 
     const slotIndex = this.getFreeSlot()
     if (slotIndex === null) return this.showPermissionNotice(createWindowFn, popupOptions, showContentFn)

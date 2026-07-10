@@ -1536,10 +1536,15 @@ class FileTransferService {
     const probes: Promise<boolean>[] = []
 
     for (const [key, dev] of this.scannedDevices) {
-      const probe = this.probeDevice(dev.address, dev.port).then((info) => {
+      // 始终探针固定发现端口（17862），发现端口不变，文件传输端口随重启变化
+      const probe = this.probeDevice(dev.address, DISCOVERY_PORT).then((info) => {
         if (info) {
           // 设备在线：更新 lastSeen，重置 missCount，清除离线标记
           dev.lastSeen = Date.now()
+          // 对方重启后文件传输端口可能变了，从探针响应中更新
+          if (info.port !== dev.port) {
+            dev.port = info.port
+          }
           if (dev.missCount > 0 || dev.offline) {
             dev.missCount = 0
             dev.offline = false
