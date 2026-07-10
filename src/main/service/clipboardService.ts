@@ -5,6 +5,7 @@ import { join } from 'path'
 import log from 'electron-log'
 import { popupManager, NoticeNewFrame, windowFactory } from '../frame'
 import { inputService } from './inputService'
+import { settingsService } from './settingsService'
 
 /**
  * 剪贴板历史记录项
@@ -52,11 +53,8 @@ class ClipboardService {
   /** 上次剪贴板文本（用于去重） */
   private lastText: string = ''
 
-  /** 最大历史记录数 */
-  private static readonly MAX_ITEMS = 1000
-
-  /** 历史记录保留天数 */
-  private static readonly RETENTION_DAYS = 30
+  /** 当前保留天数（从 settings 读取） */
+  private retentionDays: number = 30
 
   /**
    * 初始化数据库
@@ -119,6 +117,12 @@ class ClipboardService {
     // 启动剪贴板监控
     this.start()
 
+    // 从 settingsService 读取保留天数
+    const settings = settingsService.getAll()
+    if (settings.clipboardRetentionDays) {
+      this.retentionDays = settings.clipboardRetentionDays
+    }
+
     // 启动时清理过期数据
     this.autoCleanup()
 
@@ -169,17 +173,8 @@ class ClipboardService {
     const now = Date.now()
     this.db.run('INSERT INTO clipboard_history (content, created_at) VALUES (?, ?)', [content, now])
 
-    // 超出最大数量时删除最旧的
-    const countResult = this.db.exec('SELECT COUNT(*) FROM clipboard_history')
-    const count = countResult[0].values[0][0] as number
-    if (count > ClipboardService.MAX_ITEMS) {
-      this.db.run(
-        `DELETE FROM clipboard_history WHERE id IN (
-          SELECT id FROM clipboard_history ORDER BY created_at ASC LIMIT ?
-        )`,
-        [count - ClipboardService.MAX_ITEMS]
-      )
-    }
+    // 清理过期数据（按保留天数）
+    this.autoCleanup()
 
     this.save()
 
@@ -374,7 +369,7 @@ class ClipboardService {
    */
   private autoCleanup(): void {
     if (!this.db) return
-    const cutoff = Date.now() - ClipboardService.RETENTION_DAYS * 24 * 60 * 60 * 1000
+    const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000
     this.db.run('DELETE FROM clipboard_history WHERE created_at < ?', [cutoff])
     this.save()
   }
@@ -461,6 +456,16 @@ class ClipboardService {
       await inputService.pasteToPreviousWindow()
     })
 
+    // 获取保留天数
+    ipcMain.handle('to-service-ClipboardService:getRetentionDays', () => {
+      return this.getRetentionDays()
+    })
+
+    // 设置保留天数
+    ipcMain.handle('to-service-ClipboardService:setRetentionDays', (_event, days: number) => {
+      this.setRetentionDays(days)
+    })
+
     // 获取收藏列表
     ipcMain.handle('to-service-ClipboardService:getFavorites', () => {
       return this.getFavorites()
@@ -519,6 +524,23 @@ class ClipboardService {
       this.db.close()
       this.db = null
     }
+  }
+
+  /**
+   * 获取当前保留天数
+   */
+  getRetentionDays(): number {
+    return this.retentionDays
+  }
+
+  /**
+   * 设置保留天数
+   * @description 更新自身属性、持久化到 settingsService、立即执行清理
+   */
+  setRetentionDays(days: number): void {
+    this.retentionDays = days
+    settingsService.update({ clipboardRetentionDays: days })
+    this.autoCleanup()
   }
 
   /**
