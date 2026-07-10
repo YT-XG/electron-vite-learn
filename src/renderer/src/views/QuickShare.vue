@@ -98,7 +98,7 @@ function send(): void {
   if (!selectedDevice.value || sending.value) return
   sending.value = true
   statusMsg.value = ''
-  window.electron.ipcRenderer.send('to-main-QuickShareFrame:sendFiles', selectedDevice.value)
+  window.electron.ipcRenderer.send('to-main-QuickShareFrame:sendFiles', { ...selectedDevice.value })
 }
 
 function close(): void {

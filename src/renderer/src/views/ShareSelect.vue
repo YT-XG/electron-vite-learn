@@ -106,7 +106,7 @@ async function send(): Promise<void> {
   sending.value = true
   statusMsg.value = ''
 
-  window.electron.ipcRenderer.send('to-main-ShareSelectFrame:sendText', selectedDevice.value)
+  window.electron.ipcRenderer.send('to-main-ShareSelectFrame:sendText', { ...selectedDevice.value })
 }
 
 /**
