@@ -25,6 +25,7 @@ interface DeviceInfo {
   address: string
   port: number
   version: string
+  offline?: boolean
 }
 
 interface FileEntry {
@@ -96,9 +97,6 @@ const DISCOVERY_PORT = 17_862
 
 /** TCP 发现端口绑定重试次数 */
 const MAX_DISCOVERY_PORT_ATTEMPTS = 3
-
-/** 子网 TCP 扫描间隔（毫秒） */
-const SUBNET_SCAN_INTERVAL_MS = 60_000
 
 /** 子网扫描并发数（/24 一次扫完） */
 const SCAN_CONCURRENCY = 254
@@ -337,27 +335,77 @@ class FileTransferService {
   // ── 设备管理 ──
 
   getDevices(): DeviceInfo[] {
-    // 合并 mDNS 发现的设备
-    const mdnsDevices = Array.from(this.devices.values())
-      .filter((d) => d.missCount < OFFLINE_THRESHOLD)
-      .map(({ name, address, port, version }) => ({ name, address, port, version, offline: false }))
+    const result: DeviceInfo[] = []
+    const seenAddresses = new Set<string>()
 
-    // 合并 TCP 扫描发现的设备（去重：优先保留 mDNS 结果，因其信息更完整）
-    const existingKeys = new Set(mdnsDevices.map((d) => `${d.address}:${d.port}`))
-    for (const [, scanned] of this.scannedDevices) {
-      const key = `${scanned.address}:${scanned.port}`
-      if (!existingKeys.has(key)) {
-        mdnsDevices.push({
+    // 1. 先处理 mDNS 发现的设备
+    for (const mdns of this.devices.values()) {
+      if (mdns.missCount >= OFFLINE_THRESHOLD) continue
+
+      // 检查同一 IP 是否有扫描/手动设备
+      const scanned = this.findScannedByAddress(mdns.address)
+      if (scanned && this.isManualDevice(mdns.address, scanned.port)) {
+        // 手动设备优先：保留离线状态和自定义名称
+        result.push({
           name: scanned.name,
           address: scanned.address,
           port: scanned.port,
           version: scanned.version,
           offline: scanned.offline
         })
+      } else if (scanned) {
+        // 普通扫描设备：用 mDNS 的更完整信息，合并离线状态
+        result.push({
+          name: mdns.name,
+          address: mdns.address,
+          port: mdns.port,
+          version: mdns.version,
+          offline: scanned.offline
+        })
+      } else {
+        // 仅 mDNS 发现的设备
+        result.push({
+          name: mdns.name,
+          address: mdns.address,
+          port: mdns.port,
+          version: mdns.version,
+          offline: false
+        })
       }
+      seenAddresses.add(mdns.address)
     }
 
-    return mdnsDevices
+    // 2. 添加扫描/手动设备中 mDNS 未覆盖的
+    for (const scanned of this.scannedDevices.values()) {
+      if (seenAddresses.has(scanned.address)) continue
+      result.push({
+        name: scanned.name,
+        address: scanned.address,
+        port: scanned.port,
+        version: scanned.version,
+        offline: scanned.offline
+      })
+      seenAddresses.add(scanned.address)
+    }
+
+    return result
+  }
+
+  /** 在 scannedDevices 中按 IP 查找设备 */
+  private findScannedByAddress(address: string): (DeviceInfo & { lastSeen: number; missCount: number; offline: boolean }) | undefined {
+    for (const dev of this.scannedDevices.values()) {
+      if (dev.address === address) return dev
+    }
+    return undefined
+  }
+
+  /** 在 scannedDevices 中按 IP 删除所有记录（处理同 IP 不同 key 的重复） */
+  private removeScannedByAddress(address: string): void {
+    for (const [key, dev] of this.scannedDevices) {
+      if (dev.address === address) {
+        this.scannedDevices.delete(key)
+      }
+    }
   }
 
   getDeviceName(): string {
@@ -1040,13 +1088,16 @@ class FileTransferService {
     // 持久化到设置（存原始发现端口 17862，用于后续健康检查）
     this.persistManualDevice(address, DISCOVERY_PORT)
 
+    // 先清理该 IP 的旧记录（手动添加可能改变端口，旧 key ip:17862 与新 key ip:HTTPPort 不同）
+    this.removeScannedByAddress(address)
+
     if (deviceInfo) {
       this.scannedDevices.set(key, { ...deviceInfo, lastSeen: Date.now(), missCount: 0, offline: false })
       this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
       return true
     }
 
-    // 探针失败也添加，待后续扫描验证
+    // 探针失败也添加，直接标红（用户知道输了一个离线 IP）
     this.scannedDevices.set(key, {
       name: address,
       address,
@@ -1054,7 +1105,7 @@ class FileTransferService {
       version: '',
       lastSeen: Date.now(),
       missCount: 0,
-      offline: false
+      offline: true
     })
     this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
     return true
@@ -1229,30 +1280,37 @@ class FileTransferService {
     this.isScanning = true
 
     try {
-      // 只扫描用户配置的网段（本机所在子网由 mDNS 自动发现）
-      const allSubnets = this.getScanSubnets()
+      // 1. 优先探针已有设备（刷新在线状态）
+      log.info('[FileTransfer] 开始探针已有设备...')
+      await this.probeAllExistingDevices()
 
-      if (allSubnets.length === 0) {
-        log.info('[FileTransfer] 无用户配置的扫描网段，跳过 TCP 扫描')
-        this.isScanning = false
-        return
-      }
+      // 2. 收集要扫描的网段：手动配置的 + 本机所在子网
+      const manualSubnets = this.getScanSubnets()
+      const allSubnets = [...manualSubnets]
 
-      log.info('[FileTransfer] 开始 TCP 子网扫描，网段数:', allSubnets.length)
-
-      // 4. 扫描所有子网
-      for (const cidr of allSubnets) {
-        log.info('[FileTransfer] 扫描网段:', cidr)
-        await this.scanRange(cidr)
-      }
-
-      // 5. 清理过期扫描设备（连续 3 次扫描间隔未更新）
-      const now = Date.now()
-      for (const [key, dev] of this.scannedDevices) {
-        if (now - dev.lastSeen > SUBNET_SCAN_INTERVAL_MS * 3) {
-          this.scannedDevices.delete(key)
-          log.info('[FileTransfer] 扫描设备离线（超时）:', dev.name)
+      // 自动添加本机所在子网（/24）
+      const localIPs = getLocalIPs()
+      for (const ip of localIPs) {
+        const parts = ip.split('.')
+        if (parts.length === 4) {
+          const localCidr = `${parts[0]}.${parts[1]}.${parts[2]}.0/24`
+          if (!allSubnets.includes(localCidr)) {
+            allSubnets.push(localCidr)
+            log.info('[FileTransfer] 自动添加本机子网:', localCidr)
+          }
         }
+      }
+
+      if (allSubnets.length > 0) {
+        log.info('[FileTransfer] 开始 TCP 子网扫描，网段数:', allSubnets.length)
+
+        // 3. 扫描所有子网
+        for (const cidr of allSubnets) {
+          log.info('[FileTransfer] 扫描网段:', cidr)
+          await this.scanRange(cidr)
+        }
+      } else {
+        log.info('[FileTransfer] 无扫描网段，跳过 TCP 扫描')
       }
 
       this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
@@ -1265,10 +1323,6 @@ class FileTransferService {
     }
   }
 
-  /**
-   * 自动推导本机所在子网（/24）
-   * 从本机 IP 反推出 10.15.66.0/24 这样的 CIDR
-   */
   /**
    * 扫描一个 CIDR 子网
    * 对范围内每个 IP 尝试 TCP 连接发现端口进行探针
@@ -1309,6 +1363,8 @@ class FileTransferService {
           foundCount++
           log.info(`[FileTransfer] 探针发现设备: ${batch[j]}:${info.port} (${info.name})`)
           const key = `${batch[j]}:${info.port}`
+          // 如该 IP 已存在（手动添加的），先删除旧记录再添加，避免 Map 中同 IP 不同 key 的重复
+          this.removeScannedByAddress(batch[j])
           this.scannedDevices.set(key, {
             name: info.name,
             address: batch[j],
@@ -1506,6 +1562,60 @@ class FileTransferService {
   }
 
   // ── 设备在线探针 ──
+
+  /**
+   * 手动刷新时探针所有已有设备，无响应的立即处理
+   * - 手动添加设备 → 标红（offline=true）
+   * - 扫描发现的设备 → 直接删除
+   */
+  private async probeAllExistingDevices(): Promise<void> {
+    const probes: Promise<void>[] = []
+
+    // 探针 scannedDevices 中的所有设备
+    for (const [key, dev] of this.scannedDevices) {
+      const probe = this.probeDevice(dev.address, DISCOVERY_PORT).then((info) => {
+        if (info) {
+          // 在线：更新状态
+          dev.lastSeen = Date.now()
+          if (info.port !== dev.port) dev.port = info.port
+          dev.missCount = 0
+          dev.offline = false
+        } else {
+          // 无响应：立即处理
+          if (this.isManualDevice(dev.address, dev.port)) {
+            dev.offline = true
+            dev.missCount = 0
+            log.info('[FileTransfer] 刷新探针: 手动设备离线（标红）:', dev.name, dev.address)
+          } else {
+            this.scannedDevices.delete(key)
+            log.info('[FileTransfer] 刷新探针: 扫描设备离线（已删除）:', dev.name, dev.address)
+          }
+        }
+      })
+      probes.push(probe)
+    }
+
+    // 也探针 mDNS 发现的设备
+    for (const [key, dev] of this.devices) {
+      const probe = this.probeDevice(dev.address, DISCOVERY_PORT).then((info) => {
+        if (info) {
+          dev.lastSeen = Date.now()
+          dev.missCount = 0
+        } else {
+          dev.missCount++
+          if (dev.missCount >= OFFLINE_THRESHOLD) {
+            this.devices.delete(key)
+            log.info('[FileTransfer] 刷新探针: mDNS 设备离线（已删除）:', dev.name, dev.address)
+          }
+        }
+      })
+      probes.push(probe)
+    }
+
+    await Promise.allSettled(probes)
+    this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+    log.info('[FileTransfer] 刷新探针完成')
+  }
 
   /**
    * 启动设备在线探针，每 10 秒检测一次所有已知设备是否在线

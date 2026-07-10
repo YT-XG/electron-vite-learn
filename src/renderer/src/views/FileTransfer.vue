@@ -13,7 +13,12 @@
     <!-- 主体：左栏 + 右栏 -->
     <div class="transfer-main">
       <!-- 左栏 -->
-      <div class="transfer-left">
+      <div
+        class="transfer-left"
+        @dragover.prevent="onDragOver"
+        @dragleave.prevent="onDragLeave"
+        @drop.prevent="handleDrop"
+      >
         <!-- 在线设备 -->
         <div class="section">
           <div class="section-title section-title-row">
@@ -30,10 +35,10 @@
           <div class="device-list" v-if="devices.length > 0">
             <div
               v-for="device in devices"
-              :key="device.address + ':' + device.port"
+              :key="device.address"
               class="device-card"
               :class="{
-                selected: selectedDevice?.address === device.address && selectedDevice?.port === device.port,
+                selected: isSelected(device),
                 offline: device.offline
               }"
               @click="selectDevice(device)"
@@ -45,7 +50,6 @@
               </div>
               <div class="device-card-bottom">
                 <span class="device-card-ip">{{ device.address }}:{{ device.port }}</span>
-                <span class="device-card-selected" v-if="selectedDevice?.address === device.address && selectedDevice?.port === device.port">已选</span>
               </div>
             </div>
           </div>
@@ -69,7 +73,7 @@
                   spellcheck="false"
                   @keydown.enter="manualAddDevice"
                 />
-                <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim()">添加</button>
+                <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim() || manualAdding">{{ manualAdding ? '添加中...' : '添加' }}</button>
               </div>
               <!-- 已持久化的手动设备列表 -->
               <div class="manual-device-tags" v-if="manualDevices.length > 0">
@@ -138,6 +142,18 @@
             {{ sending ? '发送中...' : '发送' }}
           </button>
         </div>
+
+        <!-- 拖放文件遮罩 -->
+        <Transition name="drop-fade">
+          <div v-if="isDragging" class="drop-overlay">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="drop-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span class="drop-text">释放鼠标以添加文件</span>
+          </div>
+        </Transition>
       </div>
 
       <!-- 右栏：传输记录 -->
@@ -185,7 +201,7 @@
             </div>
           </div>
         </div>
-        <EmptyState v-else icon="folder" text="暂无传输记录" hint="选择一个在线设备，然后发送文件" />
+        <EmptyState v-else icon="folder" text="暂无传输记录" hint="选择一台或多台在线设备，然后发送文件" />
       </div>
     </div>
   </div>
@@ -229,14 +245,16 @@ interface TransferRecord {
 
 const serverInfo = ref({ name: '', address: '', port: 0 })
 const devices = ref<DeviceInfo[]>([])
-const selectedDevice = ref<DeviceInfo | null>(null)
+const selectedDevices = ref<DeviceInfo[]>([])
 const selectedFiles = ref<FileEntry[]>([])
 const records = ref<TransferRecord[]>([])
 const sending = ref(false)
+const isDragging = ref(false)
 
 /** 手动添加设备 */
 const showManualAdd = ref(true)
 const manualIP = ref('')
+const manualAdding = ref(false)
 
 /** 扫描网段 */
 const showAddSubnet = ref(true)
@@ -249,7 +267,11 @@ const manualDevices = ref<{ address: string; port: number }[]>([])
 
 // ── 计算属性 ──
 
-const canSend = computed(() => selectedDevice.value !== null && !selectedDevice.value?.offline && selectedFiles.value.length > 0 && !sending.value)
+const canSend = computed(() => selectedDevices.value.length > 0 && selectedFiles.value.length > 0 && !sending.value)
+
+function isSelected(device: DeviceInfo): boolean {
+  return selectedDevices.value.some(d => d.address === device.address)
+}
 
 // ── 工具函数 ──
 
@@ -283,7 +305,12 @@ function statusLabel(status: string): string {
 
 function selectDevice(device: DeviceInfo): void {
   if (device.offline) return
-  selectedDevice.value = device
+  const idx = selectedDevices.value.findIndex(d => d.address === device.address)
+  if (idx !== -1) {
+    selectedDevices.value.splice(idx, 1)
+  } else {
+    selectedDevices.value.push(device)
+  }
 }
 
 function removeFile(index: number): void {
@@ -304,18 +331,65 @@ async function pickFiles(): Promise<void> {
 async function sendFiles(): Promise<void> {
   if (!canSend.value) return
   sending.value = true
-  try {
-    // 展开 Proxy 对象，避免 Electron IPC 克隆失败
-    await window.electron.ipcRenderer.invoke(
-      'to-service-FileTransferService:sendRequest',
-      { ...selectedDevice.value },
-      selectedFiles.value.map(f => ({ ...f }))
-    )
-    selectedFiles.value = []
-  } catch (err: any) {
-    console.error('发送失败:', err.message)
-  } finally {
-    sending.value = false
+  const targets = [...selectedDevices.value]
+  const files = selectedFiles.value.map(f => ({ ...f }))
+  selectedFiles.value = []
+  selectedDevices.value = []
+
+  for (const device of targets) {
+    try {
+      await window.electron.ipcRenderer.invoke(
+        'to-service-FileTransferService:sendRequest',
+        { ...device },
+        files
+      )
+    } catch (err: any) {
+      console.error(`发送到 ${device.name} 失败:`, err.message)
+    }
+  }
+  sending.value = false
+}
+
+/**
+ * 文件拖入左栏
+ */
+function onDragOver(): void {
+  isDragging.value = true
+}
+
+/**
+ * 文件拖出左栏
+ */
+function onDragLeave(e: DragEvent): void {
+  // 仅当真正离开容器时才隐藏（不因进入子元素触发）
+  const target = e.currentTarget as HTMLElement
+  const related = e.relatedTarget as HTMLElement
+  if (!related || !target.contains(related)) {
+    isDragging.value = false
+  }
+}
+
+/**
+ * 拖放文件到左栏
+ * 从 event.dataTransfer.files 提取路径加入已选文件列表
+ */
+function handleDrop(e: DragEvent): void {
+  isDragging.value = false
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  const MAX_FILES = 200
+  for (let i = 0; i < Math.min(files.length, MAX_FILES); i++) {
+    const file = files[i]
+    const filePath = (file as any).path
+    if (!filePath) continue
+    // 去重
+    if (selectedFiles.value.find(f => f.path === filePath)) continue
+    selectedFiles.value.push({
+      name: file.name,
+      path: filePath,
+      size: file.size
+    })
   }
 }
 
@@ -324,7 +398,8 @@ async function sendFiles(): Promise<void> {
  */
 async function manualAddDevice(): Promise<void> {
   const ip = manualIP.value.trim()
-  if (!ip) return
+  if (!ip || manualAdding.value) return
+  manualAdding.value = true
   // port=0 表示自动探针发现端口（17862-17864）
   try {
     await window.electron.ipcRenderer.invoke('to-service-FileTransferService:addDevice', ip, 0)
@@ -333,6 +408,8 @@ async function manualAddDevice(): Promise<void> {
     manualDevices.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getManualDevices')
   } catch (err: any) {
     console.error('添加设备失败:', err.message)
+  } finally {
+    manualAdding.value = false
   }
 }
 
@@ -547,6 +624,7 @@ onUnmounted(() => {
 
 /* ── 左栏 ── */
 .transfer-left {
+  position: relative;
   width: 280px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
@@ -989,5 +1067,39 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--text-primary);
   font-family: JetBrains Mono, monospace;
+}
+
+/* ── 拖放遮罩 ── */
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  backdrop-filter: blur(3px);
+  border-radius: 12px;
+  pointer-events: none;
+}
+.drop-icon {
+  color: var(--accent);
+  opacity: 0.8;
+}
+.drop-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  opacity: 0.9;
+}
+.drop-fade-enter-active,
+.drop-fade-leave-active {
+  transition: opacity 200ms ease;
+}
+.drop-fade-enter-from,
+.drop-fade-leave-to {
+  opacity: 0;
 }
 </style>
