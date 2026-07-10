@@ -430,10 +430,12 @@ class FileTransferService {
   // ── 传输请求处理 ──
 
   private handleTransferRequest(req: http.IncomingMessage, res: http.ServerResponse, clientIP: string): void {
+    log.info(`[FileTransfer] 收到传输请求, 来自: ${clientIP}`)
     let body = ''
     req.on('data', (chunk: Buffer) => {
       body += chunk.toString()
       if (body.length > 100_000) {
+        log.warn('[FileTransfer] 请求体过大')
         res.writeHead(413)
         res.end('Payload too large')
         req.destroy()
@@ -443,12 +445,14 @@ class FileTransferService {
       try {
         const data = JSON.parse(body)
         if (!data.files || !Array.isArray(data.files) || !data.senderName) {
+          log.warn('[FileTransfer] 请求格式无效:', JSON.stringify(data))
           res.writeHead(400)
           res.end(JSON.stringify({ error: 'Invalid request format' }))
           return
         }
         const requestId = generateId()
         const totalSize = data.files.reduce((sum: number, f: any) => sum + (f.size || 0), 0)
+        log.info(`[FileTransfer] 创建请求 ${requestId}, 发送方: ${data.senderName}, 文件数: ${data.files.length}, 总大小: ${totalSize}`)
 
         // 暂存请求
         const pending: PendingRequest = {
@@ -459,6 +463,7 @@ class FileTransferService {
           status: 'pending',
           timer: setTimeout(() => {
             if (this.pendingRequests.get(requestId)?.status === 'pending') {
+              log.info(`[FileTransfer] 请求 ${requestId} 超时`)
               this.pendingRequests.get(requestId)!.status = 'timeout'
               this.pendingRequests.delete(requestId)
             }
@@ -475,6 +480,7 @@ class FileTransferService {
           files: data.files,
           totalSize
         }
+        log.info(`[FileTransfer] 准备弹出确认窗口, requestId: ${requestId}`)
         this.showConfirmPopup(info)
 
         res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -748,31 +754,43 @@ class FileTransferService {
   }
 
   private showConfirmPopup(info: TransferRequestInfo): void {
-    // 使用动态 require 避免对 TransferConfirmFrame 的编译期依赖
-    // TransferConfirmFrame 将在 Task 3 创建，Task 5 清理此临时方案
-    const TransferConfirmFrame = require('../frame/TransferConfirmFrame').default
-    popupManager.showPermissionNotice(
-      () => {
-        const frame = new TransferConfirmFrame()
-        frame.setRequestInfo(info)
-        return frame.create()
-      },
-      { type: 'permission' as any, width: 420, height: 300 },
-      (win) => {
-        win.webContents.send('to-renderer-TransferConfirm:show', info)
-        // 手动发送入场动画到 TransferConfirm 的频道
-        // PopupManager 的 playAnimation 会发送到 PermissionNoticeFrame 频道，此处补充
-        win.webContents.send('to-renderer-TransferConfirm:animate', { action: 'enter' })
-      }
-    )
+    log.info(`[FileTransfer] showConfirmPopup: sender=${info.senderName}, files=${info.files.length}`)
+    try {
+      const TransferConfirmFrame = require('../frame/TransferConfirmFrame').default
+      popupManager.showPermissionNotice(
+        () => {
+          log.info('[FileTransfer] 创建 TransferConfirmFrame 窗口')
+          try {
+            const frame = new TransferConfirmFrame()
+            frame.setRequestInfo(info)
+            const win = frame.create()
+            log.info('[FileTransfer] TransferConfirmFrame 窗口创建成功')
+            return win
+          } catch (err) {
+            log.error('[FileTransfer] 创建 TransferConfirmFrame 失败:', err)
+            throw err
+          }
+        },
+        { type: 'permission' as any, width: 420, height: 300 },
+        (win) => {
+          log.info('[FileTransfer] 发送 show/animate IPC 到确认窗口')
+          win.webContents.send('to-renderer-TransferConfirm:show', info)
+          win.webContents.send('to-renderer-TransferConfirm:animate', { action: 'enter' })
+        }
+      )
+      log.info('[FileTransfer] showConfirmPopup 完成')
+    } catch (err) {
+      log.error('[FileTransfer] showConfirmPopup 异常:', err)
+    }
   }
 
   respondToRequest(requestId: string, action: 'accept' | 'reject', saveDir: string): void {
     const pending = this.pendingRequests.get(requestId)
-    if (!pending) return
-    // 获取发送方端口（从 pending 中恢复，实际上我们需要在 request 中存下来）
-    // 简化处理：直接用 pending.senderAddress 发起 HTTP 请求
-    // 由于发送方在 /request 时会带上端口信息，此处简化
+    if (!pending) {
+      log.warn(`[FileTransfer] respondToRequest: 请求 ${requestId} 不存在`)
+      return
+    }
+    log.info(`[FileTransfer] respondToRequest: ${requestId}, action=${action}, saveDir=${saveDir}`)
     if (action === 'accept') {
       pending.status = 'accepted'
       pending.saveDir = saveDir || this.getSaveDir()
@@ -780,8 +798,10 @@ class FileTransferService {
       pending.status = 'rejected'
       this.pendingRequests.delete(requestId)
     }
-    this.doPostByAddress(pending.senderAddress, '/respond', { requestId, action, saveDir }).catch((err) => {
-      log.error('[FileTransfer] respond 失败:', err)
+    this.doPostByAddress(pending.senderAddress, '/respond', { requestId, action, saveDir }).then(() => {
+      log.info(`[FileTransfer] respond 回复成功: ${requestId}`)
+    }).catch((err) => {
+      log.error(`[FileTransfer] respond 回复失败:`, err.message)
     })
   }
 
