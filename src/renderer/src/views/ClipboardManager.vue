@@ -46,6 +46,19 @@
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 清空
         </button>
+        <!-- ↓↓↓ 新增：保留期切换器 ↓↓↓ -->
+        <div class="retention-toggle">
+          <button
+            v-for="opt in RETENTION_OPTIONS"
+            :key="opt.value"
+            class="category-btn"
+            :class="{ active: retentionDays === opt.value }"
+            @click="setRetentionDays(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+        <!-- ↑↑↑ 新增结束 ↑↑↑ -->
       </div>
 
       <!-- 收藏工具栏 -->
@@ -278,6 +291,16 @@ interface CategoryItem {
  */
 type DisplayItem = HistoryItem | FavoriteItem
 
+/** 保留天数选项 */
+const RETENTION_OPTIONS = [
+  { label: '10天', value: 10 },
+  { label: '30天', value: 30 },
+  { label: '3个月', value: 90 }
+] as const
+
+/** 当前保留天数 */
+const retentionDays = ref(30)
+
 /** 当前激活的标签页 */
 const activeTab = ref<'history' | 'favorites'>('history')
 
@@ -465,6 +488,31 @@ const clearAllHistory = async (): Promise<void> => {
 }
 
 /**
+ * 加载保留天数设置
+ */
+const loadRetentionDays = async (): Promise<void> => {
+  try {
+    const days = await window.electron.ipcRenderer.invoke('to-service-ClipboardService:getRetentionDays')
+    retentionDays.value = days
+  } catch (err) {
+    console.error('[ClipboardManager] 加载保留天数失败:', err)
+  }
+}
+
+/**
+ * 设置保留天数
+ * @param days - 10 | 30 | 90
+ */
+const setRetentionDays = async (days: number): Promise<void> => {
+  retentionDays.value = days
+  try {
+    await window.electron.ipcRenderer.invoke('to-service-ClipboardService:setRetentionDays', days)
+  } catch (err) {
+    console.error('[ClipboardManager] 设置保留天数失败:', err)
+  }
+}
+
+/**
  * 打开编辑片段弹窗
  * @param item - 片段项
  */
@@ -553,6 +601,7 @@ onMounted(async () => {
   await fetchFavorites()
   await fetchCategories()
   loading.value = false
+  await loadRetentionDays() // 新增
 
   // 监听增量推送
   window.electron.ipcRenderer.on('broadcast:clipboard-new', onNewItem)
@@ -1227,5 +1276,18 @@ onUnmounted(() => {
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+/* ========== 保留期切换器 ========== */
+.retention-toggle {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.retention-toggle .category-btn {
+  padding: 5px 10px;
+  font-size: 11px;
 }
 </style>
