@@ -29,7 +29,7 @@
 - 每秒监控剪贴板变化，新内容自动入库（自动去重）
 - 支持分页查询、搜索、删除、清空
 - 变化时通过 IPC 推送到可见窗口
-- 自动清理 30 天前的过期数据，最多保留 1000 条
+- 自动清理过期数据，保留天数可配置（10天/30天/3个月），默认 30 天
 - **收藏独立存储**：支持手动添加、分类管理、编辑、删除
 
 ### 数据库表结构
@@ -58,23 +58,26 @@
 
 | 频道 | 方向 | 说明 |
 |------|------|------|
-| `clipboard-history:get` | 渲染 -> 主 | 获取历史记录（分页） |
-| `clipboard-history:search` | 渲染 -> 主 | 搜索历史记录 |
-| `clipboard-history:delete` | 渲染 -> 主 | 删除一条记录 |
-| `clipboard-history:clearAll` | 渲染 -> 主 | 清空所有历史记录 |
-| `clipboard-history:new` | 主 -> 渲染 | 推送新记录到渲染进程 |
+| `to-service-ClipboardService:getHistory` | 渲染 -> 主 | 获取历史记录（分页） |
+| `to-service-ClipboardService:searchHistory` | 渲染 -> 主 | 搜索历史记录 |
+| `to-service-ClipboardService:deleteHistory` | 渲染 -> 主 | 删除一条记录 |
+| `to-service-ClipboardService:clearHistory` | 渲染 -> 主 | 清空所有历史记录 |
+| `to-service-ClipboardService:clickItem` | 渲染 -> 主 | 点击记录（复制并粘贴） |
+| `to-service-ClipboardService:getRetentionDays` | 渲染 -> 主 | 获取当前保留天数 |
+| `to-service-ClipboardService:setRetentionDays` | 渲染 -> 主 | 设置保留天数（10/30/90） |
+| `broadcast:clipboard-new` | 主 -> 渲染 | 推送新剪贴板记录到可见窗口 |
 
 **收藏**:
 
 | 频道 | 方向 | 说明 |
 |------|------|------|
-| `favorites:getAll` | 渲染 -> 主 | 获取所有收藏列表 |
-| `favorites:getByCategory` | 渲染 -> 主 | 按分类获取收藏列表 |
-| `favorites:getCategories` | 渲染 -> 主 | 获取所有分类及其数量 |
-| `favorites:add` | 渲染 -> 主 | 手动添加收藏 |
-| `favorites:update` | 渲染 -> 主 | 更新收藏内容 |
-| `favorites:delete` | 渲染 -> 主 | 删除收藏 |
-| `favorites:clearAll` | 渲染 -> 主 | 清空所有收藏 |
+| `to-service-ClipboardService:getFavorites` | 渲染 -> 主 | 获取所有收藏列表 |
+| `to-service-ClipboardService:getFavoritesByCategory` | 渲染 -> 主 | 按分类获取收藏列表 |
+| `to-service-ClipboardService:getCategories` | 渲染 -> 主 | 获取所有分类及其数量 |
+| `to-service-ClipboardService:addFavorite` | 渲染 -> 主 | 手动添加收藏 |
+| `to-service-ClipboardService:updateFavorite` | 渲染 -> 主 | 更新收藏内容 |
+| `to-service-ClipboardService:deleteFavorite` | 渲染 -> 主 | 删除收藏 |
+| `to-service-ClipboardService:clearFavorites` | 渲染 -> 主 | 清空所有收藏 |
 
 ---
 
