@@ -49,101 +49,20 @@
       </div>
     </div>
 
-    <!-- 全局快捷键 -->
+    <!-- Claude Code 状态通知 -->
     <div class="setting-card">
       <div class="setting-info">
-        <span class="setting-label">全局快捷键</span>
-        <span class="setting-hint">按下快捷键可显示/隐藏主页面</span>
+        <span class="setting-label">Claude Code 状态通知</span>
+        <span class="setting-hint">运行 Claude Code 时在右下角显示会话状态和工具调用信息</span>
       </div>
 
-      <div class="shortcut-row">
-        <!-- 空闲状态：展示当前快捷键 -->
-        <div v-if="state === 'idle'" class="shortcut-keys" @click="startRecording" tabindex="0" role="button">
-          <kbd v-for="key in displayParts" :key="key" class="keycap">{{ key }}</kbd>
-          <span class="change-hint">点击修改</span>
-        </div>
-
-        <!-- 录制状态：捕获按键 -->
-        <div v-else class="shortcut-recorder" @keydown.prevent="onKeydown" tabindex="0" ref="recorderRef">
-          <template v-if="capturedKeys.length === 0">
-            <span class="recording-pulse">●</span>
-            <span class="recording-text">按下快捷键...</span>
-          </template>
-          <template v-else>
-            <kbd v-for="key in capturedDisplayKeys" :key="key" class="keycap active">{{ key }}</kbd>
-          </template>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="shortcut-actions">
-          <button v-if="state === 'idle'" class="btn btn-secondary" @click="startRecording">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-            录制
-          </button>
-          <template v-if="state === 'recording'">
-            <button class="btn btn-primary" :disabled="!isValidCombo" @click="saveShortcut">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              保存
-            </button>
-            <button class="btn btn-ghost" @click="cancelRecording">
-              取消
-            </button>
-          </template>
-        </div>
+      <div class="toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="showClaudeStatus" @change="saveClaudeStatus" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">{{ showClaudeStatus ? '已开启' : '已关闭' }}</span>
       </div>
-
-      <!-- 保存成功反馈 -->
-      <Transition name="fade">
-        <p v-if="showSavedTip" class="save-tip">✅ 快捷键已更新，立即生效</p>
-      </Transition>
-    </div>
-
-    <!-- 片段选择快捷键 -->
-    <div class="setting-card">
-      <div class="setting-info">
-        <span class="setting-label">片段选择快捷键</span>
-        <span class="setting-hint">按下快捷键可呼出/隐藏片段选择窗口</span>
-      </div>
-
-      <div class="shortcut-row">
-        <!-- 空闲状态 -->
-        <div v-if="snippetState === 'idle'" class="shortcut-keys" @click="startSnippetRecording" tabindex="0" role="button">
-          <kbd v-for="key in snippetDisplayParts" :key="key" class="keycap">{{ key }}</kbd>
-          <span class="change-hint">点击修改</span>
-        </div>
-
-        <!-- 录制状态 -->
-        <div v-else class="shortcut-recorder" @keydown.prevent="onSnippetKeydown" tabindex="0" ref="snippetRecorderRef">
-          <template v-if="snippetCapturedKeys.length === 0">
-            <span class="recording-pulse">●</span>
-            <span class="recording-text">按下快捷键...</span>
-          </template>
-          <template v-else>
-            <kbd v-for="key in snippetCapturedDisplayKeys" :key="key" class="keycap active">{{ key }}</kbd>
-          </template>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="shortcut-actions">
-          <button v-if="snippetState === 'idle'" class="btn btn-secondary" @click="startSnippetRecording">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-            录制
-          </button>
-          <template v-if="snippetState === 'recording'">
-            <button class="btn btn-primary" :disabled="!snippetIsValidCombo" @click="saveSnippetShortcut">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              保存
-            </button>
-            <button class="btn btn-ghost" @click="cancelSnippetRecording">
-              取消
-            </button>
-          </template>
-        </div>
-      </div>
-
-      <Transition name="fade">
-        <p v-if="showSnippetSavedTip" class="save-tip">✅ 快捷键已更新，立即生效</p>
-      </Transition>
     </div>
 
     <!-- 更新源选择 -->
@@ -391,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 /** 当前主题 */
 const currentTheme = ref<'light' | 'dark'>(
@@ -400,6 +319,9 @@ const currentTheme = ref<'light' | 'dark'>(
 
 /** 开机自启动 */
 const autoStart = ref(false)
+
+/** Claude Code 状态通知 */
+const showClaudeStatus = ref(false)
 
 /** 是否为 macOS 平台 */
 const isMacOS = navigator.platform.includes('Mac')
@@ -429,20 +351,12 @@ async function saveAutoStart(): Promise<void> {
   await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { autoStart: autoStart.value })
 }
 
-/** 录制状态 */
-type State = 'idle' | 'recording'
-
-const state = ref<State>('idle')
-const currentShortcut = ref('')
-const capturedKeys = ref<string[]>([])
-const showSavedTip = ref(false)
-
-/** 片段选择快捷键录制 */
-const snippetState = ref<State>('idle')
-const currentSnippetShortcut = ref('')
-const snippetCapturedKeys = ref<string[]>([])
-const showSnippetSavedTip = ref(false)
-const snippetRecorderRef = ref<HTMLDivElement | null>(null)
+/**
+ * 保存 Claude Code 状态通知设置
+ */
+async function saveClaudeStatus(): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { showClaudeStatus: showClaudeStatus.value })
+}
 
 /** 更新服务器配置 */
 const ipOptions = [
@@ -533,235 +447,7 @@ function onCustomIpInput(): void {
   }
 }
 
-/** 当前快捷键的显示分段 */
-const displayParts = computed(() => formatAccelerator(currentShortcut.value))
-
-/** 录制中的按键显示分段 */
-const capturedDisplayKeys = computed(() => capturedKeys.value)
-
-/** 是否有有效的快捷键组合（至少一个修饰键 + 一个普通键） */
-const isValidCombo = computed(() => {
-  const mods = ['CommandOrControl', 'Alt', 'Shift'].filter((m) =>
-    capturedKeys.value.includes(m)
-  )
-  return mods.length >= 1 && capturedKeys.value.length > mods.length
-})
-
-/** 片段快捷键显示分段 */
-const snippetDisplayParts = computed(() => formatAccelerator(currentSnippetShortcut.value))
-
-/** 片段快捷键录制中显示分段 */
-const snippetCapturedDisplayKeys = computed(() => snippetCapturedKeys.value)
-
-/** 片段快捷键是否有有效组合 */
-const snippetIsValidCombo = computed(() => {
-  const mods = ['CommandOrControl', 'Alt', 'Shift'].filter((m) =>
-    snippetCapturedKeys.value.includes(m)
-  )
-  return mods.length >= 1 && snippetCapturedKeys.value.length > mods.length
-})
-
-const recorderRef = ref<HTMLDivElement | null>(null)
-
-// ═══════════════════════════════════════════════════════════════
-//  快捷键录制
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * 开始录制快捷键
- */
-function startRecording(): void {
-  state.value = 'recording'
-  capturedKeys.value = []
-  nextTick(() => {
-    recorderRef.value?.focus()
-    document.addEventListener('keydown', onKeydown)
-  })
-}
-
-/**
- * 处理按键事件
- * 将 event.code 映射为 Electron accelerator 格式
- */
-function onKeydown(event: KeyboardEvent): void {
-  event.preventDefault()
-  event.stopPropagation()
-
-  // Esc → 取消
-  if (event.key === 'Escape') {
-    cancelRecording()
-    return
-  }
-
-  // 收集修饰键
-  const mods: string[] = []
-  if (event.ctrlKey || event.metaKey) mods.push('CommandOrControl')
-  if (event.altKey) mods.push('Alt')
-  if (event.shiftKey) mods.push('Shift')
-
-  // 如果只有修饰键，等待用户按下普通键
-  const key = event.key
-  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
-    return
-  }
-
-  // 将普通键映射为 Electron accelerator 名称
-  const mappedKey = mapKey(event)
-
-  capturedKeys.value = [...mods, mappedKey]
-  state.value = 'recording'
-}
-
-/**
- * 映射 KeyboardEvent 到 Electron accelerator 键名
- */
-function mapKey(event: KeyboardEvent): string {
-  const { code, key } = event
-
-  // 字母键：KeyV → V
-  if (code.startsWith('Key')) return code.slice(3)
-  // 数字键：Digit5 → 5
-  if (code.startsWith('Digit')) return code.slice(5)
-  // 功能键 F1-F24
-  if (code.startsWith('F') && code.length <= 3 && /^F\d+$/.test(code)) return code
-  // 符号键
-  if (code === 'Space') return 'Space'
-  if (code === 'Comma') return ','
-  if (code === 'Period') return '.'
-  if (code === 'Minus') return '-'
-  if (code === 'Equal') return '='
-  if (code === 'Semicolon') return ';'
-  if (code === 'Quote') return "'"
-  if (code === 'Backslash') return '\\'
-  if (code === 'BracketLeft') return '['
-  if (code === 'BracketRight') return ']'
-  if (code === 'Backquote') return '`'
-  if (code === 'Slash') return '/'
-  if (code === 'IntlBackslash') return '\\'
-
-  // 功能方向键
-  const namedKeys: Record<string, string> = {
-    ArrowUp: 'Up',
-    ArrowDown: 'Down',
-    ArrowLeft: 'Left',
-    ArrowRight: 'Right',
-    Enter: 'Return',
-    Escape: 'Escape',
-    Backspace: 'Backspace',
-    Delete: 'Delete',
-    Tab: 'Tab',
-    Home: 'Home',
-    End: 'End',
-    PageUp: 'PageUp',
-    PageDown: 'PageDown',
-    CapsLock: 'CapsLock',
-    NumLock: 'NumLock',
-    ScrollLock: 'ScrollLock',
-    Insert: 'Insert',
-    Pause: 'Pause',
-    PrintScreen: 'PrintScreen'
-  }
-
-  return namedKeys[key] || key.toUpperCase()
-}
-
-/**
- * 保存快捷键
- */
-async function saveShortcut(): Promise<void> {
-  const accelerator = capturedKeys.value.join('+')
-  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { shortcut: accelerator })
-  currentShortcut.value = accelerator
-  state.value = 'idle'
-  document.removeEventListener('keydown', onKeydown)
-
-  // 显示成功提示
-  showSavedTip.value = true
-  setTimeout(() => {
-    showSavedTip.value = false
-  }, 3000)
-}
-
-/**
- * 取消录制
- */
-function cancelRecording(): void {
-  state.value = 'idle'
-  capturedKeys.value = []
-  document.removeEventListener('keydown', onKeydown)
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  片段选择快捷键录制
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * 开始录制片段选择快捷键
- */
-function startSnippetRecording(): void {
-  snippetState.value = 'recording'
-  snippetCapturedKeys.value = []
-  nextTick(() => {
-    snippetRecorderRef.value?.focus()
-    document.addEventListener('keydown', onSnippetKeydown)
-  })
-}
-
-/**
- * 处理片段快捷键按键事件
- */
-function onSnippetKeydown(event: KeyboardEvent): void {
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (event.key === 'Escape') {
-    cancelSnippetRecording()
-    return
-  }
-
-  const mods: string[] = []
-  if (event.ctrlKey || event.metaKey) mods.push('CommandOrControl')
-  if (event.altKey) mods.push('Alt')
-  if (event.shiftKey) mods.push('Shift')
-
-  const key = event.key
-  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return
-
-  const mappedKey = mapKey(event)
-  snippetCapturedKeys.value = [...mods, mappedKey]
-  snippetState.value = 'recording'
-}
-
-/**
- * 保存片段选择快捷键
- */
-async function saveSnippetShortcut(): Promise<void> {
-  const accelerator = snippetCapturedKeys.value.join('+')
-  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', {
-    snippetShortcut: accelerator
-  })
-  currentSnippetShortcut.value = accelerator
-  snippetState.value = 'idle'
-  document.removeEventListener('keydown', onSnippetKeydown)
-
-  showSnippetSavedTip.value = true
-  setTimeout(() => {
-    showSnippetSavedTip.value = false
-  }, 3000)
-}
-
-/**
- * 取消片段快捷键录制
- */
-function cancelSnippetRecording(): void {
-  snippetState.value = 'idle'
-  snippetCapturedKeys.value = []
-  document.removeEventListener('keydown', onSnippetKeydown)
-}
-
-/**
- * 保存更新服务器地址
- */
+/** 翻译 API 配置是否有改动 */
 async function saveServerUrl(): Promise<void> {
   const url = fullServerUrl.value
   await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { serverUrl: url })
@@ -867,31 +553,6 @@ async function removeSubnet(idx: number): Promise<void> {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  格式化
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * 将 Electron accelerator 拆分为可读的键名片段
- * CommandOrControl+Alt+V → ['Ctrl', 'Alt', 'V'] (Win)
- *                         → ['Cmd', 'Alt', 'V']  (Mac)
- */
-function formatAccelerator(accel: string): string[] {
-  const isMac = navigator.platform.includes('Mac')
-  const displayMap: Record<string, string> = {
-    CommandOrControl: isMac ? '⌘ Cmd' : '⊞ Ctrl',
-    CmdOrCtrl: isMac ? '⌘ Cmd' : '⊞ Ctrl',
-    Control: '⊞ Ctrl',
-    Command: '⌘ Cmd',
-    Cmd: '⌘ Cmd',
-    Alt: 'Alt',
-    Shift: '⇧ Shift',
-    Super: '⊞ Win',
-    Meta: '⊞ Win'
-  }
-  return accel.split('+').map((part) => displayMap[part] || part)
-}
-
-// ═══════════════════════════════════════════════════════════════
 //  生命周期
 // ═══════════════════════════════════════════════════════════════
 
@@ -900,9 +561,8 @@ onMounted(async () => {
   document.documentElement.setAttribute('data-theme', currentTheme.value)
 
   const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
-  currentShortcut.value = settings.shortcut
-  currentSnippetShortcut.value = settings.snippetShortcut || 'CommandOrControl+Shift+V'
   autoStart.value = settings.autoStart ?? false
+  showClaudeStatus.value = settings.showClaudeStatus ?? false
 
   // 初始化更新服务器
   if (isMacOS) {
@@ -938,8 +598,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('keydown', onSnippetKeydown)
 })
 </script>
 
@@ -1017,110 +675,7 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
-/* ========== 快捷键行 ========== */
-.shortcut-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* 快捷键按键展示 */
-.shortcut-keys {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: var(--bg-base);
-  border: 1px solid var(--border-hover);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  min-height: 36px;
-  box-sizing: border-box;
-}
-
-.shortcut-keys:hover {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
-}
-
-.change-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-left: 4px;
-}
-
-/* 录制状态容器 */
-.shortcut-recorder {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--bg-base);
-  border: 2px solid var(--accent);
-  border-radius: 8px;
-  min-height: 36px;
-  box-sizing: border-box;
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  animation: recorder-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes recorder-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px var(--accent-glow); }
-  50% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0.08); }
-}
-
-.recording-pulse {
-  font-size: 10px;
-  color: var(--accent);
-  animation: dot-pulse 1s ease-in-out infinite;
-}
-
-@keyframes dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.recording-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-/* ========== 键帽样式 ========== */
-.keycap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 26px;
-  padding: 0 8px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-hover);
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-family: inherit;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
-}
-
-.keycap.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 1px 0 #2563eb;
-}
-
-/* ========== 按钮 ========== */
-.shortcut-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-/* ========== 更新服务器 ========== */
+/* ========== 设置卡片 ========== */
 .server-url-row {
   display: flex;
   align-items: center;

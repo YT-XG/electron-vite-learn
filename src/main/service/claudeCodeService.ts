@@ -16,6 +16,7 @@ import { dirname, join } from 'path'
 import log from 'electron-log'
 import { popupManager, NoticeNewFrame, PermissionNoticeFrame } from '../frame'
 import type { NoticeType } from '../frame'
+import { settingsService } from './settingsService'
 
 /** 权限决策类型 */
 export type PermissionDecision = 'allow' | 'always' | 'deny'
@@ -575,6 +576,9 @@ class ClaudeCodeService {
    * @param text - 状态文本
    */
   private showClaudeStatusForPermission(text: string): void {
+    // 状态通知关闭时不显示
+    if (!settingsService.getAll().showClaudeStatus) return
+
     popupManager.showClaudeStatus(
       text,
       // 创建窗口的回调函数
@@ -606,6 +610,9 @@ class ClaudeCodeService {
    * @description 非权限事件通过 PopupManager 更新常驻状态通知
    */
   private showEventNotification(event: ClaudeCodeHookEvent): void {
+    // 状态通知关闭时不显示
+    if (!settingsService.getAll().showClaudeStatus) return
+
     /** 创建 NoticeNewFrame 窗口的回调函数 */
     const createWindowFn = (): BrowserWindow => {
       const frame = new NoticeNewFrame()

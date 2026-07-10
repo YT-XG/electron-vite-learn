@@ -50,7 +50,20 @@
             @click="currentPage = 'clipboard'"
             :title="isSidebarCollapsed ? '剪切板' : ''"
           >
-            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+            </svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">剪切板</span>
           </button>
           <button
@@ -59,7 +72,24 @@
             @click="currentPage = 'translate'"
             :title="isSidebarCollapsed ? '翻译' : ''"
           >
-            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m5 8 6 6" />
+              <path d="m4 14 6-6 2-3" />
+              <path d="M2 5h12" />
+              <path d="M7 2h1" />
+              <path d="m22 22-5-10-5 10" />
+              <path d="M14 18h6" />
+            </svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">翻译</span>
           </button>
           <button
@@ -68,17 +98,22 @@
             @click="currentPage = 'download'"
             :title="isSidebarCollapsed ? '下载管理' : ''"
           >
-            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">下载管理</span>
-          </button>
-          <button
-            class="nav-item"
-            :class="{ active: currentPage === 'settings' }"
-            @click="currentPage = 'settings'"
-            :title="isSidebarCollapsed ? '设置' : ''"
-          >
-            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
           </button>
           <button
             class="nav-item"
@@ -86,7 +121,21 @@
             @click="currentPage = 'toolbox'"
             :title="isSidebarCollapsed ? '工具箱' : ''"
           >
-            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+              />
+            </svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">工具箱</span>
           </button>
           <button
@@ -95,12 +144,72 @@
             @click="currentPage = 'fileTransfer'"
             :title="isSidebarCollapsed ? '文件互传' : ''"
           >
-            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
             <span class="nav-label" v-if="!isSidebarCollapsed">文件互传</span>
+          </button>
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'settings' }"
+            @click="currentPage = 'settings'"
+            :title="isSidebarCollapsed ? '设置' : ''"
+          >
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+            <span class="nav-label" v-if="!isSidebarCollapsed">设置</span>
+          </button>
+          <button
+            class="nav-item"
+            :class="{ active: currentPage === 'shortcuts' }"
+            @click="currentPage = 'shortcuts'"
+            :title="isSidebarCollapsed ? '快捷键' : ''"
+          >
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="m6 8 4 4-4 4" />
+              <path d="m14 8 4 4-4 4" />
+            </svg>
+            <span class="nav-label" v-if="!isSidebarCollapsed">快捷键</span>
           </button>
         </nav>
       </aside>
-
       <!-- 右侧内容区 -->
       <main class="content">
         <Transition name="page-fade" mode="out-in">
@@ -108,8 +217,14 @@
           <ClipboardManager v-if="currentPage === 'clipboard'" key="clipboard" />
           <!-- 设置 -->
           <Settings v-else-if="currentPage === 'settings'" key="settings" />
+          <!-- 快捷键 -->
+          <Shortcuts v-else-if="currentPage === 'shortcuts'" key="shortcuts" />
           <!-- 翻译 -->
-          <Translate v-else-if="currentPage === 'translate'" key="translate" @goBack="currentPage = 'clipboard'" />
+          <Translate
+            v-else-if="currentPage === 'translate'"
+            key="translate"
+            @goBack="currentPage = 'clipboard'"
+          />
           <!-- 下载管理 -->
           <DownloadManager v-else-if="currentPage === 'download'" key="download" />
           <!-- 工具箱 -->
@@ -130,10 +245,13 @@ import Settings from './Settings.vue'
 import Translate from './Translate.vue'
 import Toolbox from './tools/Toolbox.vue'
 import FileTransfer from './FileTransfer.vue'
+import Shortcuts from './Shortcuts.vue'
 
 const version = ref('')
 /** 当前页面 */
-const currentPage = ref<'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox' | 'fileTransfer'>('clipboard')
+const currentPage = ref<
+  'clipboard' | 'settings' | 'shortcuts' | 'translate' | 'download' | 'toolbox' | 'fileTransfer'
+>('clipboard')
 
 /** 页面是否可见（触发动画） */
 const isVisible = ref(false)
@@ -213,8 +331,25 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
  * @param page - 目标页面名称
  */
 const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
-  if (['clipboard', 'settings', 'translate', 'download', 'toolbox', 'fileTransfer'].includes(page)) {
-    currentPage.value = page as 'clipboard' | 'settings' | 'translate' | 'download' | 'toolbox' | 'fileTransfer'
+  if (
+    [
+      'clipboard',
+      'settings',
+      'shortcuts',
+      'translate',
+      'download',
+      'toolbox',
+      'fileTransfer'
+    ].includes(page)
+  ) {
+    currentPage.value = page as
+      | 'clipboard'
+      | 'settings'
+      | 'shortcuts'
+      | 'translate'
+      | 'download'
+      | 'toolbox'
+      | 'fileTransfer'
   }
 }
 
@@ -263,8 +398,12 @@ onUnmounted(() => {
 }
 
 @keyframes page-show {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ========== 退场动画 ========== */
@@ -273,14 +412,20 @@ onUnmounted(() => {
 }
 
 @keyframes page-hide {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 /* ========== 页面切换动画 ========== */
 .page-fade-enter-active,
 .page-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .page-fade-enter-from {
@@ -303,8 +448,12 @@ onUnmounted(() => {
 }
 
 @keyframes gradient-flow {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 /* ========== 标题栏 ========== */

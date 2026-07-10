@@ -135,6 +135,15 @@ class SearchService {
       action: function () { windowFactory.getMainPageFrame().showAndPage('settings') }
     },
     {
+      id: 'shortcuts',
+      name: '快捷键',
+      aliases: ['kj', '快捷键', 'shortcuts', 'shortcut'],
+      category: 'tool',
+      icon: '⌨️',
+      description: '自定义应用快捷键',
+      action: function () { windowFactory.getMainPageFrame().showAndPage('shortcuts') }
+    },
+    {
       id: 'json-tool',
       name: 'JSON 工具',
       aliases: ['json', 'json工具', '格式化'],
@@ -149,6 +158,15 @@ class SearchService {
         }
         windowFactory.createJsonToolFrame().show()
       }
+    },
+    {
+      id: 'file-transfer',
+      name: '文件互传',
+      aliases: ['wjhc', 'wj', '文件传输', 'filetransfer', 'lan', '局域网', '传输'],
+      category: 'tool',
+      icon: '📁',
+      description: '局域网文件互传',
+      action: function () { windowFactory.getMainPageFrame().showAndPage('fileTransfer') }
     }
   ]
 
@@ -341,7 +359,9 @@ class SearchService {
       '载': 'z', '工': 'g', '具': 'j', '箱': 'x', '搜': 's',
       '索': 's', '框': 'k', '马': 'm', '克': 'k', '号': 'h',
       '颜': 'y', '色': 's', '取': 'q', '屏': 'p', '幕': 'm',
-      '格': 'g', '式': 's', '化': 'h',
+      '格': 'g', '式': 's', '化': 'h', '文': 'w', '件': 'j',
+      '互': 'h', '传': 'c', '检': 'j', '查': 'c', '更': 'g',
+      '新': 'x', '快': 'k', '捷': 'j', '键': 'j',
     }
 
     let result = ''

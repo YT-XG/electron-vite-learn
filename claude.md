@@ -69,6 +69,7 @@ electron-vite-learn/
 │           │   ├── MarkdownPreview.vue # Markdown 预览组件（多标签页分屏）
 │           │   ├── ContextMenu.vue  # 右键菜单组件（Markdown 编辑器菜单）
 │           │   ├── SnippetPicker.vue # 片段选择组件（Ctrl+Shift+V 呼出，搜索并快速插入片段）
+│           │   ├── Shortcuts.vue # 快捷键设置（全局快捷键、片段选择、搜索框自定义）
 │           │   ├── Test.vue   # 测试页面
 │           │   └── tools/      # 工具页面
 │           │       └── Toolbox.vue  # 工具箱页面
@@ -436,10 +437,13 @@ electron-vite-learn/
   - **更新源切换**：支持局域网更新和 GitHub 更新两种模式
 - **配置项**:
   - `shortcut` - 全局快捷键（默认 `CommandOrControl+Alt+V`）
+  - `snippetShortcut` - 片段选择快捷键（默认 `CommandOrControl+Shift+V`）
+  - `searchBoxShortcut` - 搜索框快捷键（默认 `CommandOrControl+K`）
   - `serverUrl` - 局域网更新服务器路径（**跨平台默认值**）
     - Windows 默认: `\\10.15.8.28\dist`（UNC 路径）
     - macOS 默认: `/Volumes/dist`（**macOS 用户只需挂载共享文件夹，无需手动填写路径**）
   - `autoStart` - 开机自启动（默认 `false`）
+  - `showClaudeStatus` - Claude Code 状态通知（默认 `false`，关闭时不显示会话状态和工具调用通知）
   - `translateApiUrl` - 翻译 API 地址（可选，默认使用 MyMemory 免费 API）
   - `translateApiKey` - 翻译 API Key（可选，用于自定义翻译服务认证）
   - `updateSource` - 更新源选择（默认 `lan`）
@@ -671,6 +675,7 @@ electron-vite-learn/
   | `download-manager` | 下载管理 | xiazai, 下载, download | 打开下载管理页面 |
   | `check-update` | 检查更新 | gx, 更新, update | 检查应用更新 |
   | `settings` | 设置 | sz, 设置, settings | 打开设置页面 |
+  | `shortcuts` | 快捷键 | kj, 快捷键, shortcuts, shortcut | 自定义应用快捷键 |
   | `json-tool` | JSON 工具 | json, json工具, 格式化 | JSON 格式化、压缩、转义、校验 |
 - **搜索匹配方式**（按优先级排序）：
   - 精确匹配：工具名称完全匹配
@@ -707,6 +712,7 @@ electron-vite-learn/
   searchService.executeTool('download-manager')  // 打开下载管理
   searchService.executeTool('check-update')      // 检查更新
   searchService.executeTool('settings')          // 打开设置
+  searchService.executeTool('shortcuts')         // 打开快捷键
   searchService.executeTool('json-tool')         // 打开 JSON 工具
   ```
 
@@ -918,9 +924,10 @@ electron-vite-learn/
   - `MainPage.vue` - 主页面，侧边栏布局，显示应用名称和版本号，支持菜单导航
   - `ClipboardManager.vue` - 剪贴板管理（历史记录 + 收藏）
   - `Translate.vue` - 翻译页面，支持多语言文本翻译和历史记录
-  - `Settings.vue` - 设置页面，支持外观主题、开机自启、全局快捷键、更新服务器、翻译 API 配置
+  - `Settings.vue` - 设置页面，支持外观主题、开机自启、更新服务器、翻译 API 配置
     - **跨平台更新服务器**：Windows 显示 UNC 路径选择器，macOS 显示 SMB 挂载路径输入框
     - **macOS 挂载帮助**：可展开的步骤说明，指导用户如何在 Finder 中挂载共享文件夹
+  - `Shortcuts.vue` - 快捷键设置页面，支持全局快捷键、片段选择快捷键、搜索框快捷键的自定义录制
   - `Test.vue` - 测试页面
 
 ## 开发命令

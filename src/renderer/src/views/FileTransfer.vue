@@ -32,12 +32,16 @@
               v-for="device in devices"
               :key="device.address + ':' + device.port"
               class="device-card"
-              :class="{ selected: selectedDevice?.address === device.address && selectedDevice?.port === device.port }"
+              :class="{
+                selected: selectedDevice?.address === device.address && selectedDevice?.port === device.port,
+                offline: device.offline
+              }"
               @click="selectDevice(device)"
             >
               <div class="device-card-top">
-                <span class="device-dot online"></span>
+                <span class="device-dot" :class="device.offline ? 'offline' : 'online'"></span>
                 <span class="device-card-name">{{ device.name }}</span>
+                <span class="device-card-offline" v-if="device.offline">离线</span>
               </div>
               <div class="device-card-bottom">
                 <span class="device-card-ip">{{ device.address }}:{{ device.port }}</span>
@@ -55,23 +59,32 @@
             <span class="toggle-arrow" :class="{ open: showManualAdd }">▶</span>
           </div>
           <Transition name="slide">
-            <div v-if="showManualAdd" class="manual-add-row">
-              <input
-                v-model="manualIP"
-                type="text"
-                class="manual-input"
-                placeholder="IP 地址"
-                spellcheck="false"
-                @keydown.enter="manualAddDevice"
-              />
-              <input
-                v-model="manualPort"
-                type="number"
-                class="manual-input manual-port"
-                placeholder="端口"
-                @keydown.enter="manualAddDevice"
-              />
-              <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim()">添加</button>
+            <div v-if="showManualAdd">
+              <div class="manual-add-row">
+                <input
+                  v-model="manualIP"
+                  type="text"
+                  class="manual-input"
+                  placeholder="IP 地址"
+                  spellcheck="false"
+                  @keydown.enter="manualAddDevice"
+                />
+                <input
+                  v-model="manualPort"
+                  type="number"
+                  class="manual-input manual-port"
+                  placeholder="端口"
+                  @keydown.enter="manualAddDevice"
+                />
+                <button class="btn btn-ghost btn-add-device" @click="manualAddDevice" :disabled="!manualIP.trim()">添加</button>
+              </div>
+              <!-- 已持久化的手动设备列表 -->
+              <div class="manual-device-tags" v-if="manualDevices.length > 0">
+                <div v-for="(dev, idx) in manualDevices" :key="idx" class="manual-device-tag">
+                  <span>{{ dev.address }}:{{ dev.port }}</span>
+                  <button class="tag-remove" @click="removeManualDevice(dev.address, dev.port)" title="移除">×</button>
+                </div>
+              </div>
             </div>
           </Transition>
         </div>
@@ -101,7 +114,7 @@
                 />
                 <button class="btn btn-ghost btn-add-device" @click="addSubnet" :disabled="!newSubnet.trim()">添加</button>
               </div>
-              <p class="scan-hint">每 60 秒自动扫描一次，本机所在 /24 会自动加入</p>
+              <p class="scan-hint">支持 10.15.66.xx、10.15.66 等简写，点"刷新"按钮立即扫描</p>
             </div>
           </Transition>
         </div>
@@ -195,6 +208,7 @@ interface DeviceInfo {
   address: string
   port: number
   version: string
+  offline?: boolean
 }
 
 interface FileEntry {
@@ -227,19 +241,22 @@ const records = ref<TransferRecord[]>([])
 const sending = ref(false)
 
 /** 手动添加设备 */
-const showManualAdd = ref(false)
+const showManualAdd = ref(true)
 const manualIP = ref('')
 const manualPort = ref(17862)
 
 /** 扫描网段 */
-const showAddSubnet = ref(false)
+const showAddSubnet = ref(true)
 const newSubnet = ref('')
 const scanSubnets = ref<string[]>([])
 const isRefreshing = ref(false)
 
+/** 手动添加的设备列表 */
+const manualDevices = ref<{ address: string; port: number }[]>([])
+
 // ── 计算属性 ──
 
-const canSend = computed(() => selectedDevice.value !== null && selectedFiles.value.length > 0 && !sending.value)
+const canSend = computed(() => selectedDevice.value !== null && !selectedDevice.value?.offline && selectedFiles.value.length > 0 && !sending.value)
 
 // ── 工具函数 ──
 
@@ -272,6 +289,7 @@ function statusLabel(status: string): string {
 // ── 操作 ──
 
 function selectDevice(device: DeviceInfo): void {
+  if (device.offline) return
   selectedDevice.value = device
 }
 
@@ -318,8 +336,22 @@ async function manualAddDevice(): Promise<void> {
   try {
     await window.electron.ipcRenderer.invoke('to-service-FileTransferService:addDevice', ip, port)
     manualIP.value = ''
+    // 刷新手动设备列表
+    manualDevices.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getManualDevices')
   } catch (err: any) {
     console.error('添加设备失败:', err.message)
+  }
+}
+
+/**
+ * 移除一个手动添加的设备（从持久化中删除）
+ */
+async function removeManualDevice(address: string, port: number): Promise<void> {
+  try {
+    await window.electron.ipcRenderer.invoke('to-service-FileTransferService:removeManualDevice', address, port)
+    manualDevices.value = manualDevices.value.filter((d) => !(d.address === address && d.port === port))
+  } catch (err: any) {
+    console.error('移除设备失败:', err.message)
   }
 }
 
@@ -342,27 +374,69 @@ async function refreshScan(): Promise<void> {
 }
 
 /**
- * 添加扫描网段
+ * 添加扫描网段（支持智能解析）
+ * 输入示例：
+ *   10.15.66.0/24  → 直接作为 CIDR
+ *   10.15.66.xx    → 解析为 10.15.66.0/24
+ *   10.15.66       → 解析为 10.15.66.0/24
+ *   10.15.66.*     → 解析为 10.15.66.0/24
+ *   10.15.66.0     → 解析为 10.15.66.0/24
  */
 async function addSubnet(): Promise<void> {
-  const val = newSubnet.value.trim()
-  console.log('[FileTransfer] addSubnet 输入:', JSON.stringify(val))
-  if (!val) { console.log('[FileTransfer] 输入为空，忽略'); return }
-  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/.test(val)) {
-    console.log('[FileTransfer] 格式校验失败:', val)
+  let raw = newSubnet.value.trim()
+  console.log('[FileTransfer] addSubnet 输入:', JSON.stringify(raw))
+  if (!raw) { console.log('[FileTransfer] 输入为空，忽略'); return }
+
+  // 尝试智能解析为 CIDR
+  const cidr = parseToCIDR(raw)
+  if (!cidr) {
+    console.log('[FileTransfer] 无法解析为网段:', raw)
     return
   }
-  if (scanSubnets.value.includes(val)) {
-    console.log('[FileTransfer] 已存在，忽略:', val)
+
+  if (scanSubnets.value.includes(cidr)) {
+    console.log('[FileTransfer] 已存在，忽略:', cidr)
     newSubnet.value = ''
     return
   }
-  scanSubnets.value.push(val)
+  scanSubnets.value.push(cidr)
   newSubnet.value = ''
   console.log('[FileTransfer] 调用 setScanSubnets:', JSON.stringify(scanSubnets.value))
   // 展开数组避免 Vue Proxy 导致 Electron IPC "An object could not be cloned" 错误
   await window.electron.ipcRenderer.invoke('to-service-FileTransferService:setScanSubnets', [...scanSubnets.value])
   console.log('[FileTransfer] setScanSubnets 完成')
+}
+
+/**
+ * 智能解析输入的文本为 CIDR 格式
+ */
+function parseToCIDR(input: string): string | null {
+  // 已经是 CIDR 格式
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/.test(input)) {
+    return input
+  }
+
+  // 处理 10.15.66.xx / 10.15.66.x / 10.15.66.* / 10.15.66. 类型
+  let match = input.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})[.xX*]+$/)
+  if (match) {
+    return `${match[1]}.0/24`
+  }
+
+  // 处理 10.15.66 类型（3 个八位组）
+  match = input.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (match) {
+    return `${match[1]}.0/24`
+  }
+
+  // 处理 10.15.66.0 类型（完整 IP）
+  match = input.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (match) {
+    const parts = match[1].split('.').map(Number)
+    if (parts.some((n) => n < 0 || n > 255)) return null
+    return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`
+  }
+
+  return null
 }
 
 /**
@@ -394,6 +468,7 @@ onMounted(async () => {
   devices.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getDevices')
   records.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getRecords')
   scanSubnets.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getScanSubnets')
+  manualDevices.value = await window.electron.ipcRenderer.invoke('to-service-FileTransferService:getManualDevices')
 
   // 监听手动扫描完成
   window.electron.ipcRenderer.on('broadcast:transfer-scan-completed', () => {
@@ -522,6 +597,14 @@ onUnmounted(() => {
   background: var(--accent-light);
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.12);
 }
+.device-card.offline {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: var(--border);
+}
+.device-card.offline:hover {
+  border-color: var(--border);
+}
 .device-card-top {
   display: flex;
   align-items: center;
@@ -536,6 +619,15 @@ onUnmounted(() => {
 }
 .device-dot.online {
   background: var(--success);
+}
+.device-dot.offline {
+  background: var(--danger);
+}
+.device-card-offline {
+  font-size: 10px;
+  color: var(--danger);
+  font-weight: 500;
+  margin-left: auto;
 }
 .device-card-name {
   font-size: 13px;
@@ -858,5 +950,25 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--text-tertiary);
   margin: 0;
+}
+
+/* ── 手动设备标签 ── */
+.manual-device-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.manual-device-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 11px;
+  color: var(--text-primary);
+  font-family: JetBrains Mono, monospace;
 }
 </style>

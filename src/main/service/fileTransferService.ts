@@ -75,8 +75,11 @@ interface PendingRequest {
 /** mDNS 扫描间隔（毫秒） */
 const SCAN_INTERVAL_MS = 10_000
 
-/** 设备离线判定：连续未响应次数 */
-const OFFLINE_THRESHOLD = 3
+/** 设备在线探针间隔（毫秒） */
+const HEALTH_CHECK_INTERVAL_MS = 10_000
+
+/** 设备离线判定：连续未响应次数（1 次即判定，配合 10s 间隔 ≈ 10s 内检测离线） */
+const OFFLINE_THRESHOLD = 1
 
 /** HTTP 请求超时（毫秒） */
 const HTTP_TIMEOUT_MS = 3_000
@@ -167,12 +170,15 @@ function getLocalIPs(): string[] {
   return ips
 }
 
-/** 清理文件名中的非法字符 */
+/** 清理文件名中的非法字符（跨平台安全） */
 function sanitizeFileName(name: string): string {
+  // macOS/Linux 允许更多字符，但 /（路径分隔符）和空字符必须过滤
+  // Windows 额外过滤 <>:"|?* 以及 \（路径分隔符）
   if (process.platform === 'win32') {
-    return name.replace(/[<>:"/\\|?*]/g, '_')
+    return name.replace(/[<>:"/\\|?*\x00]/g, '_')
   }
-  return name.replace(/:/g, '_')
+  // macOS/Linux：过滤 /（路径分隔符）和空字符，防止路径穿越
+  return name.replace(/[/\x00]/g, '_')
 }
 
 /** 避免文件名冲突：追加 (1)、(2)... */
@@ -205,12 +211,14 @@ class FileTransferService {
   private discoveryServer: http.Server | null = null
   /** 实际绑定的发现端口 */
   private discoveryPort = 0
-  /** TCP 扫描到的设备（key: address:port） */
-  private scannedDevices: Map<string, DeviceInfo & { lastSeen: number }> = new Map()
+  /** TCP 扫描到的设备（key: address:port，offline 标记手动添加但离线） */
+  private scannedDevices: Map<string, DeviceInfo & { lastSeen: number; missCount: number; offline: boolean }> = new Map()
   /** 子网扫描定时器 */
   private subnetScanTimer: ReturnType<typeof setInterval> | null = null
   /** 是否正在扫描 */
   private isScanning = false
+  /** 设备在线探针定时器 */
+  private healthCheckTimer: ReturnType<typeof setInterval> | null = null
 
   async init(): Promise<void> {
     // 动态加载 multicast-dns（CJS 模块，避免 import 加载时阻塞）
@@ -220,6 +228,10 @@ class FileTransferService {
     this.startScanning()
     await this.startDiscoveryServer()
     this.startSubnetScanner()
+    // 加载持久化的手动添加设备
+    this.loadManualDevices()
+    // 启动 10 秒间隔的设备在线探针
+    this.startHealthCheck()
     this.registerIPC()
     log.info('[FileTransfer] 服务初始化完成，端口:', this.port)
   }
@@ -230,6 +242,7 @@ class FileTransferService {
     this.stopServer()
     this.stopSubnetScanner()
     this.stopDiscoveryServer()
+    this.stopHealthCheck()
     log.info('[FileTransfer] 服务已停止')
   }
 
@@ -292,6 +305,16 @@ class FileTransferService {
       return this.addScannedDevice(address, port)
     })
 
+    /** 获取手动添加的设备列表 */
+    ipcMain.handle('to-service-FileTransferService:getManualDevices', () => {
+      return this.getManualDevices()
+    })
+
+    /** 移除手动添加的设备 */
+    ipcMain.handle('to-service-FileTransferService:removeManualDevice', (_event, address: string, port: number) => {
+      this.removeManualDevice(address, port)
+    })
+
     /** 立即执行一次网段扫描 */
     ipcMain.handle('to-service-FileTransferService:scanNow', () => {
       const configured = this.getScanSubnets()
@@ -307,7 +330,7 @@ class FileTransferService {
     // 合并 mDNS 发现的设备
     const mdnsDevices = Array.from(this.devices.values())
       .filter((d) => d.missCount < OFFLINE_THRESHOLD)
-      .map(({ name, address, port, version }) => ({ name, address, port, version }))
+      .map(({ name, address, port, version }) => ({ name, address, port, version, offline: false }))
 
     // 合并 TCP 扫描发现的设备（去重：优先保留 mDNS 结果，因其信息更完整）
     const existingKeys = new Set(mdnsDevices.map((d) => `${d.address}:${d.port}`))
@@ -318,7 +341,8 @@ class FileTransferService {
           name: scanned.name,
           address: scanned.address,
           port: scanned.port,
-          version: scanned.version
+          version: scanned.version,
+          offline: scanned.offline
         })
       }
     }
@@ -553,7 +577,7 @@ class FileTransferService {
     const parts = path.split('/')
     const requestId = parts[2]
     const fileIndex = parseInt(parts[3], 10)
-    const fileName = sanitizeFileName(req.headers['x-file-name'] as string || `file_${fileIndex}`)
+    const fileName = sanitizeFileName(decodeURIComponent(req.headers['x-file-name'] as string || `file_${fileIndex}`))
 
     const pending = this.pendingRequests.get(requestId)
     if (!pending || pending.status !== 'accepted') {
@@ -861,23 +885,101 @@ class FileTransferService {
   private async addScannedDevice(address: string, port: number): Promise<boolean> {
     const key = `${address}:${port}`
     if (this.scannedDevices.has(key)) return false
+
+    // 持久化到设置
+    this.persistManualDevice(address, port)
+
     // 立即探针验证
     const info = await this.probeDevice(address, port)
     if (info) {
-      this.scannedDevices.set(key, { ...info, lastSeen: Date.now() })
+      this.scannedDevices.set(key, { ...info, lastSeen: Date.now(), missCount: 0, offline: false })
       this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
       return true
     }
     // 探针失败也添加，让后续扫描验证
     this.scannedDevices.set(key, {
-      name: `未知 (${address})`,
+      name: address,  // 直接显示 IP，待探针/扫描更新真实名称
       address,
       port,
       version: '',
-      lastSeen: Date.now()
+      lastSeen: Date.now(),
+      missCount: 0,
+      offline: false
     })
     this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
     return true
+  }
+
+  /**
+   * 将手动添加的设备持久化到 settings.json
+   */
+  private persistManualDevice(address: string, port: number): void {
+    const current = settingsService.getAll().manualDevices || []
+    // 去重
+    const exists = current.some((d) => d.address === address && d.port === port)
+    if (!exists) {
+      current.push({ address, port })
+      settingsService.update({ manualDevices: current })
+      log.info('[FileTransfer] 手动设备已持久化:', address, port)
+    }
+  }
+
+  /**
+   * 从设置中加载持久化的手动添加设备
+   */
+  private loadManualDevices(): void {
+    const devices = settingsService.getAll().manualDevices || []
+    log.info('[FileTransfer] 加载持久化手动设备:', devices.length)
+    for (const d of devices) {
+      const key = `${d.address}:${d.port}`
+      if (!this.scannedDevices.has(key)) {
+        this.scannedDevices.set(key, {
+          name: d.address,  // 先显示 IP，后台探针会更新为真实名称
+          address: d.address,
+          port: d.port,
+          version: '',
+          lastSeen: Date.now(),
+          missCount: 0,
+          offline: false
+        })
+      }
+    }
+    // 后台异步探针更新设备名
+    for (const d of devices) {
+      this.probeDevice(d.address, d.port).then((info) => {
+        if (info) {
+          const key = `${d.address}:${d.port}`
+          this.scannedDevices.set(key, { ...info, lastSeen: Date.now(), missCount: 0, offline: false })
+          this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+        }
+      })
+    }
+    if (devices.length > 0) {
+      this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+    }
+  }
+
+  /**
+   * 获取手动添加的设备列表（纯地址端口对）
+   */
+  private getManualDevices(): { address: string; port: number }[] {
+    return settingsService.getAll().manualDevices || []
+  }
+
+  /**
+   * 移除一个手动添加的设备（从内存和持久化中删除）
+   */
+  private removeManualDevice(address: string, port: number): void {
+    const key = `${address}:${port}`
+    this.scannedDevices.delete(key)
+
+    // 从持久化中移除
+    const current = (settingsService.getAll().manualDevices || []).filter(
+      (d) => !(d.address === address && d.port === port)
+    )
+    settingsService.update({ manualDevices: current })
+    this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+    log.info('[FileTransfer] 手动设备已移除:', address, port)
   }
 
   // ── TCP 发现服务器（固定端口，用于跨子网发现） ──
@@ -1057,13 +1159,19 @@ class FileTransferService {
             address: batch[j],
             port: info.port,
             version: info.version,
-            lastSeen: Date.now()
+            lastSeen: Date.now(),
+            missCount: 0,
+            offline: false
           })
         }
       }
     }
     log.info(`[FileTransfer] 网段 ${cidr} 扫描完成，发现 ${foundCount} 台设备`)
   }
+
+  /**
+   * 启动设备在线探针，每 10 秒检测一次所有已知设备是否在线
+   * 连续 OFFLINE_THRESHOLD 次无响应则标记为离线
 
   /**
    * 探针：TCP 连接目标 IP:端口 → GET /ping
@@ -1123,7 +1231,7 @@ class FileTransferService {
                 type: 'SRV',
                 class: 'IN',
                 ttl: 120,
-                data: { port: this.port, target: hostname() + '.local' }
+                data: { port: this.port, target: hostname().replace(/\.local$/, '') + '.local' }
               }, {
                 name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
                 type: 'TXT',
@@ -1240,6 +1348,88 @@ class FileTransferService {
       clearInterval(this.scanTimer)
       this.scanTimer = null
     }
+  }
+
+  // ── 设备在线探针 ──
+
+  /**
+   * 启动设备在线探针，每 10 秒检测一次所有已知设备是否在线
+   * 连续 OFFLINE_THRESHOLD 次无响应则标记为离线并广播更新
+   */
+  private startHealthCheck(): void {
+    // 立即执行一次，然后每 10 秒轮询
+    this.healthCheckTimer = setInterval(() => {
+      this.probeAllDevices()
+    }, HEALTH_CHECK_INTERVAL_MS)
+    log.info('[FileTransfer] 设备在线探针已启动，间隔:', HEALTH_CHECK_INTERVAL_MS, 'ms')
+  }
+
+  private stopHealthCheck(): void {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer)
+      this.healthCheckTimer = null
+    }
+  }
+
+  /**
+   * 探针所有已知设备的 /ping 端点，等待所有探针完成后统一广播
+   * - 单次探针超时 500ms，所有设备并发，一轮完后再广播
+   * - 避免 setTimeout 与异步回调之间的竞态
+   * - OFFLINE_THRESHOLD=1，一次无响应即判定离线，+10s 间隔 ≈ 10s 内检测
+   */
+  private probeAllDevices(): void {
+    const probes: Promise<boolean>[] = []
+
+    for (const [key, dev] of this.scannedDevices) {
+      const probe = this.probeDevice(dev.address, dev.port).then((info) => {
+        if (info) {
+          // 设备在线：更新 lastSeen，重置 missCount，清除离线标记
+          dev.lastSeen = Date.now()
+          if (dev.missCount > 0 || dev.offline) {
+            dev.missCount = 0
+            dev.offline = false
+            return true // 状态变化
+          }
+        } else {
+          // 设备无响应
+          // 已标红的手动设备不再累加 missCount，静默等恢复
+          if (dev.offline) return false
+
+          dev.missCount++
+          log.info(`[FileTransfer] 设备探针无响应: ${dev.name}(${dev.address}), missCount=${dev.missCount}`)
+          if (dev.missCount >= OFFLINE_THRESHOLD) {
+            if (this.isManualDevice(dev.address, dev.port)) {
+              dev.offline = true
+              log.info('[FileTransfer] 手动设备离线（标红保留）:', dev.name, dev.address)
+              return true
+            } else {
+              this.scannedDevices.delete(key)
+              log.info('[FileTransfer] 扫描设备离线（已移除）:', dev.name, dev.address)
+              return true
+            }
+          }
+        }
+        return false // 无变化
+      })
+      probes.push(probe)
+    }
+
+    // 等所有探针结果确定后再广播，避免竞态
+    Promise.allSettled(probes).then((results) => {
+      const changed = results.some((r) => r.status === 'fulfilled' && r.value === true)
+      if (changed) {
+        this.broadcast('broadcast:transfer-devices-updated', this.getDevices())
+      }
+    })
+  }
+
+  /**
+   * 判断设备是否手动添加（持久化在 settings 中）
+   */
+  private isManualDevice(address: string, _port: number): boolean {
+    const manual = settingsService.getAll().manualDevices || []
+    // 仅按 IP 匹配（探针后端口会从 17862 更新为文件传输 HTTP 端口）
+    return manual.some((d) => d.address === address)
   }
 
   // ── 广播 + 工具方法 ──

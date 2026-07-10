@@ -19,6 +19,8 @@ export interface AppSettings {
   shortcut: string
   /** 片段选择器快捷键，如 'CommandOrControl+Shift+V' */
   snippetShortcut: string
+  /** 搜索框快捷键，如 'CommandOrControl+K' */
+  searchBoxShortcut: string
   /**
    * 局域网更新服务器路径
    * - Windows: UNC 路径，如 '\\10.15.2.28\dist'
@@ -43,6 +45,10 @@ export interface AppSettings {
   transferDeviceName: string
   /** TCP 跨子网扫描网段列表，如 ["10.15.8.0/24"] */
   scanSubnets: string[]
+  /** 手动添加的设备列表 */
+  manualDevices: { address: string; port: number }[]
+  /** Claude Code 状态通知开关 */
+  showClaudeStatus: boolean
 }
 
 /**
@@ -64,6 +70,7 @@ function getDefaultServerUrl(): string {
 const DEFAULT_SETTINGS: AppSettings = {
   shortcut: 'CommandOrControl+Alt+V',
   snippetShortcut: 'CommandOrControl+Shift+V',
+  searchBoxShortcut: 'CommandOrControl+K',
   serverUrl: getDefaultServerUrl(),
   autoStart: false,
   updateSource: 'github',
@@ -71,7 +78,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   downloadThreads: 8,
   transferSaveDir: '',
   transferDeviceName: '',
-  scanSubnets: []
+  scanSubnets: [],
+  manualDevices: [],
+  showClaudeStatus: false
 }
 
 class SettingsService {
@@ -107,12 +116,32 @@ class SettingsService {
    * - 合并到现有设置
    * - 写入磁盘
    * - 重新注册快捷键（立即生效）
+   * - 联动 Claude Code 状态通知开关：打开时安装 Hook，关闭时卸载 Hook
    */
   update(partial: Partial<AppSettings>): void {
     this.settings = { ...this.settings, ...partial }
     this.#save()
     this.#registerAllShortcuts()
     this.#applyAutoStart()
+
+    // Claude Code 状态通知开关联动的 Hook 安装/卸载
+    if (partial.showClaudeStatus !== undefined) {
+      // 使用 require 避免循环依赖
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { claudeCodeService } = require('./claudeCodeService')
+      if (partial.showClaudeStatus) {
+        // 开启 → 安装 Hook 并启动监控
+        claudeCodeService.installHook().catch((err: Error) => {
+          log.warn('[Settings] Claude Code Hook 安装失败:', err)
+        })
+      } else {
+        // 关闭 → 卸载 Hook 并停止监控
+        claudeCodeService.uninstallHook().catch((err: Error) => {
+          log.warn('[Settings] Claude Code Hook 卸载失败:', err)
+        })
+      }
+    }
+
     log.info('[Settings] 已更新')
   }
 
@@ -255,8 +284,8 @@ class SettingsService {
       windowFactory.getSnippetPickerFrame().toggle()
     }, '片段选择器')
 
-    // 搜索框快捷键（固定 Ctrl+K）
-    this.#tryRegister('CommandOrControl+K', () => {
+    // 搜索框快捷键
+    this.#tryRegister(this.settings.searchBoxShortcut, () => {
       windowFactory.getSearchBoxFrame().toggle()
     }, '搜索框')
   }
