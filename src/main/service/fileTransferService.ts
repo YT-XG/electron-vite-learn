@@ -786,8 +786,9 @@ class FileTransferService {
   }
 
   private doPostByAddress(address: string, path: string, body: unknown): Promise<any> {
-    // 需要目标端口，从 devices map 中查找
+    // 先查 mDNS 发现设备，再查 TCP 扫描发现设备
     const device = Array.from(this.devices.values()).find((d) => d.address === address)
+      || Array.from(this.scannedDevices.values()).find((d) => d.address === address)
     if (!device) return Promise.reject(new Error('Device not found'))
     return this.doPost({ name: '', address: device.address, port: device.port, version: '' }, path, body)
   }
