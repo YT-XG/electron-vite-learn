@@ -156,7 +156,7 @@ class ClipboardService {
 
   /**
    * 插入一条剪贴板记录
-   * @description 自动去重（与最近一条相同则跳过），超限时清理最旧数据
+   * @description 自动去重（与最近一条相同则跳过），每次插入后按保留天数清理过期数据
    * @param content - 剪贴板文本内容
    */
   private insert(content: string): void {
@@ -175,8 +175,6 @@ class ClipboardService {
 
     // 清理过期数据（按保留天数）
     this.autoCleanup()
-
-    this.save()
 
     // 推送通知给所有可见窗口
     const newItem: HistoryItem = {
@@ -538,7 +536,8 @@ class ClipboardService {
    * @description 更新自身属性、持久化到 settingsService、立即执行清理
    */
   setRetentionDays(days: number): void {
-    this.retentionDays = days
+    if (days < 1) return
+    this.retentionDays = Math.floor(days)
     settingsService.update({ clipboardRetentionDays: days })
     this.autoCleanup()
   }
