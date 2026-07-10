@@ -1,6 +1,6 @@
 {
   "name": "prism",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Prism - 桌面效率工具：剪贴板管理、翻译、Markdown 预览、全局搜索",
   "main": "./out/main/index.js",
   "author": "ytxg.com",
