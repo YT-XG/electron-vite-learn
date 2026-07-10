@@ -6,6 +6,8 @@
 import { BrowserWindowConstructorOptions, BrowserWindow } from 'electron'
 import BaseFrame from './BaseFrame'
 import type { TransferRequestInfo } from '../service/fileTransferService'
+import { fileTransferService } from '../service/fileTransferService'
+import { popupManager } from './PopupManager'
 
 /** 重新导出类型以解耦 */
 export type { TransferRequestInfo }
@@ -56,13 +58,11 @@ export default class TransferConfirmFrame extends BaseFrame {
     this.recvOne('to-main-TransferConfirmFrame:respond', async (_event, requestId: string, action: 'accept' | 'reject', saveDir?: string) => {
       // 转发到主进程 fileTransferService 处理
       // 直接调用 respondToRequest（在同一进程内无需 IPC）
-      const { fileTransferService } = require('../service/fileTransferService')
       await fileTransferService.respondToRequest(requestId, action, saveDir || '')
 
       // 播放退场动画后销毁
       this.sendOne('to-renderer-TransferConfirm:animate', { action: 'exit' })
       setTimeout(() => {
-        const { popupManager } = require('./PopupManager')
         popupManager.destroyPermissionNotice()
       }, 350)
     })
