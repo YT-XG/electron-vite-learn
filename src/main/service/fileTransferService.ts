@@ -16,6 +16,7 @@ import { networkInterfaces, hostname } from 'os'
 import log from 'electron-log'
 import { popupManager } from '../frame'
 import { settingsService } from './settingsService'
+import TransferConfirmFrame from '../frame/TransferConfirmFrame'
 
 // ── 类型（内部使用，外部从 preload/index.d.ts 引用） ──
 
@@ -756,7 +757,6 @@ class FileTransferService {
   private showConfirmPopup(info: TransferRequestInfo): void {
     log.info(`[FileTransfer] showConfirmPopup: sender=${info.senderName}, files=${info.files.length}`)
     try {
-      const TransferConfirmFrame = require('../frame/TransferConfirmFrame').default
       popupManager.showPermissionNotice(
         () => {
           log.info('[FileTransfer] 创建 TransferConfirmFrame 窗口')
