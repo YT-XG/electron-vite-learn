@@ -54,5 +54,15 @@ export const AppRoutes = [
     path: '/transferConfirm',
     name: '文件传输确认',
     component: () => import('@renderer/views/TransferConfirm.vue')
+  },
+  {
+    path: '/shareSelect',
+    name: '设备选择',
+    component: () => import('@renderer/views/ShareSelect.vue')
+  },
+  {
+    path: '/quickShare',
+    name: '快捷分享',
+    component: () => import('@renderer/views/QuickShare.vue')
   }
 ]

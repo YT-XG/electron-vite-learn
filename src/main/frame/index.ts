@@ -15,6 +15,8 @@ export { default as TransferConfirmFrame } from './TransferConfirmFrame'
 export type { TransferRequestInfo } from './TransferConfirmFrame'
 export { default as JsonToolFrame } from './JsonToolFrame'
 export { default as SnippetPickerFrame } from './SnippetPickerFrame'
+export { default as ShareSelectFrame } from './ShareSelectFrame'
+export { default as QuickShareFrame } from './QuickShareFrame'
 
 // 统一弹窗管理器
 export { default as PopupManager, popupManager } from './PopupManager'

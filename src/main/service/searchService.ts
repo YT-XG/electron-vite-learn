@@ -160,6 +160,15 @@ class SearchService {
       }
     },
     {
+      id: 'online',
+      name: '联机',
+      aliases: ['lj', '局域网', '网络', '设备发现', 'online'],
+      category: 'tool',
+      icon: '🌐',
+      description: '查看在线设备，管理局域网连接',
+      action: function () { windowFactory.getMainPageFrame().showAndPage('online') }
+    },
+    {
       id: 'file-transfer',
       name: '文件互传',
       aliases: ['wjhc', 'wj', '文件传输', 'filetransfer', 'lan', '局域网', '传输'],

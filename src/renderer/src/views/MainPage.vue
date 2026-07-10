@@ -163,6 +163,30 @@
           </button>
           <button
             class="nav-item"
+            :class="{ active: currentPage === 'online' }"
+            @click="currentPage = 'online'"
+            :title="isSidebarCollapsed ? '联机' : ''"
+          >
+            <svg
+              class="nav-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+              <line x1="6" y1="6" x2="6.01" y2="6" />
+              <line x1="6" y1="18" x2="6.01" y2="18" />
+            </svg>
+            <span class="nav-label" v-if="!isSidebarCollapsed">联机</span>
+          </button>
+          <button
+            class="nav-item"
             :class="{ active: currentPage === 'settings' }"
             @click="currentPage = 'settings'"
             :title="isSidebarCollapsed ? '设置' : ''"
@@ -229,6 +253,8 @@
           <DownloadManager v-else-if="currentPage === 'download'" key="download" />
           <!-- 工具箱 -->
           <Toolbox v-else-if="currentPage === 'toolbox'" key="toolbox" />
+          <!-- 联机 -->
+          <Online v-else-if="currentPage === 'online'" key="online" />
           <!-- 文件互传 -->
           <FileTransfer v-else-if="currentPage === 'fileTransfer'" key="fileTransfer" />
         </Transition>
@@ -244,13 +270,21 @@ import DownloadManager from './DownloadManager.vue'
 import Settings from './Settings.vue'
 import Translate from './Translate.vue'
 import Toolbox from './tools/Toolbox.vue'
+import Online from './Online.vue'
 import FileTransfer from './FileTransfer.vue'
 import Shortcuts from './Shortcuts.vue'
 
 const version = ref('')
 /** 当前页面 */
 const currentPage = ref<
-  'clipboard' | 'settings' | 'shortcuts' | 'translate' | 'download' | 'toolbox' | 'fileTransfer'
+  | 'clipboard'
+  | 'settings'
+  | 'shortcuts'
+  | 'translate'
+  | 'download'
+  | 'toolbox'
+  | 'online'
+  | 'fileTransfer'
 >('clipboard')
 
 /** 页面是否可见（触发动画） */
@@ -339,6 +373,7 @@ const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
       'translate',
       'download',
       'toolbox',
+      'online',
       'fileTransfer'
     ].includes(page)
   ) {
@@ -349,6 +384,7 @@ const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
       | 'translate'
       | 'download'
       | 'toolbox'
+      | 'online'
       | 'fileTransfer'
   }
 }

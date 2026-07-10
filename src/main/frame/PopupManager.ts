@@ -377,6 +377,14 @@ export default class PopupManager {
   }
 
   /**
+   * 按槽位索引销毁通知（供持久通知手动关闭）
+   * @param slotIndex - 槽位索引
+   */
+  destroySlotByIndex(slotIndex: number): void {
+    this.destroySlot(slotIndex)
+  }
+
+  /**
    * 延迟工具
    */
   private sleep(ms: number): Promise<void> {

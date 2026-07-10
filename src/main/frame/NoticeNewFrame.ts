@@ -1,7 +1,10 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, screen, shell } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './index'
+import { popupManager } from './PopupManager'
 import type { NoticeType } from './PopupManager'
+import ShareSelectFrame from './ShareSelectFrame'
+import { textShareService } from '../service/textShareService'
 
 /**
  * 通知弹窗
@@ -36,6 +39,15 @@ export default class NoticeNewFrame extends BaseFrame {
 
   /** 是否为持久通知（Claude Code 状态通知） */
   #isPersistent = false
+
+  /** 是否显示分享按钮（剪贴板通知） */
+  #showShare = false
+
+  /** 是否显示复制按钮（接收端文本通知） */
+  #showCopy = false
+
+  /** 是否显示关闭按钮（接收端文本通知） */
+  #showCloseText = false
 
   /** 消息是否已发送给渲染进程（避免重复发送） */
   #msgSent = false
@@ -108,12 +120,18 @@ export default class NoticeNewFrame extends BaseFrame {
    * @param showTranslate - 是否显示翻译按钮，默认 false
    * @param type - 通知类型，默认 'default'
    * @param isPersistent - 是否为持久通知，默认 false
+   * @param showShare - 是否显示分享按钮，默认 false
+   * @param showCopy - 是否显示复制按钮（接收端文本通知），默认 false
+   * @param showCloseText - 是否显示关闭按钮（接收端文本通知），默认 false
    */
-  setMsg(data: string, showTranslate = false, type: NoticeType = 'default', isPersistent = false) {
+  setMsg(data: string, showTranslate = false, type: NoticeType = 'default', isPersistent = false, showShare = false, showCopy = false, showCloseText = false) {
     this.#msg = data
     this.#showTranslate = showTranslate
     this.#type = type
     this.#isPersistent = isPersistent
+    this.#showShare = showShare
+    this.#showCopy = showCopy
+    this.#showCloseText = showCloseText
     // 自动检测链接并设置显示打开链接按钮
     this.#showOpenLink = NoticeNewFrame.#containsUrl(data)
     // 自动检测 JSON 格式并设置显示 JSON 工具按钮
@@ -161,7 +179,10 @@ export default class NoticeNewFrame extends BaseFrame {
         this.#showOpenLink,
         this.#showJsonTool,
         this.#type,
-        this.#isPersistent
+        this.#isPersistent,
+        this.#showShare,
+        this.#showCopy,
+        this.#showCloseText
       )
     })
 
@@ -211,6 +232,40 @@ export default class NoticeNewFrame extends BaseFrame {
       frame.sendContentToRenderer(text)
       // 显示窗口
       frame.show()
+    })
+
+    // 分享按钮点击：打开设备选择弹窗
+    this.recvOne('to-main-NoticeNewFrame:share', (event, text: string) => {
+      if (!this.isAlive() || event.sender.id !== this.window!.webContents.id) return
+      // 创建设备选择弹窗
+      const frame = new ShareSelectFrame()
+      frame.setShareText(text)
+      const win = frame.create()
+      // 通过 popupManager 显示
+      popupManager.showPermissionNotice(
+        () => win,
+        // 复用 permission 类型以使用 PopupManager 的槽位管理
+        { type: 'permission' as any, width: 380, height: 320 },
+        (w) => {
+          w.webContents.send('to-renderer-ShareSelectFrame:show', {
+            text,
+            devices: textShareService.getOnlineDevices()
+          })
+          w.webContents.send('to-renderer-ShareSelectFrame:animate', { action: 'enter' })
+        }
+      )
+    })
+
+    // 复制按钮点击（接收端文本通知）：复制文本到剪贴板
+    this.recvOne('to-main-NoticeNewFrame:copyReceivedText', (event, text: string) => {
+      if (!this.isAlive() || event.sender.id !== this.window!.webContents.id) return
+      textShareService.copyTextToClipboard(text)
+    })
+
+    // 关闭按钮点击（接收端文本通知）：关闭持久通知
+    this.recvOne('to-main-NoticeNewFrame:closeReceivedText', () => {
+      if (!this.isAlive()) return
+      textShareService.closeActiveReceivedNotice()
     })
 
   }

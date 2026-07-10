@@ -195,11 +195,11 @@ class ClipboardService {
       }
     })
 
-    // 弹出通知弹窗（显示翻译按钮）
+    // 弹出通知弹窗（显示翻译按钮和分享按钮）
     popupManager.showNotice(
       () => {
         const frame = new NoticeNewFrame()
-        frame.setMsg(content, true)
+        frame.setMsg(content, true, 'default', false, true)
         return frame.create()
       },
       { type: 'notice', width: 500, height: 60 },

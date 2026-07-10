@@ -65,6 +65,22 @@
       </div>
     </div>
 
+    <!-- 右键菜单集成 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <span class="setting-label">文件资源管理器右键菜单</span>
+        <span class="setting-hint">在文件上右键时显示「分享到妙妙屋」选项，快速发送文件到联机设备</span>
+      </div>
+
+      <div class="toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="shellIntegration" @change="saveShellIntegration" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">{{ shellIntegration ? '已开启' : '已关闭' }}</span>
+      </div>
+    </div>
+
     <!-- 更新源选择 -->
     <div class="setting-card">
       <div class="setting-info">
@@ -323,6 +339,9 @@ const autoStart = ref(false)
 /** Claude Code 状态通知 */
 const showClaudeStatus = ref(false)
 
+/** 右键菜单集成 */
+const shellIntegration = ref(true)
+
 /** 是否为 macOS 平台 */
 const isMacOS = navigator.platform.includes('Mac')
 
@@ -356,6 +375,20 @@ async function saveAutoStart(): Promise<void> {
  */
 async function saveClaudeStatus(): Promise<void> {
   await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { showClaudeStatus: showClaudeStatus.value })
+}
+
+/**
+ * 保存右键菜单集成设置
+ * 开启时注册，关闭时注销
+ */
+async function saveShellIntegration(): Promise<void> {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', { shellIntegration: shellIntegration.value })
+  // 通过主进程处理注册/注销
+  if (shellIntegration.value) {
+    await window.electron.ipcRenderer.invoke('shell:registerContextMenu')
+  } else {
+    await window.electron.ipcRenderer.invoke('shell:unregisterContextMenu')
+  }
 }
 
 /** 更新服务器配置 */
@@ -563,6 +596,7 @@ onMounted(async () => {
   const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   autoStart.value = settings.autoStart ?? false
   showClaudeStatus.value = settings.showClaudeStatus ?? false
+  shellIntegration.value = settings.shellIntegration ?? true
 
   // 初始化更新服务器
   if (isMacOS) {

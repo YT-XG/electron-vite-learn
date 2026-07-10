@@ -16,7 +16,9 @@ electron-vite-learn/
 │   │   │   ├── claudeCodeService.ts # Claude Code 监控服务（Hook + HTTP 服务器）
 │   │   │   ├── githubUpdateService.ts # GitHub 更新服务（从 GitHub Releases 检查和下载更新）
 │   │   │   ├── downloadService.ts  # 下载服务（多线程分片下载、任务持久化）
-│   │   │   └── searchService.ts   # 搜索服务（工具、剪贴板、应用搜索）
+│   │   │   ├── searchService.ts   # 搜索服务（工具、剪贴板、应用搜索）
+│   │   │   ├── textShareService.ts # 文本分享服务（发送/接收文本，复用设备发现）
+│   │   │   └── shellIntegrationService.ts # Shell 集成服务（Windows右键菜单/macOS服务注册）
 │   │   ├── frame/              # 窗口框架（封装所有窗口逻辑）
 │   │       ├── index.ts        # 统一导出
 │   │       ├── BaseFrame.ts    # 窗口基类（通用逻辑）
@@ -28,6 +30,7 @@ electron-vite-learn/
 │   │       ├── MarkdownPreviewFrame.ts # Markdown 预览窗口（多标签页分屏预览）
 │   │       ├── ContextMenuFrame.ts # 右键菜单窗口（Markdown 编辑器菜单）
 │   │       ├── SnippetPickerFrame.ts # 片段选择窗口（Ctrl+Shift+V 呼出，搜索并快速插入片段）
+│   │       ├── ShareSelectFrame.ts # 设备选择弹窗（选择联机设备发送文本）
 │   │       ├── PopupManager.ts    # 统一弹窗管理器（管理所有底部弹窗）
 │   │       ├── PopupItem.ts       # 弹窗元数据（封装窗口实例和动画）
 │   │       └── WindowFactory.ts # 窗口工厂（统一管理）
@@ -69,6 +72,8 @@ electron-vite-learn/
 │           │   ├── MarkdownPreview.vue # Markdown 预览组件（多标签页分屏）
 │           │   ├── ContextMenu.vue  # 右键菜单组件（Markdown 编辑器菜单）
 │           │   ├── SnippetPicker.vue # 片段选择组件（Ctrl+Shift+V 呼出，搜索并快速插入片段）
+│           │   ├── Online.vue       # 联机页面（设备发现/搜索/状态展示）
+│           │   ├── ShareSelect.vue  # 设备选择弹窗（分享文本时选择目标设备）
 │           │   ├── Shortcuts.vue # 快捷键设置（全局快捷键、片段选择、搜索框自定义）
 │           │   ├── Test.vue   # 测试页面
 │           │   └── tools/      # 工具页面
@@ -143,6 +148,8 @@ electron-vite-learn/
   - `MarkdownPreviewFrame.ts` - Markdown 预览窗口，多标签页分屏
   - `ContextMenuFrame.ts` - 右键菜单窗口，Markdown 编辑器右键菜单
   - `SnippetPickerFrame.ts` - 片段选择窗口，快捷键 `Ctrl+Shift+V` 呼出，快速搜索并插入片段，支持变量模板
+  - `ShareSelectFrame.ts` - 设备选择弹窗，分享文本时选择目标联机设备
+  - `QuickShareFrame.ts` - 文件快捷分享弹窗，资源管理器右键菜单分享文件
   - `JsonToolFrame.ts` - JSON 工具窗口
 - **设计模式**: 工厂模式 + 模板方法模式 + 中介者模式（PopupManager 协调通知窗口）
 - **架构图**:
@@ -151,8 +158,10 @@ electron-vite-learn/
     ├── MainPageFrame                      ├── slots[5] 固定槽位
     ├── SearchBoxFrame                     ├── NoticeNewFrame
     ├── MarkdownPreviewFrame               ├── UpdateNewFrame
-    ├── ContextMenuFrame                   └── PermissionNoticeFrame
-    └── JsonToolFrame
+    ├── ContextMenuFrame                   ├── PermissionNoticeFrame
+    ├── JsonToolFrame                      └── ShareSelectFrame (通过 PopupManager 显示)
+    ├── SnippetPickerFrame
+    └── ShareSelectFrame (通过 WindowFactory 创建)
   
   所有窗口都继承 BaseFrame（唯一 new BrowserWindow 入口）
   ```
@@ -193,6 +202,9 @@ electron-vite-learn/
   - `to-main-NoticeNewFrame:translate` - 翻译按钮点击，打开翻译页面
   - `to-main-NoticeNewFrame:openLink` - 打开链接按钮点击，使用系统默认浏览器打开链接
   - `to-main-NoticeNewFrame:openJsonTool` - JSON 工具按钮点击，打开 JSON 工具窗口
+  - `to-main-NoticeNewFrame:share` - 分享按钮点击，打开设备选择弹窗
+  - `to-main-NoticeNewFrame:copyReceivedText` - 复制按钮点击，将接收到的文本写入系统剪贴板
+  - `to-main-NoticeNewFrame:closeReceivedText` - 关闭按钮点击，关闭接收端持久通知
 - **使用方式**:
   ```typescript
   import { popupManager, NoticeNewFrame } from './frame'
@@ -224,6 +236,7 @@ electron-vite-learn/
 - **槽位间距**: 固定 8px（所有类型通知一致）
 - **功能**:
   - 4 种通知类型：`showNotice`（普通通知）、`showClaudeStatus`（状态通知）、`showPermissionNotice`（权限确认）、`showUpdateNotice`（更新窗口）
+  - `destroySlotByIndex()` - 按槽位索引销毁持久通知（供文本分享接收端关闭通知）
   - 惰性清理：`getFreeSlot()` 自动清理被外部销毁的槽位
   - MAC 兼容：使用 `getBottomMargin()` 自动适配 Dock 高度
 - **IPC 接口**（由 PopupManager 统一发送）:
@@ -516,6 +529,30 @@ electron-vite-learn/
 
   // 获取翻译历史
   const history = translateService.getHistory(50, 0)
+  ```
+
+### 文本分享服务 (src/main/service/textShareService.ts)
+- **职责**: 基于文件互传的设备发现能力，提供跨设备的文本分享功能
+- **功能**:
+  - 获取在线设备列表（从 `fileTransferService.getDevices()` 获取）
+  - 发送文本到目标设备（先 ping 验证在线，后 POST `/share-text`）
+  - 接收文本后通过 PopupManager 显示持久通知（含复制/关闭按钮）
+  - 复制文本到系统剪贴板
+- **工作流程**:
+  ```
+  发送方: 剪贴板通知 → 点击分享按钮 → ShareSelectFrame(选设备) → POST /share-text
+  接收方: HTTP Server → textShareService.onReceiveText() → PopupManager → 持久通知
+  ```
+- **协议**: `POST http://{target}:{port}/share-text`，JSON body: `{text, senderName, timestamp}`
+- **IPC 接口**:
+  - `to-service-TextShareService:getOnlineDevices` - 获取在线设备列表
+  - `to-service-TextShareService:sendText` - 发送文本到目标设备
+  - `to-service-TextShareService:getLastReceivedText` - 获取最近收到的文本
+- **使用方式**:
+  ```typescript
+  import { textShareService } from './service/textShareService'
+  const devices = textShareService.getOnlineDevices()
+  await textShareService.sendText(device, 'Hello!')
   ```
 
 ### Claude Code 监控服务 (src/main/service/claudeCodeService.ts)
@@ -928,6 +965,9 @@ electron-vite-learn/
     - **跨平台更新服务器**：Windows 显示 UNC 路径选择器，macOS 显示 SMB 挂载路径输入框
     - **macOS 挂载帮助**：可展开的步骤说明，指导用户如何在 Finder 中挂载共享文件夹
   - `Shortcuts.vue` - 快捷键设置页面，支持全局快捷键、片段选择快捷键、搜索框快捷键的自定义录制
+  - `Online.vue` - 联机页面，展示在线设备列表、TCP 设备发现、手动添加设备和扫描网段配置
+  - `ShareSelect.vue` - 设备选择弹窗，分享文本时选择目标联机设备
+  - `QuickShare.vue` - 文件快捷分享弹窗，资源管理器右键菜单的文件分享
   - `Test.vue` - 测试页面
 
 ## 开发命令

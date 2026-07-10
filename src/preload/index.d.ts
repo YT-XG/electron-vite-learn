@@ -103,6 +103,43 @@ interface IPCChannels {
   removeListener(channel: 'broadcast:transfer-records-updated', listener: (...args: unknown[]) => void): void
   removeListener(channel: 'broadcast:transfer-request', listener: (...args: unknown[]) => void): void
   removeListener(channel: 'broadcast:transfer-scan-completed', listener: (...args: unknown[]) => void): void
+
+  // 文本分享
+  invoke(channel: 'to-service-TextShareService:getOnlineDevices'): Promise<DeviceInfo[]>
+  invoke(channel: 'to-service-TextShareService:sendText', target: DeviceInfo, text: string): Promise<boolean>
+  invoke(channel: 'to-service-TextShareService:getLastReceivedText'): Promise<ReceivedTextInfo | null>
+  on(channel: 'broadcast:text-received', listener: (event: unknown, info: ReceivedTextInfo) => void): void
+  removeListener(channel: 'broadcast:text-received', listener: (...args: unknown[]) => void): void
+
+  // 通知按钮
+  send(channel: 'to-main-NoticeNewFrame:share', text: string): void
+  send(channel: 'to-main-NoticeNewFrame:copyReceivedText', text: string): void
+  send(channel: 'to-main-NoticeNewFrame:closeReceivedText'): void
+
+  // ShareSelect Frame
+  on(channel: 'to-renderer-ShareSelectFrame:show', listener: (event: unknown, data: { text: string; devices: DeviceInfo[] }) => void): void
+  on(channel: 'to-renderer-ShareSelectFrame:animate', listener: (event: unknown, data: { action: 'enter' | 'exit' }) => void): void
+  on(channel: 'to-renderer-ShareSelectFrame:sendResult', listener: (event: unknown, data: { success: boolean; error?: string }) => void): void
+  send(channel: 'to-main-ShareSelectFrame:ready'): void
+  send(channel: 'to-main-ShareSelectFrame:sendText', target: DeviceInfo): void
+  send(channel: 'to-main-ShareSelectFrame:close'): void
+  send(channel: 'to-main-ShareSelectFrame:mouse-enter-card'): void
+  send(channel: 'to-main-ShareSelectFrame:mouse-leave-card'): void
+  removeListener(channel: 'to-renderer-ShareSelectFrame:show', listener: (...args: unknown[]) => void): void
+  removeListener(channel: 'to-renderer-ShareSelectFrame:animate', listener: (...args: unknown[]) => void): void
+
+  // QuickShare Frame
+  on(channel: 'to-renderer-QuickShareFrame:show', listener: (event: unknown, data: { files: FileEntry[]; devices: DeviceInfo[] }) => void): void
+  on(channel: 'to-renderer-QuickShareFrame:animate', listener: (event: unknown, data: { action: 'enter' | 'exit' }) => void): void
+  on(channel: 'to-renderer-QuickShareFrame:sendResult', listener: (event: unknown, data: { success: boolean; error?: string }) => void): void
+  send(channel: 'to-main-QuickShareFrame:ready'): void
+  send(channel: 'to-main-QuickShareFrame:sendFiles', target: DeviceInfo): void
+  send(channel: 'to-main-QuickShareFrame:mouse-enter-card'): void
+  send(channel: 'to-main-QuickShareFrame:mouse-leave-card'): void
+  send(channel: 'to-main-QuickShareFrame:close'): void
+  removeListener(channel: 'to-renderer-QuickShareFrame:show', listener: (...args: unknown[]) => void): void
+  removeListener(channel: 'to-renderer-QuickShareFrame:animate', listener: (...args: unknown[]) => void): void
+  removeListener(channel: 'to-renderer-QuickShareFrame:sendResult', listener: (...args: unknown[]) => void): void
 }
 
 interface DeviceInfo {
@@ -140,6 +177,13 @@ interface TransferRequestInfo {
   senderPort: number
   files: { name: string; size: number }[]
   totalSize: number
+}
+
+interface ReceivedTextInfo {
+  text: string
+  senderName: string
+  senderAddress: string
+  timestamp: number
 }
 
 declare global {

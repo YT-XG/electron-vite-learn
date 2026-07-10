@@ -49,6 +49,8 @@ export interface AppSettings {
   manualDevices: { address: string; port: number }[]
   /** Claude Code 状态通知开关 */
   showClaudeStatus: boolean
+  /** 文件资源管理器右键菜单集成（Shell 集成） */
+  shellIntegration?: boolean
 }
 
 /**
@@ -80,7 +82,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   transferDeviceName: '',
   scanSubnets: [],
   manualDevices: [],
-  showClaudeStatus: false
+  showClaudeStatus: false,
+  shellIntegration: true
 }
 
 class SettingsService {
