@@ -51,6 +51,8 @@ export interface AppSettings {
   showClaudeStatus: boolean
   /** 文件资源管理器右键菜单集成（Shell 集成） */
   shellIntegration?: boolean
+  /** 剪贴板历史保留天数: 10 | 30 | 90 */
+  clipboardRetentionDays: number
 }
 
 /**
@@ -83,7 +85,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   scanSubnets: [],
   manualDevices: [],
   showClaudeStatus: false,
-  shellIntegration: true
+  shellIntegration: true,
+  clipboardRetentionDays: 30
 }
 
 class SettingsService {
