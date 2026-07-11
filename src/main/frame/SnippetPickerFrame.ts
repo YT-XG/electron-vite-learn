@@ -181,6 +181,31 @@ export default class SnippetPickerFrame extends BaseFrame {
       return
     }
 
+    // 获取最近剪贴板历史（搜索框为空时展示）
+    this.recvTwo('to-main-SnippetPicker:getRecentHistory', () => {
+      const history = clipboardService.getAll(50, 0)
+      const favorites = clipboardService.getFavorites()
+
+      // 合并：片段优先（固定），然后历史记录（按内容去重）
+      const seen = new Set<string>()
+      const merged: Array<Record<string, unknown>> = []
+
+      for (const item of favorites) {
+        if (!seen.has(item.content)) {
+          seen.add(item.content)
+          merged.push({ ...item, source: 'favorite' as const })
+        }
+      }
+      for (const item of history) {
+        if (!seen.has(item.content)) {
+          seen.add(item.content)
+          merged.push({ ...item, source: 'history' as const })
+        }
+      }
+
+      return merged
+    })
+
     // 搜索片段 + 剪贴板历史（同时支持拼音首字母搜索）
     this.recvTwo('to-main-SnippetPicker:search', (_event, keyword: string) => {
       if (!keyword.trim()) return []

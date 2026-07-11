@@ -80,7 +80,7 @@
       </div>
 
       <!-- 结果列表 -->
-      <div class="picker-results" v-if="filteredResults.length > 0">
+      <div ref="resultsRef" class="picker-results" v-if="filteredResults.length > 0">
         <div
           v-for="(item, index) in filteredResults"
           :key="item.source + '-' + item.id"
@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 /**
  * 搜索结果项类型（支持剪贴板历史和收藏片段）
@@ -172,6 +172,7 @@ interface SearchResultItem {
 }
 
 const inputRef = ref<HTMLInputElement>()
+const resultsRef = ref<HTMLDivElement>()
 const query = ref('')
 const results = ref<SearchResultItem[]>([])
 const selectedIndex = ref(0)
@@ -217,8 +218,7 @@ const allVariablesFilled = computed(() => {
  */
 const onSearch = async () => {
   if (!query.value.trim()) {
-    results.value = []
-    selectedCategory.value = ''
+    await loadRecentHistory()
     return
   }
 
@@ -238,6 +238,36 @@ const onSearch = async () => {
     searching.value = false
   }
 }
+
+/**
+ * 加载最近剪贴板历史（搜索框为空时展示）
+ */
+const loadRecentHistory = async () => {
+  searching.value = true
+  try {
+    const list = await window.electron.ipcRenderer.invoke(
+      'to-main-SnippetPicker:getRecentHistory'
+    )
+    results.value = list || []
+    selectedCategory.value = ''
+    selectedIndex.value = 0
+  } catch (error) {
+    console.error('获取最近记录失败:', error)
+    results.value = []
+  } finally {
+    searching.value = false
+  }
+}
+
+/**
+ * 选中项变化时自动滚动到可见区域
+ */
+watch(selectedIndex, (index) => {
+  if (!resultsRef.value || index < 0) return
+  const activeItem = resultsRef.value.children[index] as HTMLElement | undefined
+  if (!activeItem) return
+  activeItem.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+})
 
 /**
  * 键盘事件处理
@@ -349,19 +379,20 @@ const confirmVariableForm = () => {
 }
 
 onMounted(() => {
-  // 监听显示信号（清空状态 + 聚焦）
+  // 监听显示信号（清空状态 + 聚焦 + 加载最近记录）
   window.electron.ipcRenderer.on('to-renderer-SnippetPicker:show', () => {
     query.value = ''
-    results.value = []
     selectedCategory.value = ''
     selectedIndex.value = 0
     showVariableForm.value = false
     selectedSnippetContent.value = ''
     variableValues.value = {}
     inputRef.value?.focus()
+    loadRecentHistory()
   })
 
   inputRef.value?.focus()
+  loadRecentHistory()
 })
 </script>
 
