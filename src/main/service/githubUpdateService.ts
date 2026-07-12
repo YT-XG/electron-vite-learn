@@ -227,20 +227,37 @@ class GitHubUpdateService {
   }
 
   /**
-   * 比较两个版本号
-   * @param v1 - 版本号 1
+   * 比较两个版本号（支持 pre-release 标签）
+   * @param v1 - 版本号 1（如 "1.2.3" 或 "1.2.3-alpha"）
    * @param v2 - 版本号 2
    * @returns v1 > v2 返回 1，v1 < v2 返回 -1，相等返回 0
    */
   private compareVersions(v1: string, v2: string): number {
-    const parts1 = v1.split('.').map(Number)
-    const parts2 = v2.split('.').map(Number)
+    // 提取 pre-release 后缀（'-' 之后的部分）
+    const suffix1 = v1.includes('-') ? v1.slice(v1.indexOf('-')) : ''
+    const suffix2 = v2.includes('-') ? v2.slice(v2.indexOf('-')) : ''
+
+    // 去掉 pre-release 后缀后比较数值部分
+    const base1 = suffix1 ? v1.slice(0, v1.indexOf('-')) : v1
+    const base2 = suffix2 ? v2.slice(0, v2.indexOf('-')) : v2
+
+    const parts1 = base1.split('.').map(Number)
+    const parts2 = base2.split('.').map(Number)
 
     for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
       const p1 = parts1[i] || 0
       const p2 = parts2[i] || 0
       if (p1 > p2) return 1
       if (p1 < p2) return -1
+    }
+
+    // 数值部分相等时：release 版本 > pre-release 版本
+    if (suffix1 && !suffix2) return -1
+    if (!suffix1 && suffix2) return 1
+    // 都有 pre-release 后缀则按字符串比较
+    if (suffix1 && suffix2) {
+      if (suffix1 < suffix2) return -1
+      if (suffix1 > suffix2) return 1
     }
     return 0
   }

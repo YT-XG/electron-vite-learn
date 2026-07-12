@@ -31,9 +31,12 @@ electron-vite-learn/
 │   │   │   ├── ContextMenuFrame.ts # 右键菜单窗口（Markdown 编辑器菜单）
 │   │   │   ├── SnippetPickerFrame.ts # 片段选择窗口（Ctrl+Shift+V 呼出，搜索并快速插入片段）
 │   │   │   ├── ShareSelectFrame.ts # 设备选择弹窗（选择联机设备发送文本）
-│   │   │   ├── PopupManager.ts    # 统一弹窗管理器（管理所有底部弹窗）
+	│   │   │   ├── PopupManager.ts    # 统一弹窗管理器（管理所有底部弹窗）
 │   │   │   ├── PopupItem.ts       # 弹窗元数据（封装窗口实例和动画）
-│   │   │   └── WindowFactory.ts # 窗口工厂（统一管理）
+│   │   │   ├── WindowFactory.ts # 窗口工厂（统一管理）
+│   │   │   ├── QuickShareFrame.ts # 文件快捷分享弹窗（选择设备发送文件）
+│   │   │   ├── JsonToolFrame.ts  # JSON 工具窗口（格式化/压缩/校验）
+│   │   │   └── TransferConfirmFrame.ts # 文件传输确认弹窗（接收方确认/拒绝）
 │   │   ├── core/              # 核心功能模块
 │   │   │   └── downloadEngine/  # 多线程下载引擎
 │   │   │       ├── index.ts    # MultiThreadDownloadEngine 类
@@ -42,7 +45,8 @@ electron-vite-learn/
 │   │   │       └── utils/       # 工具函数
 │   │   │           └── index.ts # 工具函数
 │   │   └── utils/              # 主进程工具函数
-│   │       └── platform.ts     # 平台相关工具函数（macOS/Windows 差异处理）
+│   │       ├── platform.ts     # 平台相关工具函数（macOS/Windows 差异处理）
+│   │       └── pinyinUtils.ts  # 拼音首字母匹配工具函数
 │   ├── preload/                 # 预加载脚本
 │   │   ├── index.ts            # 预加载脚本入口，暴露安全 API
 │   │   └── index.d.ts          # 类型定义
@@ -57,9 +61,6 @@ electron-vite-learn/
 │           │   ├── routes.ts   # 路由定义
 │           │   └── guards.ts   # 导航守卫
 │           ├── store/          # Pinia 状态管理
-│           │   ├── index.ts    # Store 入口
-│           │   ├── userStore.ts # 用户状态管理
-│           │   └── noticeStore.ts # 通知状态管理
 │           ├── views/          # 页面视图组件
 │           │   ├── About.vue  # 关于页
 │           │   ├── Notice.vue # 通知窗口（剪贴板通知）
@@ -81,13 +82,9 @@ electron-vite-learn/
 │           │   └── tools/      # 工具页面
 │           │       └── Toolbox.vue  # 工具箱页面
 │           ├── components/     # 可复用组件
-│           │   ├── Versions.vue
-│           │   ├── BaseDialog.vue    # 统一对话框组件
 │           │   └── EmptyState.vue    # 统一空状态组件
 │           ├── composables/    # 组合式函数
-│           │   └── useTimeFormat.ts  # 时间格式化工具
 │           ├── utils/          # 工具函数
-│           │   ├── request.ts  # HTTP 请求工具
 │           │   └── pinyinSearch.ts # 拼音首字母搜索工具
 │           └── assets/         # 静态资源（CSS、图片）
 │               ├── base.css
@@ -211,7 +208,6 @@ npm run lint         # 代码检查
 - 使用 TypeScript 严格模式
 - Vue 组件使用 `<script setup>` 语法
 - 遵循 ESLint 和 Prettier 配置
-- 组件命名：PascalCase（如 `Versions.vue`）
 - 文件命名：camelCase（如 `index.ts`）
 
 ### 7. 编译检查

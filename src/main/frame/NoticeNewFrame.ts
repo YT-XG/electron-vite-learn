@@ -6,6 +6,24 @@ import type { NoticeType } from './PopupManager'
 import ShareSelectFrame from './ShareSelectFrame'
 import { textShareService } from '../service/textShareService'
 
+/** 设置消息选项 */
+export interface SetMsgOptions {
+  /** 通知文本内容 */
+  data: string
+  /** 是否显示翻译按钮，默认 false */
+  showTranslate?: boolean
+  /** 通知类型，默认 'default' */
+  type?: NoticeType
+  /** 是否为持久通知，默认 false */
+  isPersistent?: boolean
+  /** 是否显示分享按钮，默认 false */
+  showShare?: boolean
+  /** 是否显示复制按钮（接收端文本通知），默认 false */
+  showCopy?: boolean
+  /** 是否显示关闭按钮（接收端文本通知），默认 false */
+  showCloseText?: boolean
+}
+
 /**
  * 通知弹窗
  * @description 从右侧滑入的通知提示窗口，位置由 PopupManager 统一管理（槽位式布局，右下角堆叠）
@@ -74,9 +92,7 @@ export default class NoticeNewFrame extends BaseFrame {
    * @returns 是否包含链接
    */
   static #containsUrl(text: string): boolean {
-    // URL 正则表达式，匹配 http/https/ftp 等协议开头的链接
-    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi
-    return urlRegex.test(text)
+    return !!this.#extractUrl(text)
   }
 
   /**
@@ -115,27 +131,21 @@ export default class NoticeNewFrame extends BaseFrame {
   }
 
   /**
-   * 设置待发送的消息
-   * @param data - 通知文本内容
-   * @param showTranslate - 是否显示翻译按钮，默认 false
-   * @param type - 通知类型，默认 'default'
-   * @param isPersistent - 是否为持久通知，默认 false
-   * @param showShare - 是否显示分享按钮，默认 false
-   * @param showCopy - 是否显示复制按钮（接收端文本通知），默认 false
-   * @param showCloseText - 是否显示关闭按钮（接收端文本通知），默认 false
+   * 设置待发送的消息（使用选项对象）
+   * @param options - 通知选项
    */
-  setMsg(data: string, showTranslate = false, type: NoticeType = 'default', isPersistent = false, showShare = false, showCopy = false, showCloseText = false) {
-    this.#msg = data
-    this.#showTranslate = showTranslate
-    this.#type = type
-    this.#isPersistent = isPersistent
-    this.#showShare = showShare
-    this.#showCopy = showCopy
-    this.#showCloseText = showCloseText
+  setMsg(options: SetMsgOptions) {
+    this.#msg = options.data
+    this.#showTranslate = options.showTranslate ?? false
+    this.#type = options.type ?? 'default'
+    this.#isPersistent = options.isPersistent ?? false
+    this.#showShare = options.showShare ?? false
+    this.#showCopy = options.showCopy ?? false
+    this.#showCloseText = options.showCloseText ?? false
     // 自动检测链接并设置显示打开链接按钮
-    this.#showOpenLink = NoticeNewFrame.#containsUrl(data)
+    this.#showOpenLink = NoticeNewFrame.#containsUrl(options.data)
     // 自动检测 JSON 格式并设置显示 JSON 工具按钮
-    this.#showJsonTool = NoticeNewFrame.#containsJson(data)
+    this.#showJsonTool = NoticeNewFrame.#containsJson(options.data)
     return this
   }
 
@@ -280,7 +290,7 @@ export default class NoticeNewFrame extends BaseFrame {
   /**
    * 销毁窗口（重置状态）
    */
-  async destroy(): Promise<void> {
+  destroy(): void {
     this.#msgSent = false
     super.destroy()
   }

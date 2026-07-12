@@ -33,8 +33,8 @@ log.info('[App] 应用启动，日志路径:', log.transports.file.getFile().pat
 /** 托盘服务实例 */
 let trayService: TrayService | null = null
 
-// 设置退出标志
-;(app as any).isQuitting = false
+/** 是否正在退出应用 */
+let isQuitting = false
 
 // 设置应用名称为"Prism"，避免自启/任务栏显示"Electron"或"electron-app"
 app.setName('Prism')
@@ -118,7 +118,7 @@ function handleSendFiles(argv: string[]): boolean {
     }))
     log.info(`[App] 收到分享文件: ${paths.length} 个文件`)
 
-    if (fileTransferService['port'] > 0) {
+    if (fileTransferService.port > 0) {
       showQuickShare()
     }
     return true
@@ -172,7 +172,7 @@ if (!gotLock) {
       })
       log.info(`[App] open-file: ${path}`)
       // 如果服务已就绪，处理完后显示弹窗
-      if (fileTransferService['port'] > 0 && pendingShareFiles.length > 0) {
+      if (fileTransferService.port > 0 && pendingShareFiles.length > 0) {
         showQuickShare()
       }
     }
@@ -230,7 +230,7 @@ app.whenReady().then(async () => {
 
   // 自动注册右键菜单（如果已启用）
   const settings = settingsService.getAll()
-  if ((settings as any).shellIntegration !== false) {
+  if (settings.shellIntegration !== false) {
     shellIntegrationService.register().catch(() => {})
   }
 
@@ -271,6 +271,17 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       windowFactory.getMainPageFrame().create()
+    } else {
+      // 当窗口存在但全部隐藏/最小化时，恢复显示主页面
+      const mainFrame = windowFactory.getMainPageFrame()
+      if (mainFrame && mainFrame.isAlive()) {
+        const win = mainFrame.getWindow()
+        if (win) {
+          if (win.isMinimized()) win.restore()
+          win.show()
+          win.focus()
+        }
+      }
     }
   })
 })
@@ -281,7 +292,7 @@ app.on('window-all-closed', () => {
   // 只有点击托盘菜单的"退出"才会真正退出
   if (process.platform !== 'darwin') {
     // 如果不是从托盘退出，不关闭所有窗口
-    if (!(app as any).isQuitting) {
+    if (!isQuitting) {
       return
     }
   }
@@ -292,7 +303,7 @@ app.on('window-all-closed', () => {
 
 // 应用退出前的清理
 app.on('before-quit', () => {
-  ;(app as any).isQuitting = true
+  isQuitting = true
   clipboardService.stop()
   settingsService.destroy()
   translateService.destroy()

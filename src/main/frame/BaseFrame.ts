@@ -22,6 +22,14 @@ type IPCHandleHandler = {
 /** IPC 处理器联合类型 */
 type IPCHandler = IPCOnHandler | IPCHandleHandler
 
+/** 是否正在退出应用（由 before-quit 设置，供 closeWindow 和 close 方法判断） */
+let isQuitting = false
+
+// 监听应用退出事件，设置退出标志
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
 /**
  * 窗口基类 - 封装所有窗口的通用逻辑
  * @description 提供窗口创建、IPC 通信、生命周期管理等基础功能
@@ -144,7 +152,7 @@ export default abstract class BaseFrame {
     this.recvOne('to-main-BaseFrame:closeWindow', (event) => {
       const senderWindow = BrowserWindow.fromWebContents(event.sender)
       if (senderWindow && !senderWindow.isDestroyed()) {
-        if ((app as any).isQuitting) {
+        if (isQuitting) {
           senderWindow.close()
         } else {
           senderWindow.hide()
@@ -252,7 +260,7 @@ export default abstract class BaseFrame {
   close(): void {
     if (this.window && !this.window.isDestroyed()) {
       // 如果正在退出应用，真正关闭窗口
-      if ((app as any).isQuitting) {
+      if (isQuitting) {
         this.window.close()
       } else {
         // 否则隐藏窗口到托盘

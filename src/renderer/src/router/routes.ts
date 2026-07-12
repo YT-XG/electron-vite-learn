@@ -64,5 +64,6 @@ export const AppRoutes = [
     path: '/quickShare',
     name: '快捷分享',
     component: () => import('@renderer/views/QuickShare.vue')
-  }
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/mainPage' }
 ]

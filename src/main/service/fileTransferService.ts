@@ -206,7 +206,14 @@ function resolveFileNameConflict(dir: string, name: string): string {
 
 class FileTransferService {
   private server: http.Server | null = null
-  private port = 0
+  private _port = 0
+
+  /**
+   * 获取 HTTP 服务器端口
+   */
+  get port(): number {
+    return this._port
+  }
   private devices: Map<string, DeviceInfo & { lastSeen: number; missCount: number }> = new Map()
   private records: TransferRecord[] = []
   private pendingRequests: Map<string, PendingRequest> = new Map()
@@ -452,7 +459,7 @@ class FileTransferService {
         const port = attempt === 0 ? 0 : 1024 + Math.floor(Math.random() * 64511)
         this.server!.listen(port, '0.0.0.0', () => {
           const addr = this.server!.address()
-          this.port = typeof addr === 'object' ? addr!.port : port
+          this._port = typeof addr === 'object' ? addr!.port : port
           log.info('[FileTransfer] HTTP Server 启动，端口:', this.port)
           // 保存端口供 Shell 集成（右键分享）使用
           try {
@@ -807,26 +814,39 @@ class FileTransferService {
       r.direction === 'received' && r.peerAddress === pending!.senderAddress && r.status === 'transferring'
     )
 
+    /** 进度广播节流：每累计 ~1MB 才广播一次 */
+    let accBytes = 0
+    const THROTTLE_BYTES = 1024 * 1024
+
     req.on('data', (chunk: Buffer) => {
       const canContinue = writeStream.write(chunk)
       if (!canContinue) {
         req.pause()
         writeStream.once('drain', () => req.resume())
       }
-      // 更新记录进度
+      // 更新记录进度（节流广播）
       if (record) {
         record.transferredBytes += chunk.length
-        this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        accBytes += chunk.length
+        if (accBytes >= THROTTLE_BYTES) {
+          accBytes = 0
+          this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        }
       }
     })
 
     req.on('end', () => {
       writeStream.end()
-      // 记录完成
-      if (record && record.transferredBytes >= record.totalBytes) {
-        record.status = 'completed'
-        record.completedAt = Date.now()
-        this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+      // 记录完成（强制广播最后不足 1MB 的部分）
+      if (record) {
+        if (accBytes > 0) {
+          this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        }
+        if (record.transferredBytes >= record.totalBytes) {
+          record.status = 'completed'
+          record.completedAt = Date.now()
+          this.broadcast('broadcast:transfer-records-updated', this.getRecords())
+        }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true }))
@@ -839,6 +859,8 @@ class FileTransferService {
         record.errorMessage = '传输中断'
         this.broadcast('broadcast:transfer-records-updated', this.getRecords())
       }
+      // 清理挂起的请求记录，防止内存泄漏
+      this.pendingRequests.delete(requestId)
     })
   }
 
@@ -1555,41 +1577,46 @@ class FileTransferService {
   // ── mDNS 广播 + 扫描 ──
 
   private startMDNS(): void {
-    const mdns = this.multicastDNS()
-    this.mdnsAdvertiser = mdns
+    try {
+      const mdns = this.multicastDNS()
+      this.mdnsAdvertiser = mdns
 
-    // 宣告服务
-    const advertise = (): void => {
-      mdns.on('query', (query: any) => {
-        for (const q of query.questions || []) {
-          if (q.name === MDNS_SERVICE_TYPE) {
-            mdns.respond({
-              answers: [{
-                name: MDNS_SERVICE_TYPE,
-                type: 'PTR',
-                class: 'IN',
-                ttl: 120,
-                data: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`
-              }, {
-                name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
-                type: 'SRV',
-                class: 'IN',
-                ttl: 120,
-                data: { port: this.port, target: hostname().replace(/\.local$/, '') + '.local' }
-              }, {
-                name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
-                type: 'TXT',
-                class: 'IN',
-                ttl: 120,
-                data: Buffer.from(`name=${this.getDeviceName()} port=${this.port} version=${app.getVersion()}`)
-              }]
-            })
+      // 宣告服务
+      const advertise = (): void => {
+        mdns.on('query', (query: any) => {
+          for (const q of query.questions || []) {
+            if (q.name === MDNS_SERVICE_TYPE) {
+              mdns.respond({
+                answers: [{
+                  name: MDNS_SERVICE_TYPE,
+                  type: 'PTR',
+                  class: 'IN',
+                  ttl: 120,
+                  data: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`
+                }, {
+                  name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
+                  type: 'SRV',
+                  class: 'IN',
+                  ttl: 120,
+                  data: { port: this.port, target: hostname().replace(/\.local$/, '') + '.local' }
+                }, {
+                  name: `${this.getDeviceName()}.${MDNS_SERVICE_TYPE}`,
+                  type: 'TXT',
+                  class: 'IN',
+                  ttl: 120,
+                  data: Buffer.from(`name=${this.getDeviceName()} port=${this.port} version=${app.getVersion()}`)
+                }]
+              })
+            }
           }
-        }
-      })
-      log.info('[FileTransfer] mDNS 服务已宣告:', MDNS_SERVICE_TYPE)
+        })
+        log.info('[FileTransfer] mDNS 服务已宣告:', MDNS_SERVICE_TYPE)
+      }
+      advertise()
+    } catch (error) {
+      log.error('[FileTransfer] mDNS 服务启动失败:', error)
+      this.mdnsAdvertiser = null
     }
-    advertise()
   }
 
   private startScanning(): void {

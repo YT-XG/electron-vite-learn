@@ -126,7 +126,7 @@ export class TrayService {
     popupManager.showNotice(
       () => {
         const frame = new NoticeNewFrame()
-        frame.setMsg('正在检查更新...')
+        frame.setMsg({ data: '正在检查更新...' })
         return frame.create()
       },
       { type: 'notice', width: 500, height: 60 },
@@ -140,7 +140,7 @@ export class TrayService {
         popupManager.showNotice(
           () => {
             const frame = new NoticeNewFrame()
-            frame.setMsg(res?.msg || '')
+            frame.setMsg({ data: res?.msg || '' })
             return frame.create()
           },
           { type: 'notice', width: 500, height: 60 },
@@ -156,13 +156,8 @@ export class TrayService {
    * 退出应用
    */
   private quitApp(): void {
-    // 设置退出标志
-    ;(app as any).isQuitting = true
-
-    // 销毁托盘
+    // `app.quit()` 会触发 before-quit 事件，由 BaseFrame 和 index.ts 中的模块级 isQuitting 标志处理
     this.destroy()
-
-    // 退出应用
     app.quit()
   }
 
@@ -183,5 +178,3 @@ export class TrayService {
     return this.tray
   }
 }
-
-export default TrayService

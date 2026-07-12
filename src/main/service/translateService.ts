@@ -84,19 +84,24 @@ class TranslateService {
     }
 
     // 翻译历史记录表
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS translate_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_lang TEXT NOT NULL,
-        target_lang TEXT NOT NULL,
-        source_text TEXT NOT NULL,
-        result_text TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+    try {
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS translate_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source_lang TEXT NOT NULL,
+          target_lang TEXT NOT NULL,
+          source_text TEXT NOT NULL,
+          result_text TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `)
+      this.db.run(
+        'CREATE INDEX IF NOT EXISTS idx_translate_created_at ON translate_history(created_at DESC)'
       )
-    `)
-    this.db.run(
-      'CREATE INDEX IF NOT EXISTS idx_translate_created_at ON translate_history(created_at DESC)'
-    )
+    } catch (error) {
+      log.error('[TranslateService] 建表失败:', error)
+      throw error
+    }
 
     this.save()
     this.registerIPC()
@@ -109,8 +114,12 @@ class TranslateService {
    */
   private save(): void {
     if (!this.db) return
-    const data = this.db.export()
-    writeFileSync(this.dbPath, Buffer.from(data))
+    try {
+      const data = this.db.export()
+      writeFileSync(this.dbPath, Buffer.from(data))
+    } catch (error) {
+      log.error('[TranslateService] 保存数据库失败:', error)
+    }
   }
 
   /**
@@ -166,12 +175,16 @@ class TranslateService {
     resultText: string
   ): void {
     if (!this.db) return
-    const now = Date.now()
-    this.db.run(
-      'INSERT INTO translate_history (source_lang, target_lang, source_text, result_text, created_at) VALUES (?, ?, ?, ?, ?)',
-      [sourceLang, targetLang, sourceText, resultText, now]
-    )
-    this.save()
+    try {
+      const now = Date.now()
+      this.db.run(
+        'INSERT INTO translate_history (source_lang, target_lang, source_text, result_text, created_at) VALUES (?, ?, ?, ?, ?)',
+        [sourceLang, targetLang, sourceText, resultText, now]
+      )
+      this.save()
+    } catch (error) {
+      log.error('[TranslateService] 保存翻译历史失败:', error)
+    }
   }
 
   /**
@@ -182,11 +195,16 @@ class TranslateService {
    */
   getHistory(limit = 50, offset = 0): TranslateHistoryItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT * FROM translate_history ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [limit, offset]
-    )
-    return this.parseResult(result)
+    try {
+      const result = this.db.exec(
+        'SELECT * FROM translate_history ORDER BY created_at DESC LIMIT ? OFFSET ?',
+        [limit, offset]
+      )
+      return this.parseResult(result)
+    } catch (error) {
+      log.error('[TranslateService] 获取翻译历史失败:', error)
+      return []
+    }
   }
 
   /**
@@ -195,8 +213,12 @@ class TranslateService {
    */
   delete(id: number): void {
     if (!this.db) return
-    this.db.run('DELETE FROM translate_history WHERE id = ?', [id])
-    this.save()
+    try {
+      this.db.run('DELETE FROM translate_history WHERE id = ?', [id])
+      this.save()
+    } catch (error) {
+      log.error('[TranslateService] 删除翻译历史失败:', error)
+    }
   }
 
   /**
@@ -204,8 +226,12 @@ class TranslateService {
    */
   clearAll(): void {
     if (!this.db) return
-    this.db.run('DELETE FROM translate_history')
-    this.save()
+    try {
+      this.db.run('DELETE FROM translate_history')
+      this.save()
+    } catch (error) {
+      log.error('[TranslateService] 清空翻译历史失败:', error)
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-import { BrowserWindowConstructorOptions, ipcMain, screen, BrowserWindow } from 'electron'
+import { BrowserWindowConstructorOptions, screen, BrowserWindow } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
 
@@ -35,9 +35,6 @@ export default class ContextMenuFrame extends BaseFrame {
 
   /** 路由路径 */
   protected readonly routePath: string = '/contextMenu'
-
-  /** 是否已注册 IPC */
-  static #ipcRegistered = false
 
   /**
    * 显示右键菜单
@@ -135,13 +132,8 @@ export default class ContextMenuFrame extends BaseFrame {
   protected registerIPC(): void {
     super.registerIPC()
 
-    // 只注册一次 IPC
-    if (ContextMenuFrame.#ipcRegistered) {
-      return
-    }
-
     // 菜单项被点击
-    ipcMain.on('to-main-ContextMenu:click', (_event, action: string) => {
+    this.recvOne('to-main-ContextMenu:click', (_event, action: string) => {
       // 隐藏菜单
       this.hideMenu()
 
@@ -160,19 +152,17 @@ export default class ContextMenuFrame extends BaseFrame {
     })
 
     // 关闭菜单（点击其他区域）
-    ipcMain.on('to-main-ContextMenu:close', () => {
+    this.recvOne('to-main-ContextMenu:close', () => {
       this.hideMenu()
     })
 
     // 渲染进程报告实际内容高度，调整窗口大小
-    ipcMain.on('to-main-ContextMenu:resize', (_event, height: number) => {
+    this.recvOne('to-main-ContextMenu:resize', (_event, height: number) => {
       if (this.isAlive()) {
         const width = ContextMenuFrame.MENU_WIDTH + ContextMenuFrame.PADDING * 2
         this.window!.setSize(width, Math.round(height))
       }
     })
-
-    ContextMenuFrame.#ipcRegistered = true
   }
 
   /**

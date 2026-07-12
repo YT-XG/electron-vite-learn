@@ -34,12 +34,44 @@ interface CategoryItem {
 interface AppSettings {
   /** Electron accelerator 格式的全局快捷键 */
   shortcut: string
-  /** 局域网更新服务器 UNC 路径 */
+  /** 片段选择器快捷键 */
+  snippetShortcut: string
+  /** 搜索框快捷键 */
+  searchBoxShortcut: string
+  /** 局域网更新服务器路径 */
   serverUrl: string
+  /** 开机自启动 */
+  autoStart: boolean
+  /** 翻译 API 地址（可选） */
+  translateApiUrl?: string
+  /** 翻译 API Key（可选） */
+  translateApiKey?: string
+  /** 更新源：lan（局域网）或 github */
+  updateSource: 'lan' | 'github'
+  /** GitHub 仓库地址 */
+  githubRepo: string
+  /** 下载线程数 */
+  downloadThreads: number
+  /** 文件互传接收目录 */
+  transferSaveDir: string
+  /** 文件互传设备名称 */
+  transferDeviceName: string
+  /** TCP 跨子网扫描网段列表 */
+  scanSubnets: string[]
+  /** 手动添加的设备列表 */
+  manualDevices: { address: string; port: number }[]
+  /** Claude Code 状态通知开关 */
+  showClaudeStatus: boolean
+  /** 文件资源管理器右键菜单集成 */
+  shellIntegration?: boolean
+  /** 剪贴板历史保留天数 */
+  clipboardRetentionDays: number
 }
 
 /**
  * IPC 频道类型定义
+ * @description 此接口类型化 ipcRenderer.invoke/send/on/removeListener 方法，
+ *              以便在渲染进程中获得频道名和参数的类型提示。
  */
 interface IPCChannels {
   // 历史记录
@@ -49,6 +81,9 @@ interface IPCChannels {
   invoke(channel: 'clipboard-history:clearAll'): Promise<void>
   invoke(channel: 'clipboard-write', content: string): Promise<void>
   invoke(channel: 'clipboard:click-item', content: string): Promise<void>
+
+  // 历史记录总数
+  invoke(channel: 'to-service-ClipboardService:getHistoryCount'): Promise<number>
 
   // 收藏
   invoke(channel: 'favorites:getAll'): Promise<FavoriteItem[]>
@@ -64,8 +99,8 @@ interface IPCChannels {
   send(channel: 'close-window'): void
 
   // 设置
-  invoke(channel: 'settings:get'): Promise<AppSettings>
-  invoke(channel: 'settings:update', settings: Partial<AppSettings>): Promise<void>
+  invoke(channel: 'to-service-SettingsService:get'): Promise<AppSettings>
+  invoke(channel: 'to-service-SettingsService:update', settings: Partial<AppSettings>): Promise<void>
 
   // Claude Code 监控
   invoke(channel: 'to-service-ClaudeCodeService:installHook'): Promise<{ success: boolean; message: string }>
@@ -142,6 +177,14 @@ interface IPCChannels {
   removeListener(channel: 'to-renderer-QuickShareFrame:sendResult', listener: (...args: unknown[]) => void): void
 }
 
+/** ipcRenderer 在 ElectronAPI 类型基础上叠加 IPCChannels 的类型约束 */
+type TypedIpcRenderer = ElectronAPI['ipcRenderer'] & {
+  invoke: IPCChannels['invoke']
+  send: IPCChannels['send']
+  on: IPCChannels['on']
+  removeListener: IPCChannels['removeListener']
+}
+
 interface DeviceInfo {
   name: string
   address: string
@@ -188,7 +231,9 @@ interface ReceivedTextInfo {
 
 declare global {
   interface Window {
-    electron: ElectronAPI & IPCChannels
-    api: unknown
+    electron: ElectronAPI & { ipcRenderer: TypedIpcRenderer }
   }
 }
+
+// 导出类型供其他文件使用
+export type { HistoryItem, FavoriteItem, CategoryItem, AppSettings, DeviceInfo, FileEntry, TransferRecord, TransferRequestInfo, ReceivedTextInfo }

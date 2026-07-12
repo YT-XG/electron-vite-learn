@@ -175,7 +175,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
     // 渲染进程已就绪，发送已缓存的数据
     this.recvOne('to-main-UpdateNewFrame:ready', async () => {
-      console.log('渲染进程加载完毕，发送已缓存的更新信息')
+      log.info('渲染进程加载完毕，发送已缓存的更新信息')
       // 如果已有更新信息（由 checkGitHubUpdates/checkLanUpdates 预先获取），直接发送
       // 不再调用 checkForUpdates()，避免递归循环：
       //   checkForUpdates → showUpdateNotice → create() → 页面加载 → ready → checkForUpdates(!!!)
@@ -229,7 +229,7 @@ export default class UpdateNewFrame extends BaseFrame {
 
     if (isMacOS()) {
       // macOS: 检查是否还是 Windows UNC 路径格式
-      if (serverUrl.startsWith('\\\\') || serverUrl.startsWith('\\\\')) {
+      if (serverUrl.startsWith('\\\\')) {
         return 'macOS 不支持 Windows UNC 路径，请在设置中修改为 SMB 挂载路径（如 /Volumes/dist）'
       }
 
@@ -264,7 +264,7 @@ export default class UpdateNewFrame extends BaseFrame {
    * @returns 更新信息，如果没有更新返回 null
    */
   async checkForUpdates(): Promise<UpdateInfo | null> {
-    console.log('进入检测更新状态')
+    log.info('进入检测更新状态')
     const settings = settingsService.getAll()
 
     // 根据设置选择更新源
@@ -818,8 +818,8 @@ export default class UpdateNewFrame extends BaseFrame {
    * 销毁更新窗口
    * @description 直接销毁窗口，由 PopupManager 管理动画
    */
-  async destroy(): Promise<void> {
+  destroy(): void {
     super.destroy()
-    console.log('更新窗口被销毁')
+    log.info('更新窗口被销毁')
   }
 }

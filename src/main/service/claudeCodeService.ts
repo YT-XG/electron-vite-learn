@@ -9,7 +9,7 @@
  * 4. 权限请求：暂存 HTTP 响应，显示权限确认窗口
  * 5. 用户点击按钮 → 写回 HTTP 响应 → Claude Code 继续执行
  */
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import http from 'http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
@@ -328,8 +328,6 @@ class ClaudeCodeService {
    * @description 使用 to-service-ClaudeCodeService 前缀，遵循项目规范
    */
   private registerIPC(): void {
-    const { ipcMain } = require('electron')
-
     // 安装 Hook
     ipcMain.handle('to-service-ClaudeCodeService:installHook', async () => {
       return this.installHook()
@@ -607,7 +605,7 @@ class ClaudeCodeService {
       // 创建窗口的回调函数
       () => {
         const frame = new NoticeNewFrame()
-        frame.setMsg(text, false, 'default', true)
+        frame.setMsg({ data: text, isPersistent: true })
         frame.create()
         return frame.getWindow()!
       },
@@ -639,8 +637,7 @@ class ClaudeCodeService {
     /** 创建 NoticeNewFrame 窗口的回调函数 */
     const createWindowFn = (): BrowserWindow => {
       const frame = new NoticeNewFrame()
-      // 设置为持久通知，不自动销毁
-      frame.setMsg('', false, 'default', true)
+      frame.setMsg({ data: '', isPersistent: true })
       frame.create()
       frame.getWindow()!.setIgnoreMouseEvents(true, { forward: true })
       return frame.getWindow()!

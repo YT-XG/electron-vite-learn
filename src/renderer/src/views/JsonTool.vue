@@ -347,25 +347,28 @@ const handleKeydown = (e: KeyboardEvent): void => {
   }
 }
 
+/**
+ * 主进程发送内容的监听器
+ */
+const onSetContent = (_e: unknown, content: string): void => {
+  inputText.value = content
+  // 自动格式化
+  formatJson()
+}
+
 // 挂载时注册键盘事件
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
   // 通知主进程渲染已就绪
   window.electron.ipcRenderer.send('to-main-JsonTool:ready')
   // 监听主进程发送的内容（从通知窗口联动）
-  window.electron.ipcRenderer.on(
-    'to-renderer-JsonTool:setContent',
-    (_e, content: string) => {
-      inputText.value = content
-      // 自动格式化
-      formatJson()
-    }
-  )
+  window.electron.ipcRenderer.on('to-renderer-JsonTool:setContent', onSetContent)
 })
 
-// 卸载时移除键盘事件
+// 卸载时移除键盘事件和 IPC 监听器
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  window.electron.ipcRenderer.removeListener('to-renderer-JsonTool:setContent', onSetContent)
 })
 </script>
 

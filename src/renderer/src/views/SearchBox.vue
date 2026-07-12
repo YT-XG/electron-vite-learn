@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 interface SearchResult {
   id: string
@@ -168,14 +168,24 @@ const getCategoryLabel = (category: string): string => {
 
 onMounted(() => {
   // 监听清空消息
-  window.electron.ipcRenderer.on('to-renderer-SearchBox:clear', () => {
-    query.value = ''
-    results.value = []
-    selectedIndex.value = 0
-    inputRef.value?.focus()
-  })
+  window.electron.ipcRenderer.on('to-renderer-SearchBox:clear', onClear)
 
   inputRef.value?.focus()
+})
+
+/**
+ * 清空搜索
+ */
+const onClear = (): void => {
+  query.value = ''
+  results.value = []
+  selectedIndex.value = 0
+  inputRef.value?.focus()
+}
+
+onUnmounted(() => {
+  // 卸载时清理 IPC 监听器，避免监听器泄漏
+  window.electron.ipcRenderer.removeListener('to-renderer-SearchBox:clear', onClear)
 })
 </script>
 

@@ -243,7 +243,7 @@ const confirmAddDownload = async (): Promise<void> => {
  * 保存线程数设置
  */
 const saveThreads = async (): Promise<void> => {
-  await window.electron.ipcRenderer.invoke('settings:update', {
+  await window.electron.ipcRenderer.invoke('to-service-SettingsService:update', {
     downloadThreads: downloadThreads.value
   })
 }
@@ -343,7 +343,7 @@ onMounted(async () => {
   tasks.value = existingTasks || []
 
   // 加载线程数设置
-  const settings = await window.electron.ipcRenderer.invoke('settings:get')
+  const settings = await window.electron.ipcRenderer.invoke('to-service-SettingsService:get')
   if (settings?.downloadThreads) {
     downloadThreads.value = settings.downloadThreads
   }

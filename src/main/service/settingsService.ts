@@ -7,7 +7,7 @@
  * - 热重载：update() 后立即重新注册全球快捷键
  * - 边界处理：文件损坏/不存在时自动返回默认值
  */
-import { app, globalShortcut, ipcMain } from 'electron'
+import { app, globalShortcut } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
@@ -109,7 +109,7 @@ class SettingsService {
    * - 注册全局快捷键
    * - 清理旧版自启项名称（Electron / electron-app）
    */
-  async init(): Promise<void> {
+  init(): void {
     this.filePath = join(app.getPath('userData'), 'settings.json')
     this.settings = this.#load()
     // 清理旧版自启项残留
@@ -165,16 +165,7 @@ class SettingsService {
    * 注册 IPC 处理器
    */
   #registerIPC(): void {
-    // 获取所有设置
-    ipcMain.handle('settings:get', () => {
-      return this.getAll()
-    })
-
-    // 更新设置
-    ipcMain.handle('settings:update', (_event, partial: Partial<AppSettings>) => {
-      this.update(partial)
-      return { ok: true }
-    })
+    // IPC 处理器在 index.ts 中通过 to-service-SettingsService:* 注册
   }
 
   /**
@@ -239,7 +230,7 @@ class SettingsService {
     popupManager.showNotice(
       () => {
         const frame = new NoticeNewFrame()
-        frame.setMsg(noticeText)
+        frame.setMsg({ data: noticeText })
         return frame.create()
       },
       { type: 'notice', width: 500, height: 60 },

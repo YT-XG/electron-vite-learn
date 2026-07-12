@@ -1,4 +1,5 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, dialog } from 'electron'
+import { promises as fs } from 'fs'
 import BaseFrame from './BaseFrame'
 import { popupManager } from './PopupManager'
 import NoticeNewFrame from './NoticeNewFrame'
@@ -91,8 +92,7 @@ export default class JsonToolFrame extends BaseFrame {
       if (result.canceled || result.filePaths.length === 0) {
         return null
       }
-      const fs = require('fs')
-      return fs.readFileSync(result.filePaths[0], 'utf-8')
+      return fs.readFile(result.filePaths[0], 'utf-8')
     })
 
     // 保存文件 - 弹出保存对话框，将内容写入选定路径
@@ -106,8 +106,7 @@ export default class JsonToolFrame extends BaseFrame {
       if (result.canceled || !result.filePath) {
         return false
       }
-      const fs = require('fs')
-      fs.writeFileSync(result.filePath, content, 'utf-8')
+      await fs.writeFile(result.filePath, content, 'utf-8')
       return true
     })
 
@@ -116,7 +115,7 @@ export default class JsonToolFrame extends BaseFrame {
       popupManager.showNotice(
         () => {
           const frame = new NoticeNewFrame()
-          frame.setMsg(text, false, type || 'default')
+          frame.setMsg({ data: text, type: type || 'default' })
           return frame.create()
         },
         { type: 'notice', width: 500, height: 60 },

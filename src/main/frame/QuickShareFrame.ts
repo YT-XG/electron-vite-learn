@@ -3,7 +3,7 @@
  * @description 文件资源管理器右键"分享到妙妙屋"时弹出
  *              显示在线设备列表和待发送文件，选择设备后调用 fileTransferService 发送
  */
-import { BrowserWindowConstructorOptions, BrowserWindow } from 'electron'
+import { BrowserWindowConstructorOptions, BrowserWindow, screen } from 'electron'
 import BaseFrame from './BaseFrame'
 import { fileTransferService } from '../service/fileTransferService'
 
@@ -60,12 +60,11 @@ export default class QuickShareFrame extends BaseFrame {
    */
   showCentered(): void {
     if (!this.isAlive()) return
-    const { screen } = require('electron')
-    const display = screen.getPrimaryDisplay()
-    const { width: sw, height: sh } = display.workArea
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width: sw, height: sh } = primaryDisplay.workArea
     const fw = QuickShareFrame.POPUP_WIDTH
     const fh = QuickShareFrame.POPUP_HEIGHT
-    const win = this['window'] as unknown as BrowserWindow
+    const win = this.window!
     if (win) {
       win.setBounds({
         x: Math.round((sw - fw) / 2),

@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
 /**
  * 搜索结果项类型（支持剪贴板历史和收藏片段）
@@ -378,21 +378,30 @@ const confirmVariableForm = () => {
   cancelVariableForm()
 }
 
+/**
+ * 监听显示信号（清空状态 + 聚焦 + 加载最近记录）
+ */
+const onShowSignal = (): void => {
+  query.value = ''
+  selectedCategory.value = ''
+  selectedIndex.value = 0
+  showVariableForm.value = false
+  selectedSnippetContent.value = ''
+  variableValues.value = {}
+  inputRef.value?.focus()
+  loadRecentHistory()
+}
+
 onMounted(() => {
-  // 监听显示信号（清空状态 + 聚焦 + 加载最近记录）
-  window.electron.ipcRenderer.on('to-renderer-SnippetPicker:show', () => {
-    query.value = ''
-    selectedCategory.value = ''
-    selectedIndex.value = 0
-    showVariableForm.value = false
-    selectedSnippetContent.value = ''
-    variableValues.value = {}
-    inputRef.value?.focus()
-    loadRecentHistory()
-  })
+  window.electron.ipcRenderer.on('to-renderer-SnippetPicker:show', onShowSignal)
 
   inputRef.value?.focus()
   loadRecentHistory()
+})
+
+onUnmounted(() => {
+  // 卸载时清理 IPC 监听器，避免监听器泄漏
+  window.electron.ipcRenderer.removeListener('to-renderer-SnippetPicker:show', onShowSignal)
 })
 </script>
 

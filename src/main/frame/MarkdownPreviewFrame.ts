@@ -1,4 +1,4 @@
-import { BrowserWindowConstructorOptions, ipcMain, dialog } from 'electron'
+import { BrowserWindowConstructorOptions, dialog } from 'electron'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
 
@@ -39,9 +39,6 @@ export default class MarkdownPreviewFrame extends BaseFrame {
   /** 文件路径到内容的映射 */
   #fileContents: Map<string, string> = new Map()
 
-  /** 是否已注册 IPC */
-  static #ipcRegistered = false
-
   /**
    * 创建窗口，同时预加载右键菜单窗口
    */
@@ -63,20 +60,15 @@ export default class MarkdownPreviewFrame extends BaseFrame {
   protected registerIPC(): void {
     super.registerIPC()
 
-    // 只注册一次 IPC
-    if (MarkdownPreviewFrame.#ipcRegistered) {
-      return
-    }
-
     // 最小化窗口
-    ipcMain.on('to-main-MarkdownPreview:minimize', () => {
+    this.recvOne('to-main-MarkdownPreview:minimize', () => {
       if (this.isAlive()) {
         this.window!.minimize()
       }
     })
 
     // 最大化/还原窗口
-    ipcMain.on('to-main-MarkdownPreview:toggleMaximize', () => {
+    this.recvOne('to-main-MarkdownPreview:toggleMaximize', () => {
       if (this.isAlive()) {
         if (this.window!.isMaximized()) {
           this.window!.unmaximize()
@@ -87,12 +79,12 @@ export default class MarkdownPreviewFrame extends BaseFrame {
     })
 
     // 关闭窗口
-    ipcMain.on('to-main-MarkdownPreview:close', () => {
+    this.recvOne('to-main-MarkdownPreview:close', () => {
       this.close()
     })
 
     // 显示右键菜单（通过主进程菜单窗口显示）
-    ipcMain.on(
+    this.recvOne(
       'to-main-MarkdownPreview:showContextMenu',
       (_event, x: number, y: number, items: Array<{
         icon: string
@@ -106,7 +98,7 @@ export default class MarkdownPreviewFrame extends BaseFrame {
     )
 
     // 读取文件
-    ipcMain.handle('to-main-MarkdownPreview:readFile', async (_event, filePath: string) => {
+    this.recvTwo('to-main-MarkdownPreview:readFile', async (_event, filePath: string) => {
       try {
         const fs = require('fs/promises')
         const content = await fs.readFile(filePath, 'utf-8')
@@ -118,7 +110,7 @@ export default class MarkdownPreviewFrame extends BaseFrame {
     })
 
     // 保存文件（直接保存到已有路径）
-    ipcMain.handle('to-main-MarkdownPreview:saveFile', async (_event, filePath: string, content: string) => {
+    this.recvTwo('to-main-MarkdownPreview:saveFile', async (_event, filePath: string, content: string) => {
       try {
         const fs = require('fs/promises')
         await fs.writeFile(filePath, content, 'utf-8')
@@ -130,7 +122,7 @@ export default class MarkdownPreviewFrame extends BaseFrame {
     })
 
     // 另存为（弹出文件选择对话框）
-    ipcMain.handle('to-main-MarkdownPreview:saveFileAs', async (_event, content: string, defaultName?: string) => {
+    this.recvTwo('to-main-MarkdownPreview:saveFileAs', async (_event, content: string, defaultName?: string) => {
       try {
         const result = await dialog.showSaveDialog(this.window!, {
           title: '保存 Markdown 文件',
@@ -153,7 +145,5 @@ export default class MarkdownPreviewFrame extends BaseFrame {
         return { success: false, error: (error as Error).message }
       }
     })
-
-    MarkdownPreviewFrame.#ipcRegistered = true
   }
 }

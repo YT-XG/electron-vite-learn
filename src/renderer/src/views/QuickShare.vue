@@ -104,7 +104,10 @@ function send(): void {
 }
 
 function close(): void {
-  window.electron.ipcRenderer.send('to-main-QuickShareFrame:close')
+  animClass.value = 'anim-exit'
+  setTimeout(() => {
+    window.electron.ipcRenderer.send('to-main-QuickShareFrame:close')
+  }, 300)
 }
 
 function onCardEnter(): void {
@@ -186,6 +189,10 @@ onUnmounted(() => {
   animation: quickShareEnter 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.share-card.anim-exit {
+  animation: quickShareExit 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes quickShareEnter {
   from {
     opacity: 0;
@@ -194,6 +201,17 @@ onUnmounted(() => {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes quickShareExit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.85);
   }
 }
 

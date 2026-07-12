@@ -87,27 +87,32 @@ class ClipboardService {
     }
 
     // 历史记录表
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS clipboard_history (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        content    TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `)
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_created_at ON clipboard_history(created_at DESC)')
+    try {
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS clipboard_history (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          content    TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `)
+      this.db.run('CREATE INDEX IF NOT EXISTS idx_created_at ON clipboard_history(created_at DESC)')
 
-    // 收藏表（独立存储，支持手动添加和分类）
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS favorites (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        content     TEXT NOT NULL,
-        category    TEXT DEFAULT '',
-        description TEXT DEFAULT '',
-        created_at  INTEGER NOT NULL
-      )
-    `)
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_fav_category ON favorites(category)')
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_fav_created_at ON favorites(created_at DESC)')
+      // 收藏表（独立存储，支持手动添加和分类）
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS favorites (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          content     TEXT NOT NULL,
+          category    TEXT DEFAULT '',
+          description TEXT DEFAULT '',
+          created_at  INTEGER NOT NULL
+        )
+      `)
+      this.db.run('CREATE INDEX IF NOT EXISTS idx_fav_category ON favorites(category)')
+      this.db.run('CREATE INDEX IF NOT EXISTS idx_fav_created_at ON favorites(created_at DESC)')
+    } catch (error) {
+      log.error('[ClipboardService] 建表失败:', error)
+      throw error
+    }
 
     this.save()
 
@@ -134,8 +139,12 @@ class ClipboardService {
    */
   private save(): void {
     if (!this.db) return
-    const data = this.db.export()
-    writeFileSync(this.dbPath, Buffer.from(data))
+    try {
+      const data = this.db.export()
+      writeFileSync(this.dbPath, Buffer.from(data))
+    } catch (error) {
+      log.error('[ClipboardService] 保存数据库失败:', error)
+    }
   }
 
   /**
@@ -162,44 +171,48 @@ class ClipboardService {
   private insert(content: string): void {
     if (!this.db) return
 
-    // 去重：如果与最近一条内容相同，跳过
-    const lastItem = this.db.exec(
-      'SELECT content FROM clipboard_history ORDER BY created_at DESC LIMIT 1'
-    )
-    if (lastItem.length > 0 && lastItem[0].values[0][0] === content) {
-      return
-    }
-
-    const now = Date.now()
-    this.db.run('INSERT INTO clipboard_history (content, created_at) VALUES (?, ?)', [content, now])
-
-    // 清理过期数据（按保留天数）
-    this.autoCleanup()
-
-    // 推送通知给所有可见窗口
-    const newItem: HistoryItem = {
-      id: (this.db.exec('SELECT last_insert_rowid()')?.[0]?.values[0]?.[0] as number) || 0,
-      content,
-      created_at: now
-    }
-    BrowserWindow.getAllWindows().forEach((w) => {
-      if (!w.isDestroyed() && w.isVisible()) {
-        w.webContents.send('broadcast:clipboard-new', newItem)
+    try {
+      // 去重：如果与最近一条内容相同，跳过
+      const lastItem = this.db.exec(
+        'SELECT content FROM clipboard_history ORDER BY created_at DESC LIMIT 1'
+      )
+      if (lastItem.length > 0 && lastItem[0].values[0][0] === content) {
+        return
       }
-    })
 
-    // 弹出通知弹窗（显示翻译按钮和分享按钮）
-    popupManager.showNotice(
-      () => {
-        const frame = new NoticeNewFrame()
-        frame.setMsg(content, true, 'default', false, true)
-        return frame.create()
-      },
-      { type: 'notice', width: 500, height: 60 },
-      { text: content, showTranslate: true, duration: 5000 }
-    )
+      const now = Date.now()
+      this.db.run('INSERT INTO clipboard_history (content, created_at) VALUES (?, ?)', [content, now])
 
-    log.info('[ClipboardService] 新增记录:', content.substring(0, 50))
+      // 清理过期数据（按保留天数）
+      this.autoCleanup()
+
+      // 推送通知给所有可见窗口
+      const newItem: HistoryItem = {
+        id: (this.db.exec('SELECT last_insert_rowid()')?.[0]?.values[0]?.[0] as number) || 0,
+        content,
+        created_at: now
+      }
+      BrowserWindow.getAllWindows().forEach((w) => {
+        if (!w.isDestroyed() && w.isVisible()) {
+          w.webContents.send('broadcast:clipboard-new', newItem)
+        }
+      })
+
+      // 弹出通知弹窗（显示翻译按钮和分享按钮）
+      popupManager.showNotice(
+        () => {
+          const frame = new NoticeNewFrame()
+          frame.setMsg({ data: content, showTranslate: true, showShare: true })
+          return frame.create()
+        },
+        { type: 'notice', width: 500, height: 60 },
+        { text: content, showTranslate: true, duration: 5000 }
+      )
+
+      log.info('[ClipboardService] 新增记录:', content.substring(0, 50))
+    } catch (error) {
+      log.error('[ClipboardService] 插入记录失败:', error)
+    }
   }
   /**
    * 获取历史记录（分页）
@@ -209,11 +222,16 @@ class ClipboardService {
    */
   getAll(limit = 50, offset = 0): HistoryItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT * FROM clipboard_history ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [limit, offset]
-    )
-    return this.parseResult(result)
+    try {
+      const result = this.db.exec(
+        'SELECT * FROM clipboard_history ORDER BY created_at DESC LIMIT ? OFFSET ?',
+        [limit, offset]
+      )
+      return this.parseResult(result)
+    } catch (error) {
+      log.error('[ClipboardService] 获取历史记录失败:', error)
+      return []
+    }
   }
 
   /**
@@ -222,8 +240,13 @@ class ClipboardService {
    */
   getFavorites(): FavoriteItem[] {
     if (!this.db) return []
-    const result = this.db.exec('SELECT * FROM favorites ORDER BY created_at DESC')
-    return this.parseFavoritesResult(result)
+    try {
+      const result = this.db.exec('SELECT * FROM favorites ORDER BY created_at DESC')
+      return this.parseFavoritesResult(result)
+    } catch (error) {
+      log.error('[ClipboardService] 获取收藏列表失败:', error)
+      return []
+    }
   }
 
   /**
@@ -233,11 +256,16 @@ class ClipboardService {
    */
   getFavoritesByCategory(category: string): FavoriteItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT * FROM favorites WHERE category = ? ORDER BY created_at DESC',
-      [category]
-    )
-    return this.parseFavoritesResult(result)
+    try {
+      const result = this.db.exec(
+        'SELECT * FROM favorites WHERE category = ? ORDER BY created_at DESC',
+        [category]
+      )
+      return this.parseFavoritesResult(result)
+    } catch (error) {
+      log.error('[ClipboardService] 按分类获取收藏失败:', error)
+      return []
+    }
   }
 
   /**
@@ -246,14 +274,19 @@ class ClipboardService {
    */
   getCategories(): CategoryItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT category, COUNT(*) as count FROM favorites GROUP BY category ORDER BY category'
-    )
-    if (!result || result.length === 0) return []
-    return result[0].values.map((row) => ({
-      name: (row[0] as string) || '',
-      count: row[1] as number
-    }))
+    try {
+      const result = this.db.exec(
+        'SELECT category, COUNT(*) as count FROM favorites GROUP BY category ORDER BY category'
+      )
+      if (!result || result.length === 0) return []
+      return result[0].values.map((row) => ({
+        name: (row[0] as string) || '',
+        count: row[1] as number
+      }))
+    } catch (error) {
+      log.error('[ClipboardService] 获取分类列表失败:', error)
+      return []
+    }
   }
 
   /**
@@ -265,15 +298,20 @@ class ClipboardService {
    */
   addFavorite(content: string, category: string = '', description: string = ''): number {
     if (!this.db) return 0
-    const now = Date.now()
-    this.db.run(
-      'INSERT INTO favorites (content, category, description, created_at) VALUES (?, ?, ?, ?)',
-      [content, category, description, now]
-    )
-    this.save()
-    const id = this.db.exec('SELECT last_insert_rowid()')?.[0]?.values[0]?.[0] as number
-    log.info('[ClipboardService] 新增收藏:', content.substring(0, 50))
-    return id
+    try {
+      const now = Date.now()
+      this.db.run(
+        'INSERT INTO favorites (content, category, description, created_at) VALUES (?, ?, ?, ?)',
+        [content, category, description, now]
+      )
+      this.save()
+      const id = this.db.exec('SELECT last_insert_rowid()')?.[0]?.values[0]?.[0] as number
+      log.info('[ClipboardService] 新增收藏:', content.substring(0, 50))
+      return id
+    } catch (error) {
+      log.error('[ClipboardService] 添加收藏失败:', error)
+      return 0
+    }
   }
 
   /**
@@ -285,13 +323,17 @@ class ClipboardService {
    */
   updateFavorite(id: number, content: string, category: string, description: string): void {
     if (!this.db) return
-    this.db.run('UPDATE favorites SET content = ?, category = ?, description = ? WHERE id = ?', [
-      content,
-      category,
-      description,
-      id
-    ])
-    this.save()
+    try {
+      this.db.run('UPDATE favorites SET content = ?, category = ?, description = ? WHERE id = ?', [
+        content,
+        category,
+        description,
+        id
+      ])
+      this.save()
+    } catch (error) {
+      log.error('[ClipboardService] 更新收藏失败:', error)
+    }
   }
 
   /**
@@ -300,8 +342,12 @@ class ClipboardService {
    */
   deleteFavorite(id: number): void {
     if (!this.db) return
-    this.db.run('DELETE FROM favorites WHERE id = ?', [id])
-    this.save()
+    try {
+      this.db.run('DELETE FROM favorites WHERE id = ?', [id])
+      this.save()
+    } catch (error) {
+      log.error('[ClipboardService] 删除收藏失败:', error)
+    }
   }
 
   /**
@@ -309,8 +355,12 @@ class ClipboardService {
    */
   clearAllFavorites(): void {
     if (!this.db) return
-    this.db.run('DELETE FROM favorites')
-    this.save()
+    try {
+      this.db.run('DELETE FROM favorites')
+      this.save()
+    } catch (error) {
+      log.error('[ClipboardService] 清空收藏失败:', error)
+    }
   }
 
   /**
@@ -321,11 +371,16 @@ class ClipboardService {
    */
   searchFavorites(keyword: string): FavoriteItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT * FROM favorites WHERE content LIKE ? OR description LIKE ? ORDER BY created_at DESC',
-      [`%${keyword}%`, `%${keyword}%`]
-    )
-    return this.parseFavoritesResult(result)
+    try {
+      const result = this.db.exec(
+        'SELECT * FROM favorites WHERE content LIKE ? OR description LIKE ? ORDER BY created_at DESC',
+        [`%${keyword}%`, `%${keyword}%`]
+      )
+      return this.parseFavoritesResult(result)
+    } catch (error) {
+      log.error('[ClipboardService] 搜索片段失败:', error)
+      return []
+    }
   }
 
   /**
@@ -335,11 +390,16 @@ class ClipboardService {
    */
   search(keyword: string): HistoryItem[] {
     if (!this.db) return []
-    const result = this.db.exec(
-      'SELECT * FROM clipboard_history WHERE content LIKE ? ORDER BY created_at DESC',
-      [`%${keyword}%`]
-    )
-    return this.parseResult(result)
+    try {
+      const result = this.db.exec(
+        'SELECT * FROM clipboard_history WHERE content LIKE ? ORDER BY created_at DESC LIMIT 50',
+        [`%${keyword}%`]
+      )
+      return this.parseResult(result)
+    } catch (error) {
+      log.error('[ClipboardService] 搜索历史记录失败:', error)
+      return []
+    }
   }
 
   /**
@@ -348,8 +408,12 @@ class ClipboardService {
    */
   delete(id: number): void {
     if (!this.db) return
-    this.db.run('DELETE FROM clipboard_history WHERE id = ?', [id])
-    this.save()
+    try {
+      this.db.run('DELETE FROM clipboard_history WHERE id = ?', [id])
+      this.save()
+    } catch (error) {
+      log.error('[ClipboardService] 删除历史记录失败:', error)
+    }
   }
 
   /**
@@ -357,8 +421,12 @@ class ClipboardService {
    */
   clearAll(): void {
     if (!this.db) return
-    this.db.run('DELETE FROM clipboard_history')
-    this.save()
+    try {
+      this.db.run('DELETE FROM clipboard_history')
+      this.save()
+    } catch (error) {
+      log.error('[ClipboardService] 清空历史记录失败:', error)
+    }
   }
 
   /**
@@ -367,9 +435,13 @@ class ClipboardService {
    */
   private autoCleanup(): void {
     if (!this.db) return
-    const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000
-    this.db.run('DELETE FROM clipboard_history WHERE created_at < ?', [cutoff])
-    this.save()
+    try {
+      const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000
+      this.db.run('DELETE FROM clipboard_history WHERE created_at < ?', [cutoff])
+      this.save()
+    } catch (error) {
+      log.error('[ClipboardService] 自动清理失败:', error)
+    }
   }
 
   /**
@@ -459,6 +531,11 @@ class ClipboardService {
       return this.getRetentionDays()
     })
 
+    // 获取历史记录总数
+    ipcMain.handle('to-service-ClipboardService:getHistoryCount', () => {
+      return this.getHistoryCount()
+    })
+
     // 设置保留天数
     ipcMain.handle('to-service-ClipboardService:setRetentionDays', (_event, days: number) => {
       this.setRetentionDays(days)
@@ -529,6 +606,22 @@ class ClipboardService {
    */
   getRetentionDays(): number {
     return this.retentionDays
+  }
+
+  /**
+   * 获取历史记录总数
+   * @returns 数据库中的剪贴板历史记录总数
+   */
+  getHistoryCount(): number {
+    if (!this.db) return 0
+    try {
+      const result = this.db.exec('SELECT COUNT(*) as count FROM clipboard_history')
+      if (!result || result.length === 0 || !result[0].values.length) return 0
+      return result[0].values[0][0] as number
+    } catch (error) {
+      log.error('[ClipboardService] 获取历史记录总数失败:', error)
+      return 0
+    }
   }
 
   /**

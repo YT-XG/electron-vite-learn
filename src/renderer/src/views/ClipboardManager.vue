@@ -9,7 +9,7 @@
       >
         <span class="tab-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
         <span class="tab-label">历史记录</span>
-        <span class="tab-count" v-if="historyList.length">{{ historyList.length }}</span>
+        <span class="tab-count" v-if="totalCount">{{ totalCount > 99 ? '99+' : totalCount }}</span>
       </button>
       <button
         class="cm-tab"
@@ -256,7 +256,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
 /**
  * 历史记录项类型
@@ -307,6 +307,12 @@ const activeTab = ref<'history' | 'favorites'>('history')
 /** 历史记录列表 */
 const historyList = ref<HistoryItem[]>([])
 
+/** 历史记录数据库总数 */
+const totalCount = ref(0)
+
+/** 历史记录搜索结果（从数据库搜索全量数据） */
+const searchResults = ref<HistoryItem[]>([])
+
 /** 片段列表 */
 const favoritesList = ref<FavoriteItem[]>([])
 
@@ -345,9 +351,8 @@ const formData = ref({
 const displayList = computed<DisplayItem[]>(() => {
   if (activeTab.value === 'history') {
     if (searchKeyword.value) {
-      return historyList.value.filter((item) =>
-        item.content.toLowerCase().includes(searchKeyword.value.toLowerCase())
-      )
+      // 搜索时使用 IPC 从数据库全量搜索的结果
+      return searchResults.value
     }
     return historyList.value
   }
@@ -375,8 +380,12 @@ const displayList = computed<DisplayItem[]>(() => {
  * 获取历史记录
  */
 const fetchHistory = async (): Promise<void> => {
-  const list = await window.electron.ipcRenderer.invoke('to-service-ClipboardService:getHistory', 100, 0)
+  const [list, count] = await Promise.all([
+    window.electron.ipcRenderer.invoke('to-service-ClipboardService:getHistory', 100, 0),
+    window.electron.ipcRenderer.invoke('to-service-ClipboardService:getHistoryCount')
+  ])
   historyList.value = list
+  totalCount.value = count
 }
 
 /**
@@ -596,6 +605,25 @@ const onNewItem = (_event: unknown, item: HistoryItem): void => {
     historyList.value.unshift(item)
   }
 }
+
+/**
+ * 搜索历史记录（通过 IPC 从数据库全量搜索）
+ */
+const searchHistory = async (keyword: string): Promise<void> => {
+  if (!keyword.trim()) {
+    searchResults.value = []
+    return
+  }
+  searchResults.value = await window.electron.ipcRenderer.invoke(
+    'to-service-ClipboardService:searchHistory',
+    keyword
+  )
+}
+
+// 监听搜索关键词变化，从数据库搜索
+watch(searchKeyword, (val) => {
+  searchHistory(val)
+})
 
 onMounted(async () => {
   await fetchHistory()

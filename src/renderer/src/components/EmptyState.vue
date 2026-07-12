@@ -7,6 +7,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 /**
  * 统一空状态组件
  * @property icon - 图标名称（search / clipboard / download / translate / folder）
@@ -38,8 +40,6 @@ const icons: Record<string, string> = {
 }
 
 const iconSvg = computed(() => icons[props.icon] || icons.folder)
-
-import { computed } from 'vue'
 </script>
 
 <style scoped>

@@ -165,27 +165,16 @@ export default class WindowFactory {
   }
 
   /**
-   * 销毁所有窗口
+   * 关闭所有窗口（销毁）
+   * @description 应用退出时调用，统一使用 destroy() 释放资源
    */
-  destroyAll(): void {
+  closeAll(): void {
     this.#mainPageFrame?.destroy()
     this.#searchBoxFrame?.destroy()
     this.#markdownPreviewFrame?.destroy()
     this.#contextMenuFrame?.destroy()
     this.#jsonToolFrame?.destroy()
     this.#snippetPickerFrame?.destroy()
-  }
-
-  /**
-   * 关闭所有窗口（隐藏）
-   */
-  closeAll(): void {
-    this.#mainPageFrame?.close()
-    this.#searchBoxFrame?.hide()
-    this.#markdownPreviewFrame?.destroy()
-    this.#contextMenuFrame?.hideMenu()
-    this.#jsonToolFrame?.destroy()
-    this.#snippetPickerFrame?.hide()
   }
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="confirm-container" :class="animState" @animationend="onAnimationEnd">
+  <div class="confirm-container" :class="animState" @transitionend="onAnimationEnd">
     <div
       class="confirm-card"
       @mouseenter="onMouseEnterCard"

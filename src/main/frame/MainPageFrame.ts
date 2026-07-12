@@ -1,4 +1,5 @@
 import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, screen } from 'electron'
+import log from 'electron-log'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
 
@@ -301,7 +302,7 @@ export default class MainPageFrame extends BaseFrame {
 
     // 从剪贴板打开 Markdown 编辑器
     this.recvOne('to-main-MainPage:openClipboardInMarkdown', (_event, content: string) => {
-      console.log('[MainPageFrame] Received openClipboardInMarkdown IPC, content length:', content.length)
+      log.info('[MainPageFrame] Received openClipboardInMarkdown IPC, content length:', content.length)
       // 隐藏主界面
       if (this.isAlive()) {
         this.close()
@@ -313,7 +314,7 @@ export default class MainPageFrame extends BaseFrame {
         const win = mdFrame.create(true)
         // 一次性监听 ready 信号
         const readyHandler = (): void => {
-          console.log('[MainPageFrame] Markdown renderer ready, sending content...')
+          log.info('[MainPageFrame] Markdown renderer ready, sending content...')
           win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
         }
         ipcMain.once('to-main-MarkdownPreview:ready', readyHandler)
@@ -321,7 +322,7 @@ export default class MainPageFrame extends BaseFrame {
         setTimeout(() => {
           ipcMain.removeListener('to-main-MarkdownPreview:ready', readyHandler)
           if (!win.isDestroyed()) {
-            console.log('[MainPageFrame] Timeout, sending content anyway...')
+            log.info('[MainPageFrame] Timeout, sending content anyway...')
             win.webContents.send('to-renderer-MarkdownPreview:newTab', content)
           }
         }, 3000)

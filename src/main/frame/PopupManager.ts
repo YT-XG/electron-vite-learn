@@ -73,7 +73,7 @@ export default class PopupManager {
     const slotIndex = this.getFreeSlot()
     if (slotIndex === null) {
       // 所有槽位已满，丢弃最早的
-      this.destroySlot(0)
+      this.destroySlotNow(0)
       return this.showNotice(createWindowFn, popupOptions, noticeOptions)
     }
 
@@ -122,7 +122,11 @@ export default class PopupManager {
 
     // 创建新弹窗
     const slotIndex = this.getFreeSlot()
-    if (slotIndex === null) return this.showClaudeStatus(text, createWindowFn, updateContentFn)
+    if (slotIndex === null) {
+      // 所有槽位已满，丢弃最早的
+      this.destroySlotNow(0)
+      return this.showClaudeStatus(text, createWindowFn, updateContentFn)
+    }
 
     const window = createWindowFn()
     const popup = new PopupItem({ type: 'notice', width: 500, height: 60, isClaudeStatus: true }, window)
@@ -179,7 +183,11 @@ export default class PopupManager {
     if (deadIdx !== -1) this.slots[deadIdx] = null
 
     const slotIndex = this.getFreeSlot()
-    if (slotIndex === null) return this.showPermissionNotice(createWindowFn, popupOptions, showContentFn)
+    if (slotIndex === null) {
+      // 所有槽位已满，丢弃最早的
+      this.destroySlotNow(0)
+      return this.showPermissionNotice(createWindowFn, popupOptions, showContentFn)
+    }
 
     const window = createWindowFn()
     const popup = new PopupItem(popupOptions, window)
@@ -218,7 +226,7 @@ export default class PopupManager {
   ): PopupItem {
     const slotIndex = this.getFreeSlot()
     if (slotIndex === null) {
-      this.destroySlot(0)
+      this.destroySlotNow(0)
       return this.showUpdateNotice(createWindowFn, popupOptions, showContentFn)
     }
 
@@ -269,6 +277,17 @@ export default class PopupManager {
     await this.sleep(ANIMATION_DURATION_MS)
 
     // 销毁窗口
+    popup.destroyImmediate()
+    this.slots[slotIndex] = null
+  }
+
+  /**
+   * 同步销毁指定槽位的弹窗（跳过退出动画，用于槽位满时腾出空间）
+   * @param slotIndex - 槽位索引
+   */
+  private destroySlotNow(slotIndex: number): void {
+    const popup = this.slots[slotIndex]
+    if (!popup) return
     popup.destroyImmediate()
     this.slots[slotIndex] = null
   }
@@ -360,25 +379,6 @@ export default class PopupManager {
   // ========== 生命周期 ==========
 
   /**
-   * 销毁所有弹窗（同步，不播放动画）
-   */
-  destroyAll(): void {
-    for (let i = 0; i < this.slots.length; i++) {
-      if (this.slots[i] !== null) {
-        this.slots[i]!.destroyImmediate()
-        this.slots[i] = null
-      }
-    }
-  }
-
-  /**
-   * 获取当前弹窗数量
-   */
-  getPopupCount(): number {
-    return this.slots.filter((s) => s !== null).length
-  }
-
-  /**
    * 按槽位索引销毁通知（供持久通知手动关闭）
    * @param slotIndex - 槽位索引
    */
@@ -393,9 +393,6 @@ export default class PopupManager {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
-
-// 导出常量
-export const POPUP_GAP = 8
 
 // 导出单例
 export const popupManager = new PopupManager()

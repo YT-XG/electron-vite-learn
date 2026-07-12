@@ -42,9 +42,6 @@ export default class SnippetPickerFrame extends BaseFrame {
   /** 是否正在显示 */
   #isVisible = false
 
-  /** 是否已注册 IPC */
-  static #ipcRegistered = false
-
   /**
    * 重写创建方法
    */
@@ -127,7 +124,7 @@ export default class SnippetPickerFrame extends BaseFrame {
         this.window.hide()
         app.hide()
         setTimeout(() => {
-          ;(app as any).unhide()
+          app.show()
           resolve()
         }, 200)
       } else {
@@ -175,11 +172,6 @@ export default class SnippetPickerFrame extends BaseFrame {
    */
   protected registerIPC(): void {
     super.registerIPC()
-
-    // 只注册一次 IPC（窗口销毁重建时复用）
-    if (SnippetPickerFrame.#ipcRegistered) {
-      return
-    }
 
     // 获取最近剪贴板历史（搜索框为空时展示）
     this.recvTwo('to-main-SnippetPicker:getRecentHistory', () => {
@@ -287,7 +279,5 @@ export default class SnippetPickerFrame extends BaseFrame {
     this.recvOne('to-main-SnippetPicker:hide', () => {
       this.hide()
     })
-
-    SnippetPickerFrame.#ipcRegistered = true
   }
 }

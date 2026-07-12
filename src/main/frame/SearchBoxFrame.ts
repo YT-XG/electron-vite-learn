@@ -39,9 +39,6 @@ export default class SearchBoxFrame extends BaseFrame {
   /** 是否正在显示 */
   #isVisible = false
 
-  /** 是否已注册 IPC */
-  static #ipcRegistered = false
-
   /**
    * 重写创建方法
    */
@@ -141,11 +138,6 @@ export default class SearchBoxFrame extends BaseFrame {
   protected registerIPC(): void {
     super.registerIPC()
 
-    // 只注册一次 IPC
-    if (SearchBoxFrame.#ipcRegistered) {
-      return
-    }
-
     // 搜索工具
     this.recvTwo('to-main-SearchBox:searchTools', (_event, query: string) => {
       return searchService.searchTools(query)
@@ -185,7 +177,5 @@ export default class SearchBoxFrame extends BaseFrame {
     this.recvOne('to-main-SearchBox:hide', () => {
       this.hide()
     })
-
-    SearchBoxFrame.#ipcRegistered = true
   }
 }

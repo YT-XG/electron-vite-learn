@@ -146,8 +146,7 @@ class TextShareService {
     const popup = popupManager.showNotice(
       () => {
         const frame = new NoticeNewFrame()
-        // 参数: text, showTranslate, type, isPersistent, showShare, showCopy, showCloseText
-        frame.setMsg(displayText, false, 'default', true, false, true, true)
+        frame.setMsg({ data: displayText, isPersistent: true, showCopy: true, showCloseText: true })
         return frame.create()
       },
       { type: 'notice', width: 520, height: 80 },

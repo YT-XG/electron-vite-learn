@@ -377,19 +377,21 @@ export class MultiThreadDownloadEngine {
           method: 'HEAD',
         })
 
+        // 设置 30 秒超时
+        const timeoutId = setTimeout(() => {
+          request.abort()
+          reject(new Error('HEAD 请求超时'))
+        }, 30000)
+
         request.on('response', (response) => {
+          clearTimeout(timeoutId)
           resolve(response)
         })
 
         request.on('error', (error) => {
+          clearTimeout(timeoutId)
           reject(error)
         })
-
-        // 设置 30 秒超时
-        setTimeout(() => {
-          request.abort()
-          reject(new Error('HEAD 请求超时'))
-        }, 30000)
 
         request.end()
       })

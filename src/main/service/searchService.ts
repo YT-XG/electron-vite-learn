@@ -1,4 +1,5 @@
 import { shell } from 'electron'
+import log from 'electron-log'
 import { windowFactory, popupManager, NoticeNewFrame, UpdateNewFrame } from '../frame'
 
 /**
@@ -91,7 +92,7 @@ class SearchService {
         popupManager.showNotice(
           () => {
             const frame = new NoticeNewFrame()
-            frame.setMsg('正在检查更新...')
+            frame.setMsg({ data: '正在检查更新...' })
             return frame.create()
           },
           { type: 'notice', width: 500, height: 60 },
@@ -105,7 +106,7 @@ class SearchService {
             popupManager.showNotice(
               () => {
                 const frame = new NoticeNewFrame()
-                frame.setMsg(res?.msg || '检查更新完成')
+                frame.setMsg({ data: res?.msg || '检查更新完成' })
                 return frame.create()
               },
               { type: 'notice', width: 500, height: 60 },
@@ -116,7 +117,7 @@ class SearchService {
             popupManager.showNotice(
               () => {
                 const frame = new NoticeNewFrame()
-                frame.setMsg('检查更新失败: ' + (err.message || '未知错误'))
+                frame.setMsg({ data: '检查更新失败: ' + (err.message || '未知错误') })
                 return frame.create()
               },
               { type: 'notice', width: 500, height: 60 },
@@ -300,9 +301,19 @@ class SearchService {
         matchType: 'fuzzy' as const
       }))
     } catch (error) {
-      console.error('搜索剪贴板失败:', error)
+      log.error('[SearchService] 搜索剪贴板失败:', error)
       return []
     }
+  }
+
+  /**
+   * 搜索应用
+   * @param query - 搜索关键词
+   * @returns 搜索结果（当前返回空数组，预留扩展）
+   */
+  searchApps(_query: string): SearchResultItem[] {
+    // 预留：后续可集成系统应用搜索（如 Windows 开始菜单、macOS Spotlight）
+    return []
   }
 
   /**
