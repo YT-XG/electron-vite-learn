@@ -5,12 +5,13 @@
  *              发送文本到目标设备的 /share-text 端点
  *              接收文本后通过 PopupManager 显示持久通知
  */
-import { BrowserWindow, clipboard, ipcMain } from 'electron'
+import { clipboard, ipcMain } from 'electron'
 import http from 'http'
 import log from 'electron-log'
 import { fileTransferService } from './fileTransferService'
 import { popupManager } from '../frame/PopupManager'
 import NoticeNewFrame from '../frame/NoticeNewFrame'
+import { broadcast } from '../utils/platform'
 
 // ── 类型 ──
 
@@ -127,11 +128,7 @@ class TextShareService {
     }
 
     // 广播到所有可见窗口
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('broadcast:text-received', info)
-      }
-    })
+    broadcast('broadcast:text-received', info)
 
     // 通过 PopupManager 显示持久通知
     this.#showReceivedTextNotification(info)

@@ -40,7 +40,6 @@ export default class QuickShareFrame extends BaseFrame {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false
   }
 
   protected readonly routePath = '/quickShare'
@@ -81,9 +80,7 @@ export default class QuickShareFrame extends BaseFrame {
    */
   create(): BrowserWindow {
     this.#msgSent = false
-    const win = super.create()
-    win.setIgnoreMouseEvents(true, { forward: true })
-    return win
+    return super.create()
   }
 
   /**
@@ -98,15 +95,19 @@ export default class QuickShareFrame extends BaseFrame {
       if (this.#msgSent) return
       this.#msgSent = true
 
-      // 先显示窗口，再发数据，animate IPC 在渲染进程用双 rAF 延迟到第二帧
-      if (this.isAlive() && this.window && !this.window.isDestroyed()) {
-        this.window.showInactive()
-      }
+      // 先发数据，再发动画指令，渲染进程在 animate 双 rAF 后发 show-window 来显示
       this.sendOne('to-renderer-QuickShareFrame:show', {
         files: this.#files,
         devices: fileTransferService.getDevices().filter((d: DeviceInfo) => !d.offline)
       })
       this.sendOne('to-renderer-QuickShareFrame:animate', { action: 'enter' })
+    })
+
+    // 渲染进程通知：动画已就绪（双 rAF 后），可以显示窗口
+    this.recvOne('to-main-QuickShareFrame:show-window', () => {
+      if (this.isAlive() && this.window && !this.window.isDestroyed()) {
+        this.window.showInactive()
+      }
     })
 
     // 用户选择了目标设备并确认发送
@@ -132,20 +133,6 @@ export default class QuickShareFrame extends BaseFrame {
     // 关闭弹窗
     this.recvOne('to-main-QuickShareFrame:close', () => {
       this.destroy()
-    })
-
-    // 鼠标进入卡片区域：关闭鼠标穿透
-    this.recvOne('to-main-QuickShareFrame:mouse-enter-card', () => {
-      if (this.isAlive()) {
-        this.window!.setIgnoreMouseEvents(false)
-      }
-    })
-
-    // 鼠标离开卡片区域：恢复鼠标穿透
-    this.recvOne('to-main-QuickShareFrame:mouse-leave-card', () => {
-      if (this.isAlive()) {
-        this.window!.setIgnoreMouseEvents(true, { forward: true })
-      }
     })
   }
 

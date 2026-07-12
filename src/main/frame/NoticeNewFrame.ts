@@ -80,7 +80,6 @@ export default class NoticeNewFrame extends BaseFrame {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false
   }
 
   /** 路由路径 */

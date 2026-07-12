@@ -142,8 +142,8 @@ function showQuickShare(): void {
   pendingShareFiles = []
 }
 
-// 单实例锁：确保只有一个实例运行
-const gotLock = app.requestSingleInstanceLock()
+// 单实例锁：确保只有一个实例运行（设置 ALLOW_MULTI_INSTANCE=1 可绕过，用于联机测试）
+const gotLock = process.env.ALLOW_MULTI_INSTANCE || app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {

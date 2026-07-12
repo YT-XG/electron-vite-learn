@@ -57,7 +57,6 @@ export default class UpdateNewFrame extends BaseFrame {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false
   }
 
   /** 路由路径 */

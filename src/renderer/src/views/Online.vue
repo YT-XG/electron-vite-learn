@@ -5,9 +5,24 @@
       <div class="server-info">
         <span class="status-dot" :class="{ online: serverInfo.port > 0 }"></span>
         <span class="device-name">{{ serverInfo.name }}</span>
-        <span class="device-ip">{{ serverInfo.address }}:{{ serverInfo.port }}</span>
+        <span class="device-port" v-if="serverInfo.port > 0">:{{ serverInfo.port }}</span>
+        <span class="online-badge" v-if="serverInfo.port > 0">已在线</span>
       </div>
-      <span class="online-badge" v-if="serverInfo.port > 0">已在线</span>
+      <!-- 本机地址列表 -->
+      <div class="address-list" v-if="serverInfo.port > 0">
+        <div
+          v-for="(ip, idx) in displayAddresses"
+          :key="idx"
+          class="address-chip"
+          :class="{ 'is-ipv6': ip.includes(':'), copied: ipCopied === ip }"
+          @click="copyIP(ip)"
+          :title="`点击复制${ip.includes(':') ? ' IPv6' : ''} 地址`"
+        >
+          <span class="addr-tag">{{ ip.includes(':') ? 'IPv6' : 'IPv4' }}</span>
+          <span class="addr-value">{{ ip }}</span>
+          <span class="addr-hint">{{ ipCopied === ip ? '已复制' : '复制' }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- 主体内容 -->
@@ -38,12 +53,12 @@
               <span class="device-card-offline" v-if="device.offline">离线</span>
             </div>
             <div class="device-card-bottom">
-              <span class="device-card-ip">{{ device.address }}:{{ device.port }}</span>
+              <span class="device-card-ip">{{ formatAddr(device.address, device.port) }}</span>
               <span class="device-card-version" v-if="device.version">v{{ device.version }}</span>
             </div>
           </div>
         </div>
-        <EmptyState v-else icon="search" text="扫描中..." hint="正在搜索局域网内的设备" />
+        <EmptyState v-else icon="search" text="搜索设备中..." hint="局域网设备自动发现，跨网设备手动添加" />
       </div>
 
       <!-- 手动添加设备 -->
@@ -59,7 +74,7 @@
                 v-model="manualIP"
                 type="text"
                 class="manual-input"
-                placeholder="IP 地址（自动探针发现端口）"
+                placeholder="IP 或 IPv6 地址（自动探针发现端口）"
                 spellcheck="false"
                 @keydown.enter="manualAddDevice"
               />
@@ -67,7 +82,7 @@
             </div>
             <div class="manual-device-tags" v-if="manualDevices.length > 0">
               <div v-for="(dev, idx) in manualDevices" :key="idx" class="manual-device-tag">
-                <span>{{ dev.address }}:{{ dev.port }}</span>
+                <span>{{ formatAddr(dev.address, dev.port) }}</span>
                 <button class="tag-remove" @click="removeManualDevice(dev.address, dev.port)" title="移除">×</button>
               </div>
             </div>
@@ -109,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import EmptyState from '@renderer/components/EmptyState.vue'
 
 interface DeviceInfo {
@@ -120,9 +135,24 @@ interface DeviceInfo {
   offline?: boolean
 }
 
+// ── 工具函数 ──
+
+/** 格式化地址显示（IPv6 自动加方括号） */
+function formatAddr(address: string, port: number): string {
+  const host = address.includes(':') ? `[${address}]` : address
+  return `${host}:${port}`
+}
+
 // ── 状态 ──
 
-const serverInfo = ref({ name: '', address: '', port: 0 })
+const serverInfo = ref<{
+  name: string
+  address: string
+  port: number
+  ipv4: string[]
+  ipv6: string[]
+  all: string[]
+}>({ name: '', address: '', port: 0, ipv4: [], ipv6: [], all: [] })
 const devices = ref<DeviceInfo[]>([])
 const isRefreshing = ref(false)
 
@@ -137,14 +167,40 @@ const showAddSubnet = ref(true)
 const newSubnet = ref('')
 const scanSubnets = ref<string[]>([])
 
+/** 已复制的 IP（显示"已复制"反馈） */
+const ipCopied = ref('')
+
+/**
+ * 展示用的地址列表：IPv4 取非回环地址，IPv6 只保留公网全局单播地址
+ * 去重后最多展示 6 个，避免界面过长
+ */
+const displayAddresses = computed(() => {
+  const addrs: string[] = []
+  // IPv4：排除本地回环（127.0.0.1），取前 3 个
+  for (const ip of serverInfo.value.ipv4) {
+    if (ip !== '127.0.0.1' && !addrs.includes(ip)) addrs.push(ip)
+  }
+  // IPv6 公网全局单播地址以 2 或 3 开头（2000::/3）
+  // 排除链路本地 fe80::、唯一本地 fc/fd::、多播 ff::、回环 ::1
+  for (const ip of serverInfo.value.ipv6) {
+    if (/^[23]/.test(ip) && !addrs.includes(ip)) addrs.push(ip)
+  }
+  return addrs.slice(0, 6)
+})
+
 // ── 操作 ──
 
 /**
  * 手动添加设备（仅 IP，端口由探针自动发现）
+ * 支持 IPv4 和 IPv6 地址，IPv6 可带或不带方括号
  */
 async function manualAddDevice(): Promise<void> {
-  const ip = manualIP.value.trim()
+  let ip = manualIP.value.trim()
   if (!ip || manualAdding.value) return
+  // 去掉用户可能输入的方括号（[240e::1] → 240e::1）
+  if (ip.startsWith('[') && ip.endsWith(']')) {
+    ip = ip.slice(1, -1)
+  }
   manualAdding.value = true
   try {
     await window.electron.ipcRenderer.invoke('to-service-FileTransferService:addDevice', ip, 0)
@@ -234,6 +290,21 @@ async function removeSubnet(idx: number): Promise<void> {
   await window.electron.ipcRenderer.invoke('to-service-FileTransferService:setScanSubnets', [...scanSubnets.value])
 }
 
+/**
+ * 复制 IP 地址到剪贴板
+ */
+async function copyIP(ip: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(ip)
+    ipCopied.value = ip
+    setTimeout(() => {
+      if (ipCopied.value === ip) ipCopied.value = ''
+    }, 2000)
+  } catch {
+    // 剪贴板不可用（非 HTTPS 环境等），忽略
+  }
+}
+
 // ── 生命周期 ──
 
 onMounted(async () => {
@@ -268,9 +339,9 @@ onUnmounted(() => {
 
 .online-topbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -280,6 +351,84 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/** 地址列表行 */
+.address-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/** 单个地址卡片 */
+.address-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: JetBrains Mono, monospace;
+  cursor: pointer;
+  transition: all 150ms;
+  user-select: none;
+  background: var(--bg-base);
+}
+.address-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.address-chip:active {
+  transform: scale(0.97);
+}
+.address-chip.copied {
+  border-color: var(--success);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+/** IPv4 / IPv6 标签 */
+.addr-tag {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.address-chip.is-ipv6 .addr-tag {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+.address-chip:not(.is-ipv6) .addr-tag {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+/** 地址值 */
+.addr-value {
+  color: var(--text-primary);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/** 复制 / 已复制 提示 */
+.addr-hint {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.address-chip:hover .addr-hint {
+  opacity: 1;
+}
+.address-chip.copied .addr-hint {
+  opacity: 1;
+  color: var(--success);
 }
 
 .status-dot {
@@ -298,6 +447,12 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.device-port {
+  font-size: 12px;
+  font-family: JetBrains Mono, monospace;
+  color: var(--text-tertiary);
 }
 
 .device-ip {

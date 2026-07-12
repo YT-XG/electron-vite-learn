@@ -1,6 +1,6 @@
 {
   "name": "prism",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Prism - 桌面效率工具：剪贴板管理、翻译、Markdown 预览、全局搜索",
   "main": "./out/main/index.js",
   "author": "ytxg.com",
@@ -33,6 +33,7 @@
     "multicast-dns": "^7.2.5",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
+    "pinyin-pro": "^3.28.1",
     "sql.js": "^1.14.1",
     "vue-router": "^4.6.4"
   },

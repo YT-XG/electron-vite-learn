@@ -1,11 +1,12 @@
 import initSqlJs, { Database } from 'sql.js'
-import { app, BrowserWindow, clipboard, ipcMain } from 'electron'
+import { app, clipboard, ipcMain } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log'
 import { popupManager, NoticeNewFrame, windowFactory } from '../frame'
 import { inputService } from './inputService'
 import { settingsService } from './settingsService'
+import { broadcast } from '../utils/platform'
 
 /**
  * 剪贴板历史记录项
@@ -192,11 +193,7 @@ class ClipboardService {
         content,
         created_at: now
       }
-      BrowserWindow.getAllWindows().forEach((w) => {
-        if (!w.isDestroyed() && w.isVisible()) {
-          w.webContents.send('broadcast:clipboard-new', newItem)
-        }
-      })
+      broadcast('broadcast:clipboard-new', newItem, { onlyVisible: true })
 
       // 弹出通知弹窗（显示翻译按钮和分享按钮）
       popupManager.showNotice(

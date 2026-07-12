@@ -26,7 +26,6 @@ export default class ShareSelectFrame extends BaseFrame {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false
   }
 
   protected readonly routePath = '/shareSelect'

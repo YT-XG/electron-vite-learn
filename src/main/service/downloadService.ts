@@ -12,6 +12,7 @@ import {
   type DownloadTaskSnapshot,
   type StartDownloadOptions,
 } from '../core/downloadEngine'
+import { broadcast } from '../utils/platform'
 
 /** 最大持久化任务数 */
 const MAX_PERSISTED_TASKS = 200
@@ -393,14 +394,7 @@ class DownloadService {
   private emitToRenderer(task: DownloadTaskSnapshot): void {
     this.upsertTaskSnapshot(task)
     this.schedulePersist()
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (win.isDestroyed()) return
-      try {
-        win.webContents.send('download:task-updated', task)
-      } catch {
-        // ignore
-      }
-    })
+    broadcast('download:task-updated', task)
   }
 
   /**

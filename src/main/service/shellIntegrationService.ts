@@ -89,7 +89,7 @@ class ShellIntegrationService {
   /**
    * Windows: 写入注册表
    *
-   * 原理：注册表直接调用 PowerShell -File psf.ps1，不经过 cmd.exe。
+   * 原理：注册表直接调用 wscript.exe psf.vbs，wscript 是 GUI 程序，无窗口。
    *       PowerShell -WindowStyle Hidden 完全无窗口。
    *       脚本将文件路径写入 %TEMP%\psf，然后尝试 HTTP 通知正在运行的应用。
    *       应用未运行时启动 Electron 隐藏窗口（单例锁让新实例立即退出）。
@@ -99,58 +99,84 @@ class ShellIntegrationService {
    *   Icon="C:\path\to\prism.exe"
    *   MultiSelectModel="Document"
    * HKCU\Software\Classes\*\shell\ShareWithPrism\command
-   *   @="powershell -WindowStyle Hidden ... -File \"%TEMP%\\psf.ps1\" \"%1\""
+   *   @="wscript.exe \"C:\path\to\psf.vbs\" \"%1\""
    */
   async #registerWindows(): Promise<void> {
     const exePath = app.getPath('exe')
     const appPath = app.getAppPath()
     const isDevExe = exePath.includes('node_modules')
 
-    // ── 创建 psf.ps1（写 userData 目录，路径固定，无需 %TEMP% 环境变量） ──
-    // 用单引号包围路径避免 PowerShell 解释特殊字符
-    // exePath/appPath 中的单引号用 '' 转义（PowerShell 单引号转义规则）
-    const ps1FilePath = join(app.getPath('userData'), 'psf.ps1')
-    const escapedExe = exePath.replace(/'/g, "''")
-    const escapedApp = appPath.replace(/'/g, "''")
-    // 启动 Electron 的命令行参数部分
-    const startArgs = isDevExe
-      ? `-FilePath '${escapedExe}' -ArgumentList '${escapedApp}'`
-      : `-FilePath '${escapedExe}'`
+    // ── 创建 psf.vbs（wscript.exe 执行，无任何窗口） ──
+    // 用 wscript 代替 PowerShell，因为 wscript.exe 是 GUI 程序，不创建控制台窗口
+    // 而 powershell.exe 是控制台程序，即使 -WindowStyle Hidden 也会闪烁 CMD 窗口
+    const vbsFilePath = join(app.getPath('userData'), 'psf.vbs')
+    // VBS 字符串中转义双引号
+    const esc = (s: string): string => s.replace(/"/g, '""')
+    const exeEsc = esc(exePath)
+    const appEsc = esc(appPath)
 
-    const psScript = [
-      '# 收集文件路径（来自 PowerShell -File 参数 $args）',
-      '$paths = @($args | % { $_ })',
-      'if ($paths.Count -eq 0) { exit }',
+    const vbsScript = [
+      "' psf.vbs - Miaomiao House share helper",
+      'Set args = WScript.Arguments',
+      'If args.Count = 0 Then WScript.Quit',
+      'q = Chr(34)',
       '',
-      '# 写入临时文件（供应用冷启动时读取）',
-      '$tf = [IO.Path]::Combine($env:TEMP, "psf")',
-      '[IO.File]::WriteAllText($tf, [string]::Join("|", $paths), [Text.Encoding]::UTF8)',
+      "' write paths to temp file (pipe-separated)",
+      'Set fso = CreateObject("Scripting.FileSystemObject")',
+      'tf = fso.GetSpecialFolder(2) & "\\psf"',
+      'Set tfFile = fso.CreateTextFile(tf, True)',
+      'pathStr = ""',
+      'For i = 0 To args.Count - 1',
+      '  If i > 0 Then pathStr = pathStr & "|"',
+      '  pathStr = pathStr & args(i)',
+      'Next',
+      'tfFile.Write pathStr',
+      'tfFile.Close',
       '',
-      '# 尝试 HTTP 通知正在运行的应用',
-      '$pf = [IO.Path]::Combine($env:TEMP, "psf-port")',
-      'if (Test-Path $pf) {',
-      '  try {',
-      '    $port = [IO.File]::ReadAllText($pf).Trim()',
-      '    $body = @{ paths = $paths } | ConvertTo-Json',
-      '    $null = Invoke-WebRequest -Uri "http://localhost:$port/share-local-files" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -TimeoutSec 2',
-      '    exit 0',
-      '  } catch { }',
-      '}',
+      "' try HTTP notify running app",
+      'pf = fso.GetSpecialFolder(2) & "\\psf-port"',
+      'If fso.FileExists(pf) Then',
+      '  Set pfFile = fso.OpenTextFile(pf, 1)',
+      '  port = Trim(pfFile.ReadAll)',
+      '  pfFile.Close',
+      '  json = "{" & q & "paths" & q & ":[" & JoinPaths(args) & "]}"',
+      '  Set http = CreateObject("MSXML2.XMLHTTP")',
+      '  On Error Resume Next',
+      '  http.open "POST", "http://localhost:" & port & "/share-local-files", False',
+      '  http.setRequestHeader "Content-Type", "application/json"',
+      '  http.send json',
+      '  If Err.Number = 0 And http.Status = 200 Then WScript.Quit 0',
+      '  On Error Goto 0',
+      'End If',
       '',
-      '# 应用未运行，启动它（隐藏窗口，单例锁让新实例立即退出）',
-      `Start-Process ${startArgs} -WindowStyle Hidden`
+      "' launch app if not running (hidden window, singleton lock exits new instance)",
+      `startCmd = Chr(34) & "${exeEsc}" & Chr(34)`,
+      `If "${isDevExe}" = "true" Then startCmd = startCmd & " " & Chr(34) & "${appEsc}" & Chr(34)`,
+      'Set shell = CreateObject("WScript.Shell")',
+      'shell.Run startCmd, 0, False',
+      '',
+      "' helper: path array to JSON array string",
+      'Function JoinPaths(arr)',
+      '  Dim res, j, qq, bs',
+      '  qq = Chr(34)',
+      '  bs = Chr(92)',
+      '  For j = 0 To arr.Count - 1',
+      '    If j > 0 Then res = res & ","',
+      '    res = res & qq & Replace(arr(j), qq, bs & qq) & qq',
+      '  Next',
+      '  JoinPaths = res',
+      'End Function'
     ].join('\r\n')
-    writeFileSync(ps1FilePath, psScript, 'utf-8')
-    log.info('[ShellIntegration] psf.ps1 已创建:', ps1FilePath)
+    writeFileSync(vbsFilePath, vbsScript, 'utf-8')
+    log.info('[ShellIntegration] psf.vbs 已创建:', vbsFilePath)
 
     // ── 注册表项 ──
     await execAsync(`REG ADD "${REG_KEY}" /ve /t REG_SZ /d "${MENU_NAME}" /f`)
     await execAsync(`REG ADD "${REG_KEY}" /v "Icon" /t REG_SZ /d "${exePath}" /f`)
     await execAsync(`REG ADD "${REG_KEY}" /v "MultiSelectModel" /t REG_SZ /d "Document" /f`)
     const cmdKey = `${REG_KEY}\\command`
-    // 直接调用 PowerShell -File，无 cmd.exe 中转，无窗口
-    // 路径已固定（userData），无需 %TEMP% 环境变量，REG ADD 无引号冲突
-    const cmdValue = `powershell -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File "${ps1FilePath}" "%1"`
+    // 使用 wscript.exe 执行 VBS，wscript 是 GUI 程序，不会有任何窗口闪烁
+    const cmdValue = `wscript.exe "${vbsFilePath}" "%1"`
     const escapedValue = cmdValue.replace(/"/g, '\\"')
     await execAsync(`REG ADD "${cmdKey}" /ve /t REG_SZ /d "${escapedValue}" /f`)
 
@@ -166,8 +192,12 @@ class ShellIntegrationService {
     })
     // 清理辅助脚本（userData 目录）
     try {
-      const fp = join(app.getPath('userData'), 'psf.ps1')
+      // 清理新版 VBS
+      const fp = join(app.getPath('userData'), 'psf.vbs')
       if (existsSync(fp)) rmSync(fp)
+      // 兼容旧版：清理历史残留的 PS1
+      const oldFp = join(app.getPath('userData'), 'psf.ps1')
+      if (existsSync(oldFp)) rmSync(oldFp)
     } catch { /* ignore */ }
     log.info('[ShellIntegration] Windows 右键菜单已注销')
   }

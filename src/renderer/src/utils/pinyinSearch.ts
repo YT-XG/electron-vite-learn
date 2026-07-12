@@ -1,74 +1,19 @@
 /**
  * 拼音首字母搜索工具
- * @description 支持中文拼音首字母模糊匹配
+ * @description 使用 pinyin-pro 库实现中文拼音首字母模糊匹配
+ *              覆盖所有 Unicode 汉字，不再依赖手写映射表
  */
-
-/**
- * 拼音首字母映射表（常用汉字）
- */
-const PINYIN_MAP: Record<string, string> = {
-  '预': 'y', '览': 'l', '倒': 'd', '计': 'j', '时': 's',
-  '剪': 'j', '贴': 't', '板': 'b', '管': 'g', '理': 'l',
-  '翻': 'f', '译': 'y', '设': 's', '置': 'z', '下': 'x',
-  '载': 'z', '工': 'g', '具': 'j', '箱': 'x', '搜': 's',
-  '索': 's', '框': 'k', '马': 'm', '克': 'k', '号': 'h',
-  '颜': 'y', '色': 's', '取': 'q', '屏': 'p', '幕': 'm',
-  '格': 'g', '式': 's', '化': 'h',
-  '算': 's', '器': 'q', '记': 'j', '事': 's',
-  '本': 'b', '密': 'm', '码': 'm', '生': 's', '成': 'c',
-  '随': 's', '机': 'j', '数': 's',
-  '正': 'z', '则': 'z', '表': 'b', '达': 'd',
-  '编': 'b', '解': 'j',
-  '进': 'j', '制': 'z', '转': 'z', '换': 'h',
-  '地': 'd', '址': 'z', '查': 'c',
-  '端': 'd', '口': 'k', '扫': 's', '描': 'm',
-  '网': 'w', '页': 'y', '截': 'j', '图': 't',
-  '文': 'w', '件': 'j', '压': 'y', '缩': 's',
-  '备': 'b', '忘': 'w', '录': 'l',
-  '日': 'r', '历': 'l', '提': 't', '醒': 'x',
-  '快': 'k', '捷': 'j', '指': 'z', '令': 'l',
-  '代': 'd', '片': 'p', '段': 'd',
-  '选': 'x', '择': 'z',
-  '字': 'z', '体': 't',
-  '主': 'z', '题': 't', '切': 'q',
-  '背': 'b', '景': 'j',
-  '壁': 'b', '纸': 'z',
-  '系': 'x', '统': 't', '信': 'x', '息': 'x',
-  '性': 'x', '能': 'n', '监': 'j', '控': 'k',
-  '络': 'l', '状': 'z', '态': 't',
-  '磁': 'c', '盘': 'p', '空': 'k', '间': 'j',
-  '程': 'c',
-  '服': 'f', '务': 'w',
-  '据': 'j', '库': 'k',
-  '接': 'j',
-  '邮': 'y', '发': 'f', '送': 's',
-  '短': 'd', '验': 'y', '证': 'z',
-  '支': 'z', '付': 'f', '宝': 'b', '微': 'w',
-  '二': 'e', '维': 'w',
-  '条': 't', '形': 'x',
-  '追': 'z', '踪': 'g',
-  '身': 's', '份': 'f',
-  '银': 'y', '行': 'h', '卡': 'k',
-  '加': 'j',
-  '档': 'd',
-  '频': 'p',
-}
+import { pinyin } from 'pinyin-pro'
 
 /**
  * 获取字符串的拼音首字母
  * @param str - 输入字符串
- * @returns 拼音首字母
+ * @returns 拼音首字母（去空格，小写）
  */
 function getPinyinInitials(str: string): string {
-  let result = ''
-  for (const char of str) {
-    if (PINYIN_MAP[char]) {
-      result += PINYIN_MAP[char]
-    } else if (/[a-zA-Z0-9]/.test(char)) {
-      result += char.toLowerCase()
-    }
-  }
-  return result
+  // pinyin-pro 返回空格分隔的每个字的首字母
+  // 例: "中文" → "z w", "Hello世界" → "h e l l o s j"
+  return pinyin(str, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '')
 }
 
 /**
@@ -104,7 +49,7 @@ export function pinyinSearch<T extends SearchableItem>(items: T[], query: string
 
   for (const item of items) {
     const name = item.name.toLowerCase()
-    const pinyin = getPinyinInitials(item.name).toLowerCase()
+    const pinyinInitials = getPinyinInitials(item.name).toLowerCase()
     const aliases = (item.aliases || []).map(a => a.toLowerCase())
 
     let score = 0
@@ -126,7 +71,7 @@ export function pinyinSearch<T extends SearchableItem>(items: T[], query: string
       matchType = 'prefix'
     }
     // 拼音首字母匹配
-    else if (pinyin.startsWith(lowerQuery)) {
+    else if (pinyinInitials.startsWith(lowerQuery)) {
       score = 60
       matchType = 'pinyin'
     }
@@ -136,7 +81,7 @@ export function pinyinSearch<T extends SearchableItem>(items: T[], query: string
       matchType = 'fuzzy'
     }
     // 拼音包含匹配
-    else if (pinyin.includes(lowerQuery)) {
+    else if (pinyinInitials.includes(lowerQuery)) {
       score = 30
       matchType = 'fuzzy'
     }

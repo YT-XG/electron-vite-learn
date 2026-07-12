@@ -605,24 +605,44 @@ export class MultiThreadDownloadEngine {
 
       const fileHandle = await open(task.tempOutputPath, existingSize > 0 ? 'a' : 'w')
       try {
-        // 使用 Node.js 流处理
+        // 使用 Node.js 流处理（背压感知：固定队列深度，避免无限链式 promise）
         await new Promise<void>((resolve, reject) => {
-          let writeQueue = Promise.resolve()
+          const writeQueue: Buffer[] = []
+          const MAX_QUEUE_SIZE = 16
+          let writing = false
+
+          const flush = async (): Promise<void> => {
+            if (writing) return
+            writing = true
+            while (writeQueue.length > 0) {
+              const chunk = writeQueue.shift()!
+              await fileHandle.write(chunk)
+              task.downloadedBytes += chunk.length
+              this.updateTaskProgress(task)
+            }
+            writing = false
+            // 队列清空后恢复响应流
+            ;(response as any).resume()
+          }
 
           response.on('data', (chunk: Buffer) => {
             if (chunk && chunk.length > 0) {
-              // 将写入操作加入队列，确保顺序执行
-              writeQueue = writeQueue.then(async () => {
-                await fileHandle.write(chunk)
-                task.downloadedBytes += chunk.length
-                this.updateTaskProgress(task)
-              })
+              writeQueue.push(chunk)
+              if (writeQueue.length >= MAX_QUEUE_SIZE) {
+                ;(response as any).pause()
+              }
+              flush()
             }
           })
 
           response.on('end', async () => {
-            // 等待所有写入操作完成
-            await writeQueue
+            await new Promise<void>((wait) => {
+              const poll = (): void => {
+                if (!writing && writeQueue.length === 0) wait()
+                else setImmediate(poll)
+              }
+              poll()
+            })
             resolve()
           })
 

@@ -21,15 +21,12 @@ export default class SearchBoxFrame extends BaseFrame {
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
-    show: false,
     resizable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      nodeIntegration: false,
-      contextIsolation: true
+      sandbox: false
     }
   }
 

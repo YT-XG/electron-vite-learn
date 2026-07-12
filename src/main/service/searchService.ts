@@ -205,73 +205,33 @@ class SearchService {
       const aliases = tool.aliases.map(a => a.toLowerCase())
       const description = tool.description.toLowerCase()
 
-      let score = 0
-      let matchType: SearchResultItem['matchType'] = 'fuzzy'
+      // 匹配规则：优先级从高到低，首条命中即终止
+      const matchRules: Array<{ test: () => boolean; score: number; matchType: SearchResultItem['matchType'] }> = [
+        { test: () => name === lowerQuery, score: 100, matchType: 'exact' },
+        { test: () => name.startsWith(lowerQuery), score: 80, matchType: 'prefix' },
+        { test: () => aliases.some(a => a === lowerQuery), score: 75, matchType: 'exact' },
+        { test: () => aliases.some(a => a.startsWith(lowerQuery)), score: 70, matchType: 'prefix' },
+        { test: () => pinyin.startsWith(lowerQuery), score: 60, matchType: 'pinyin' },
+        { test: () => name.includes(lowerQuery), score: 40, matchType: 'fuzzy' },
+        { test: () => aliases.some(a => a.includes(lowerQuery)), score: 35, matchType: 'fuzzy' },
+        { test: () => pinyin.includes(lowerQuery), score: 30, matchType: 'fuzzy' },
+        { test: () => this.isPinyinFuzzyMatch(pinyin, lowerQuery), score: 25, matchType: 'fuzzy' },
+        { test: () => description.includes(lowerQuery), score: 20, matchType: 'fuzzy' },
+      ]
 
-      // 精确匹配
-      if (name === lowerQuery) {
-        score = 100
-        matchType = 'exact'
-      }
-      // 前缀匹配
-      else if (name.startsWith(lowerQuery)) {
-        score = 80
-        matchType = 'prefix'
-      }
-      // 别名精确匹配
-      else if (aliases.some(a => a === lowerQuery)) {
-        score = 75
-        matchType = 'exact'
-      }
-      // 别名前缀匹配
-      else if (aliases.some(a => a.startsWith(lowerQuery))) {
-        score = 70
-        matchType = 'prefix'
-      }
-      // 拼音首字母匹配
-      else if (pinyin.startsWith(lowerQuery)) {
-        score = 60
-        matchType = 'pinyin'
-      }
-      // 包含匹配
-      else if (name.includes(lowerQuery)) {
-        score = 40
-        matchType = 'fuzzy'
-      }
-      // 别名包含匹配
-      else if (aliases.some(a => a.includes(lowerQuery))) {
-        score = 35
-        matchType = 'fuzzy'
-      }
-      // 拼音包含匹配
-      else if (pinyin.includes(lowerQuery)) {
-        score = 30
-        matchType = 'fuzzy'
-      }
-      // 拼音模糊匹配（按顺序包含所有字符）
-      else if (this.isPinyinFuzzyMatch(pinyin, lowerQuery)) {
-        score = 25
-        matchType = 'fuzzy'
-      }
-      // 描述包含匹配
-      else if (description.includes(lowerQuery)) {
-        score = 20
-        matchType = 'fuzzy'
-      }
+      const matched = matchRules.find(r => r.test())
+      if (!matched) continue
 
-      if (score > 0) {
-        // 注意：不返回 action 函数（函数无法通过 IPC 序列化）
-        results.push({
-          id: tool.id,
-          name: tool.name,
-          aliases: tool.aliases,
-          category: tool.category,
-          icon: tool.icon,
-          description: tool.description,
-          score,
-          matchType
-        })
-      }
+      results.push({
+        id: tool.id,
+        name: tool.name,
+        aliases: tool.aliases,
+        category: tool.category,
+        icon: tool.icon,
+        description: tool.description,
+        score: matched.score,
+        matchType: matched.matchType
+      })
     }
 
     return results.sort((a, b) => b.score - a.score)

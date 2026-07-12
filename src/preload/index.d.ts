@@ -122,7 +122,17 @@ interface IPCChannels {
   invoke(channel: 'to-service-FileTransferService:pickFiles'): Promise<FileEntry[]>
   invoke(channel: 'to-service-FileTransferService:cancelTransfer', recordId: string): Promise<void>
   invoke(channel: 'to-service-FileTransferService:cancelRemoteTransfer', targetAddress: string, targetPort: number, requestId: string): Promise<void>
-  invoke(channel: 'to-service-FileTransferService:getServerInfo'): Promise<{ name: string; address: string; port: number }>
+  invoke(channel: 'to-service-FileTransferService:getServerInfo'): Promise<{
+    name: string
+    address: string
+    port: number
+    /** 所有 IPv4 地址 */
+    ipv4: string[]
+    /** 所有 IPv6 地址 */
+    ipv6: string[]
+    /** 所有地址（不分协议） */
+    all: string[]
+  }>
   invoke(channel: 'to-service-FileTransferService:pickDirectory'): Promise<string | null>
   invoke(channel: 'to-service-FileTransferService:getScanSubnets'): Promise<string[]>
   invoke(channel: 'to-service-FileTransferService:setScanSubnets', subnets: string[]): Promise<{ ok: boolean }>
@@ -168,9 +178,11 @@ interface IPCChannels {
   on(channel: 'to-renderer-QuickShareFrame:animate', listener: (event: unknown, data: { action: 'enter' | 'exit' }) => void): void
   on(channel: 'to-renderer-QuickShareFrame:sendResult', listener: (event: unknown, data: { success: boolean; error?: string }) => void): void
   send(channel: 'to-main-QuickShareFrame:ready'): void
+  send(channel: 'to-main-QuickShareFrame:show-window'): void
   send(channel: 'to-main-QuickShareFrame:sendFiles', target: DeviceInfo): void
   send(channel: 'to-main-QuickShareFrame:mouse-enter-card'): void
   send(channel: 'to-main-QuickShareFrame:mouse-leave-card'): void
+  send(channel: 'to-main-QuickShareFrame:drag-move', delta: { dx: number; dy: number }): void
   send(channel: 'to-main-QuickShareFrame:close'): void
   removeListener(channel: 'to-renderer-QuickShareFrame:show', listener: (...args: unknown[]) => void): void
   removeListener(channel: 'to-renderer-QuickShareFrame:animate', listener: (...args: unknown[]) => void): void

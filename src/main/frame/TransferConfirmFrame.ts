@@ -28,7 +28,6 @@ export default class TransferConfirmFrame extends BaseFrame {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false
   }
 
   protected readonly routePath = '/transferConfirm'

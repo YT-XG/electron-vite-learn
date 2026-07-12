@@ -32,7 +32,6 @@ export default class MainPageFrame extends BaseFrame {
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
-    show: false,
     resizable: true,
     alwaysOnTop: true,
     skipTaskbar: true

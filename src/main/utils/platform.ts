@@ -2,7 +2,32 @@
  * 平台相关工具函数
  * @description 处理 macOS/Windows 平台差异
  */
-import { screen } from 'electron'
+import { BrowserWindow, screen } from 'electron'
+
+/** 广播选项 */
+interface BroadcastOptions {
+  /** 是否只发送给可见窗口，默认 false */
+  onlyVisible?: boolean
+}
+
+/**
+ * 广播消息到所有窗口
+ * @description 遍历所有 BrowserWindow 发送消息，统一封装窗口已销毁等边界检查
+ * @param channel - IPC 频道名
+ * @param data - 要发送的数据
+ * @param options - 广播选项
+ */
+export function broadcast(channel: string, data: unknown, options?: BroadcastOptions): void {
+  BrowserWindow.getAllWindows().forEach((win) => {
+    if (win.isDestroyed()) return
+    if (options?.onlyVisible && !win.isVisible()) return
+    try {
+      win.webContents.send(channel, data)
+    } catch {
+      // 写入已关闭的窗口时静默忽略
+    }
+  })
+}
 
 /**
  * 获取屏幕底部安全间距（考虑 macOS Dock）

@@ -5,3 +5,5 @@ out
 *.log*
 
 *.exe
+.claude/
+.reasonix/

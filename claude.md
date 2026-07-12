@@ -216,6 +216,31 @@ npm run typecheck    # TypeScript 类型检查（必须执行）
 npm run build        # 完整构建检查（包含类型检查）
 ```
 
+### 8. 避免手写已知可复用的逻辑（强制）
+
+**不要手写以下有成熟 npm 库的场景：**
+
+| 场景 | 禁止的做法 | 正确的做法 |
+|------|-----------|-----------|
+| 版本号比较 | 手写 `compareVersions()` 解析 `.` 分割的数组 | 使用 `semver` 库（已在依赖中） |
+| 中文拼音首字母提取 | 手写汉字→拼音映射表 | 使用 `pinyin-pro` 库 |
+| 数据库初始化/CRUD | `clipboardService` / `translateService` 各自手写 95% 相同的 DB 逻辑 | 提取公共 `BaseDBService` 或工具函数 |
+| 窗口拖拽 | `mousedown`/`mousemove`/`mouseup` + IPC `setPosition` | 使用 CSS `-webkit-app-region: drag` |
+
+**判断标准：** 如果 npm 上有周下载量 > 10k、维护良好的库能直接解决问题，且该库体量合理，优先用库而非手写。
+
+### 9. 窗口拖拽规范（强制）
+
+- 无边框（`frame: false`）窗口必须使用 CSS `-webkit-app-region: drag` 处理拖拽
+- 禁止使用 `mousedown`/`mousemove`/`mouseup` + IPC `setPosition` 手动实现窗口拖动
+- 拖拽区域内需要点击交互的子元素使用 `-webkit-app-region: no-drag`
+- 禁止同时使用 `setIgnoreMouseEvents` 和手动拖拽——两者会导致鼠标事件冲突
+
+### 10. HTML/模板字符串规范
+
+- 超过 50 行的内联模板字符串必须提取为独立文件（如 `.cjs` / `.html`）
+- 打包时通过构建配置（`electron-builder.extraResources`）复制到应用目录
+
 ## IPC 通信模式
 
 ```typescript

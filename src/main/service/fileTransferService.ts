@@ -10,7 +10,7 @@
  */
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import http from 'http'
-import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync, writeFileSync, promises as fsPromises } from 'fs'
 import { basename, join } from 'path'
 import { networkInterfaces, hostname } from 'os'
 import log from 'electron-log'
@@ -113,12 +113,37 @@ const SCAN_CONCURRENCY = 254
 /** 探针 TCP 超时（毫秒）—— 局域网内 500ms 足矣 */
 const PROBE_TIMEOUT_MS = 500
 
+/**
+ * 生成设备 Map key（IPv6 带方括号避免冒号与端口混淆）
+ * @example deviceKey('192.168.1.1', 8080)  => '192.168.1.1:8080'
+ *          deviceKey('240e::1', 8080)       => '[240e::1]:8080'
+ */
+function deviceKey(address: string, port: number): string {
+  return address.includes(':') ? `[${address}]:${port}` : `${address}:${port}`
+}
+
 /** 局域网 IP 段 */
 const LAN_RANGES = [
   { start: ipToInt('192.168.0.0'), end: ipToInt('192.168.255.255') },
   { start: ipToInt('10.0.0.0'), end: ipToInt('10.255.255.255') },
   { start: ipToInt('172.16.0.0'), end: ipToInt('172.31.255.255') }
 ]
+
+/**
+ * 判断是否为 IPv6 链路本地地址（fe80::/10）
+ * 链路本地地址仅在同一个物理链路（局域网）内可达，不可路由
+ */
+function isIPv6LinkLocal(ip: string): boolean {
+  return /^fe80:/i.test(ip)
+}
+
+/**
+ * 判断是否为 IPv6 唯一本地地址（fc00::/7）
+ * 相当于 IPv4 的私有地址段（10.0.0.0/8 等）
+ */
+function isIPv6UniqueLocal(ip: string): boolean {
+  return /^f[cd]/i.test(ip)
+}
 
 // ── 工具函数 ──
 
@@ -149,8 +174,16 @@ function cidrToRange(cidr: string): { start: number; end: number } | null {
   return { start: network + 1, end: network + hostCount - 2 }
 }
 
-/** 判断 IP 是否为局域网地址 */
+/**
+ * 判断 IP 是否属于局域网私有地址
+ * - IPv4: 10/8, 172.16/12, 192.168/16
+ * - IPv6: 链路本地 fe80::/10, 唯一本地 fc00::/7
+ */
 function isLANIP(ip: string): boolean {
+  // IPv6 链路本地和唯一本地地址视为局域网
+  if (isIPv6LinkLocal(ip) || isIPv6UniqueLocal(ip)) return true
+
+  // IPv4 局域网范围
   const num = ipToInt(ip)
   return LAN_RANGES.some(({ start, end }) => num >= start && num <= end)
 }
@@ -160,7 +193,10 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-/** 获取本机局域网 IPv4 地址列表（排除虚拟网卡） */
+/**
+ * 获取本机局域网 IP 地址列表（排除虚拟网卡）
+ * @returns [ipv4, ...ipv6] 混合列表，IPv6 地址为原始格式（无方括号）
+ */
 function getLocalIPs(): string[] {
   const interfaces = networkInterfaces()
   const ips: string[] = []
@@ -170,7 +206,7 @@ function getLocalIPs(): string[] {
     const isVirtual = /vEthernet|VMware|VirtualBox|docker/i.test(name)
     if (isVirtual) continue
     for (const net of netList) {
-      if (net.family === 'IPv4' && !net.internal) {
+      if (!net.internal) {
         ips.push(net.address)
       }
     }
@@ -187,6 +223,17 @@ function sanitizeFileName(name: string): string {
   }
   // macOS/Linux：过滤 /（路径分隔符）和空字符，防止路径穿越
   return name.replace(/[/\x00]/g, '_')
+}
+
+/**
+ * 格式化 HTTP URL，自动处理 IPv6 地址加方括号
+ * @example
+ * formatUrl('192.168.1.1', 8080, '/ping')  => 'http://192.168.1.1:8080/ping'
+ * formatUrl('240e::1', 8080, '/ping')       => 'http://[240e::1]:8080/ping'
+ */
+function formatUrl(address: string, port: number, path = ''): string {
+  const host = address.includes(':') ? `[${address}]` : address
+  return `http://${host}:${port}${path}`
 }
 
 /** 避免文件名冲突：追加 (1)、(2)... */
@@ -304,10 +351,17 @@ class FileTransferService {
     })
 
     ipcMain.handle('to-service-FileTransferService:getServerInfo', () => {
+      const allIPs = getLocalIPs()
       return {
         name: this.getDeviceName(),
-        address: getLocalIPs()[0] || '127.0.0.1',
-        port: this.port
+        address: allIPs.find(ip => !ip.includes(':')) || '127.0.0.1',
+        port: this.port,
+        /** 所有 IPv4 地址 */
+        ipv4: allIPs.filter(ip => !ip.includes(':')),
+        /** 所有 IPv6 地址（含公网全局单播地址） */
+        ipv6: allIPs.filter(ip => ip.includes(':')),
+        /** 所有地址（不分协议） */
+        all: allIPs
       }
     })
 
@@ -455,9 +509,9 @@ class FileTransferService {
         this.server = http.createServer((req, res) => {
           this.handleRequest(req, res)
         })
-        // 随机端口 1024-65535，0 让系统自动分配
+        // 随机端口 1024-65535，0 让系统自动分配；绑定 :: 开启双栈监听（同时收 IPv4 和 IPv6）
         const port = attempt === 0 ? 0 : 1024 + Math.floor(Math.random() * 64511)
-        this.server!.listen(port, '0.0.0.0', () => {
+        this.server!.listen(port, '::', () => {
           const addr = this.server!.address()
           this._port = typeof addr === 'object' ? addr!.port : port
           log.info('[FileTransfer] HTTP Server 启动，端口:', this.port)
@@ -488,13 +542,11 @@ class FileTransferService {
     }
   }
 
-  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    // 安全校验：仅接受局域网 IP
+  private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    // 安全校验：局域网 IP 直连放行；非局域网 IP（IPv6 公网 / FRP 隧道）仅警告不拦截
     const clientIP = (req.socket.remoteAddress || '').replace(/^::ffff:/, '')
     if (!isLANIP(clientIP) && clientIP !== '127.0.0.1' && clientIP !== '::1') {
-      res.writeHead(403)
-      res.end('Forbidden')
-      return
+      log.warn(`[FileTransfer] 收到非局域网连接请求: ${clientIP}，已放行（手动添加设备 / IPv6 公网 / FRP 隧道）`)
     }
 
     const url = new URL(req.url || '/', `http://localhost:${this.port}`)
@@ -534,7 +586,7 @@ class FileTransferService {
 
       // POST /share-local-files（Windows 右键菜单"分享到妙妙屋"本地文件）
       if (req.method === 'POST' && path === '/share-local-files') {
-        this.handleLocalShareFiles(req, res)
+        await this.handleLocalShareFiles(req, res)
         return
       }
 
@@ -746,45 +798,51 @@ class FileTransferService {
    * 处理 Windows 右键"分享到妙妙屋"的本地文件
    * @description PowerShell 通过 HTTP POST 发送文件路径列表
    */
-  private handleLocalShareFiles(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private async handleLocalShareFiles(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     let body = ''
     req.on('data', (chunk: Buffer) => { body += chunk.toString() })
-    req.on('end', () => {
-      try {
-        const data = JSON.parse(body)
-        const paths: string[] = data.paths || []
-        if (paths.length === 0) {
-          res.writeHead(400)
-          res.end(JSON.stringify({ error: 'No paths' }))
-          return
-        }
-
-        // 验证文件路径，构建 FileEntry[]
-        const entries = paths
-          .filter((p: string) => existsSync(p))
-          .map((p: string) => {
-            const stats = statSync(p)
-            return { name: basename(p), path: p, size: stats.size }
-          })
-
-        if (entries.length === 0) {
-          res.writeHead(400)
-          res.end(JSON.stringify({ error: 'No valid files' }))
-          return
-        }
-
-        // 通过回调通知 index.ts 显示分享弹窗
-        if (this.localShareHandler) {
-          this.localShareHandler(entries)
-        }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ ok: true, count: entries.length }))
-      } catch {
-        res.writeHead(400)
-        res.end(JSON.stringify({ error: 'Invalid JSON' }))
-      }
+    await new Promise<void>((resolve, reject) => {
+      req.on('end', resolve)
+      req.on('error', reject)
     })
+    try {
+      const data = JSON.parse(body)
+      const paths: string[] = data.paths || []
+      if (paths.length === 0) {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'No paths' }))
+        return
+      }
+
+      // 验证文件路径，构建 FileEntry[]（异步 I/O，不阻塞主进程）
+      const entries: { name: string; path: string; size: number }[] = []
+      for (const p of paths) {
+        try {
+          await fsPromises.access(p)
+          const stats = await fsPromises.stat(p)
+          entries.push({ name: basename(p), path: p, size: stats.size })
+        } catch {
+          // 文件不存在或无法访问，跳过
+        }
+      }
+
+      if (entries.length === 0) {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'No valid files' }))
+        return
+      }
+
+      // 通过回调通知 index.ts 显示分享弹窗
+      if (this.localShareHandler) {
+        this.localShareHandler(entries)
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, count: entries.length }))
+    } catch {
+      res.writeHead(400)
+      res.end(JSON.stringify({ error: 'Invalid JSON' }))
+    }
   }
 
   // ── 文件上传处理 ──
@@ -969,7 +1027,7 @@ class FileTransferService {
     return new Promise((resolve, reject) => {
       const { address, port } = target
       const req = http.request({
-        hostname: address,
+        hostname: address.includes(':') ? `[${address}]` : address,
         port,
         path: `/upload/${requestId}/${index}`,
         method: 'POST',
@@ -1007,7 +1065,7 @@ class FileTransferService {
 
   private doGet(target: DeviceInfo, path: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      const req = http.get(`http://${target.address}:${target.port}${path}`, (res) => {
+      const req = http.get(formatUrl(target.address, target.port, path), (res) => {
         let data = ''
         res.on('data', (chunk: Buffer) => { data += chunk.toString() })
         res.on('end', () => {
@@ -1023,10 +1081,11 @@ class FileTransferService {
   private doPost(target: DeviceInfo, path: string, body: unknown): Promise<any> {
     return new Promise((resolve, reject) => {
       const bodyStr = JSON.stringify(body)
+      const url = new URL(formatUrl(target.address, target.port, path))
       const req = http.request({
-        hostname: target.address,
-        port: target.port,
-        path,
+        hostname: url.hostname,
+        port: url.port || target.port,
+        path: url.pathname,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(bodyStr)) }
       }, (res) => {
@@ -1224,8 +1283,8 @@ class FileTransferService {
       deviceInfo = await this.probeDevice(address, actualPort)
     }
 
-    // 判重（以 address:actualPort 为 key）
-    const key = `${address}:${actualPort}`
+    // 判重（以 address:port 为 key，IPv6 带方括号避免冒号混淆）
+    const key = address.includes(':') ? `[${address}]:${actualPort}` : `${address}:${actualPort}`
     if (this.scannedDevices.has(key)) return false
 
     // 持久化到设置（存原始发现端口 17862，用于后续健康检查）
@@ -1281,7 +1340,7 @@ class FileTransferService {
 
     // 先全部标记为离线（红色），并立即广播
     for (const d of devices) {
-      const key = `${d.address}:${d.port}`
+      const key = deviceKey(d.address, d.port)
       if (!this.scannedDevices.has(key)) {
         this.scannedDevices.set(key, {
           name: d.address,
@@ -1300,7 +1359,7 @@ class FileTransferService {
     for (const d of devices) {
       this.probeDevice(d.address, DISCOVERY_PORT).then((info) => {
         if (info) {
-          const key = `${d.address}:${d.port}`
+          const key = deviceKey(d.address, d.port)
           this.scannedDevices.set(key, {
             ...info,
             address: d.address,
@@ -1375,7 +1434,7 @@ class FileTransferService {
             res.end('Not Found')
           }
         })
-        this.discoveryServer!.listen(port, '0.0.0.0', () => {
+        this.discoveryServer!.listen(port, '::', () => {
           this.discoveryPort = port
           log.info('[FileTransfer] TCP 发现服务器启动，端口:', port)
           resolve()
@@ -1517,7 +1576,7 @@ class FileTransferService {
         if (info) {
           foundCount++
           log.info(`[FileTransfer] 探针发现设备: ${batch[j]}:${info.port} (${info.name})`)
-          const key = `${batch[j]}:${info.port}`
+          const key = deviceKey(batch[j], info.port)
           // 如该 IP 已存在（手动添加的），先删除旧记录再添加，避免 Map 中同 IP 不同 key 的重复
           this.removeScannedByAddress(batch[j])
           this.scannedDevices.set(key, {
@@ -1545,7 +1604,7 @@ class FileTransferService {
    */
   private probeDevice(ip: string, port: number): Promise<DeviceInfo | null> {
     return new Promise((resolve) => {
-      const req = http.get(`http://${ip}:${port}/ping`, (res) => {
+      const req = http.get(formatUrl(ip, port, '/ping'), (res) => {
         let data = ''
         res.on('data', (chunk: Buffer) => { data += chunk.toString() })
         res.on('end', () => {
@@ -1669,7 +1728,7 @@ class FileTransferService {
       if (a.type === 'A' && a.data) {
         const ip = a.data
         if (!localIPs.includes(ip)) {
-          const key = `${name}-${ip}:${port}`
+          const key = `${name}-${deviceKey(ip, port)}`
           const existing = this.devices.get(key)
           if (existing) {
             existing.lastSeen = Date.now()

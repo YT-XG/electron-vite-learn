@@ -1,6 +1,6 @@
 <template>
   <div class="quick-share">
-    <div class="share-card" :class="animClass" @mouseenter="onCardEnter" @mouseleave="onCardLeave">
+    <div class="share-card" :class="animClass">
       <!-- 标题 -->
       <div class="share-header">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -110,14 +110,6 @@ function close(): void {
   }, 300)
 }
 
-function onCardEnter(): void {
-  window.electron.ipcRenderer.send('to-main-QuickShareFrame:mouse-enter-card')
-}
-
-function onCardLeave(): void {
-  window.electron.ipcRenderer.send('to-main-QuickShareFrame:mouse-leave-card')
-}
-
 onMounted(() => {
   window.electron.ipcRenderer.on('to-renderer-QuickShareFrame:show', (_e, data: { files: FileEntry[]; devices: DeviceInfo[] }) => {
     files.value = data.files
@@ -140,6 +132,7 @@ onMounted(() => {
     // 双 requestAnimationFrame 确保窗口初始帧已绘制后，再添加动画 class
     // 第一帧 rAF → 渲染初始（无动画 class）状态
     // 第二帧 rAF → 添加动画 class，CSS @keyframes 从 from 状态开始播放
+    // 第三帧 rAF（实际上在添加 class 后浏览器自动开始下一帧）→ 通知主进程显示窗口
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (data.action === 'enter') {
@@ -147,6 +140,8 @@ onMounted(() => {
         } else if (data.action === 'exit') {
           animClass.value = 'anim-exit'
         }
+        // 动画 class 已设置，通知主进程显示窗口（避免黑框）
+        window.electron.ipcRenderer.send('to-main-QuickShareFrame:show-window')
       })
     })
   })
@@ -224,6 +219,11 @@ onUnmounted(() => {
   color: var(--text-primary, #f1f5f9);
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border, #334155);
+  cursor: grab;
+  -webkit-app-region: drag;
+}
+.share-header:active {
+  cursor: grabbing;
 }
 
 .share-header svg { color: var(--accent, #3b82f6); }

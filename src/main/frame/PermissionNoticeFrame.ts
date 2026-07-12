@@ -33,7 +33,6 @@ export default class PermissionNoticeFrame extends BaseFrame {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    show: false
   }
 
   /** 路由路径 */
