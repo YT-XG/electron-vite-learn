@@ -11,6 +11,7 @@ if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('disable-gpu-compositing')
 }
 import QuickShareFrame from './frame/QuickShareFrame'
+import UpdateNewFrame from './frame/UpdateNewFrame'
 import { TrayService } from './service/trayService'
 import { clipboardService } from './service/clipboardService'
 import { settingsService } from './service/settingsService'
@@ -279,6 +280,16 @@ app.whenReady().then(async () => {
   if (settings.shellIntegration !== false) {
     shellIntegrationService.register().catch(() => {})
   }
+
+  // 启动后延迟 5 秒检查更新（等待服务完全就绪）
+  setTimeout(async () => {
+    try {
+      const updateFrame = new UpdateNewFrame()
+      await updateFrame.checkForUpdates()
+    } catch (err) {
+      log.warn('[App] 启动检查更新失败:', err)
+    }
+  }, 5_000)
 
   // 渲染进程复制文本到剪贴板（fallback，navigator.clipboard 不可用时使用）
   ipcMain.on('to-service-ClipboardService:writeText', (_event, text: string) => {

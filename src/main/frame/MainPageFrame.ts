@@ -208,13 +208,9 @@ export default class MainPageFrame extends BaseFrame {
    * @param text - 要填充的文本内容
    */
   openTranslate(text: string): void {
-    // 切换到翻译页面
-    this.sendOne('to-renderer-MainPage:setPage', 'translate')
-
-    // 发送文本到翻译页面
-    setTimeout(() => {
-      this.sendOne('to-renderer-Translate:fillText', text)
-    }, 100)
+    // 同时发送页面切换指令和文本内容，避免 Transition out-in 模式下
+    // Translate 组件尚未挂载时 fillText IPC 事件丢失的时序问题
+    this.sendOne('to-renderer-MainPage:setPage', { page: 'translate', text })
   }
 
   /**

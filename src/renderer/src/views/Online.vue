@@ -115,7 +115,7 @@
               />
               <button class="btn btn-ghost btn-add-device" @click="addSubnet" :disabled="!newSubnet.trim()">添加</button>
             </div>
-            <p class="scan-hint">支持 10.15.66.xx、10.15.66 等简写，点"刷新"按钮立即扫描</p>
+            <p class="scan-hint">用于跨网段扫描（本机子网由 mDNS 自动发现）。支持 10.15.66.xx、10.15.66 等简写，点"刷新"按钮立即扫描</p>
           </div>
         </Transition>
       </div>

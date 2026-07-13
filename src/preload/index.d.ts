@@ -164,9 +164,8 @@ interface IPCChannels {
   // ShareSelect Frame
   on(channel: 'to-renderer-ShareSelectFrame:show', listener: (event: unknown, data: { text: string; devices: DeviceInfo[] }) => void): void
   on(channel: 'to-renderer-ShareSelectFrame:animate', listener: (event: unknown, data: { action: 'enter' | 'exit' }) => void): void
-  on(channel: 'to-renderer-ShareSelectFrame:sendResult', listener: (event: unknown, data: { success: boolean; error?: string }) => void): void
+  invoke(channel: 'to-main-ShareSelectFrame:sendText', target: DeviceInfo): Promise<{ success: boolean; error?: string }>
   send(channel: 'to-main-ShareSelectFrame:ready'): void
-  send(channel: 'to-main-ShareSelectFrame:sendText', target: DeviceInfo): void
   send(channel: 'to-main-ShareSelectFrame:close'): void
   send(channel: 'to-main-ShareSelectFrame:mouse-enter-card'): void
   send(channel: 'to-main-ShareSelectFrame:mouse-leave-card'): void

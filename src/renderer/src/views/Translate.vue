@@ -366,7 +366,7 @@ const goBack = () => {
 }
 
 /**
- * 接收外部填充文本
+ * 接收外部填充文本（来自 IPC）
  */
 const onFillText = (_event: Electron.IpcRendererEvent, text: string): void => {
   inputText.value = text
@@ -374,10 +374,25 @@ const onFillText = (_event: Electron.IpcRendererEvent, text: string): void => {
   errorMessage.value = ''
 }
 
+/**
+ * 接收外部传入的待填充文本（通过 props，由主页面在 Transition 完成后传递）
+ * 用于修复首次打开时 IPC fillText 因 Transition out-in 动画导致事件丢失的问题
+ */
+const props = defineProps<{
+  pendingText?: string
+}>()
+
 onMounted(async () => {
   await fetchHistory()
 
-  // 监听文本填充事件
+  // 优先使用 prop 传递的文本（更可靠，无时序问题）
+  if (props.pendingText) {
+    inputText.value = props.pendingText
+    resultText.value = ''
+    errorMessage.value = ''
+  }
+
+  // 监听文本填充事件（保留作为备用，兼容其他直接发送 fillText 的场景）
   window.electron.ipcRenderer.on('to-renderer-Translate:fillText', onFillText)
 })
 

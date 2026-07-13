@@ -247,7 +247,8 @@
           <Translate
             v-else-if="currentPage === 'translate'"
             key="translate"
-            @goBack="currentPage = 'clipboard'"
+            :pendingText="pendingTranslateText"
+            @goBack="onTranslateGoBack"
           />
           <!-- 下载管理 -->
           <DownloadManager v-else-if="currentPage === 'download'" key="download" />
@@ -295,6 +296,9 @@ const isHiding = ref(false)
 
 /** 侧边栏是否收缩 */
 const isSidebarCollapsed = ref(false)
+
+/** 待填充的翻译文本（从通知弹窗翻译按钮传入） */
+const pendingTranslateText = ref('')
 
 /**
  * 切换侧边栏收缩状态
@@ -360,11 +364,22 @@ const onVersion = (_event: Electron.IpcRendererEvent, ver: string): void => {
 }
 
 /**
+ * 返回首页（从翻译页面返回）
+ */
+const onTranslateGoBack = (): void => {
+  currentPage.value = 'clipboard'
+  pendingTranslateText.value = ''
+}
+
+/**
  * 接收页面切换指令
  * @param _event - IPC 事件对象
- * @param page - 目标页面名称
+ * @param payload - 目标页面名称，或 { page, text } 对象（携带翻译文本时）
  */
-const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
+const onSetPage = (_event: Electron.IpcRendererEvent, payload: string | { page: string; text?: string }): void => {
+  const page = typeof payload === 'string' ? payload : payload.page
+  const text = typeof payload === 'object' ? payload.text : undefined
+
   if (
     [
       'clipboard',
@@ -377,6 +392,13 @@ const onSetPage = (_event: Electron.IpcRendererEvent, page: string): void => {
       'fileTransfer'
     ].includes(page)
   ) {
+    // 切换到翻译页面时，暂存待填充文本（通过 prop 传递给 Translate 组件）
+    if (page === 'translate' && text) {
+      pendingTranslateText.value = text
+    } else {
+      pendingTranslateText.value = ''
+    }
+
     currentPage.value = page as
       | 'clipboard'
       | 'settings'

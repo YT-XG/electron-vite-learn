@@ -68,8 +68,8 @@ export default class ShareSelectFrame extends BaseFrame {
     })
 
     // 用户选择了目标设备并确认发送
-    this.recvOne('to-main-ShareSelectFrame:sendText', async (_event, target: { name: string; address: string; port: number }) => {
-      if (!this.isAlive()) return
+    this.recvTwo('to-main-ShareSelectFrame:sendText', async (_event, target: { name: string; address: string; port: number }) => {
+      if (!this.isAlive()) return { success: false, error: '窗口已关闭' }
 
       try {
         // 确保 target 有完整的 DeviceInfo 结构
@@ -81,10 +81,9 @@ export default class ShareSelectFrame extends BaseFrame {
           offline: false
         }
         await textShareService.sendText(device, this.#shareText)
-        // 发送成功通知
-        this.sendOne('to-renderer-ShareSelectFrame:sendResult', { success: true })
+        return { success: true }
       } catch (err: any) {
-        this.sendOne('to-renderer-ShareSelectFrame:sendResult', { success: false, error: err.message })
+        return { success: false, error: err.message }
       }
     })
 

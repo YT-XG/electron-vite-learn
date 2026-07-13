@@ -113,6 +113,9 @@ const SCAN_CONCURRENCY = 254
 /** 探针 TCP 超时（毫秒）—— 局域网内 500ms 足矣 */
 const PROBE_TIMEOUT_MS = 500
 
+/** 子网重新扫描间隔（毫秒）—— 5 分钟，覆盖设备 IP 变化场景 */
+const SUBNET_RESCAN_INTERVAL_MS = 5 * 60 * 1000
+
 /**
  * 生成设备 Map key（IPv6 带方括号避免冒号与端口混淆）
  * @example deviceKey('192.168.1.1', 8080)  => '192.168.1.1:8080'
@@ -310,6 +313,15 @@ class FileTransferService {
     // 启动 10 秒间隔的设备在线探针
     this.startHealthCheck()
     this.registerIPC()
+
+    // 应用启动后延迟 3 秒自动扫描本机网段和手动添加的网段
+    // 等待 HTTP Server、mDNS、TCP 发现服务器都已就绪
+    setTimeout(() => {
+      this.scanAllSubnets().catch((err) => {
+        log.warn('[FileTransfer] 启动后自动扫描网段失败:', err.message)
+      })
+    }, 3_000)
+
     log.info('[FileTransfer] 服务初始化完成，端口:', this.port)
   }
 
@@ -1470,10 +1482,17 @@ class FileTransferService {
 
   // ── TCP 子网扫描（跨子网设备发现） ──
 
-  /** 启动子网 TCP 扫描定时器（已禁用自动扫描，改为手动触发） */
+  /**
+   * 启动子网 TCP 扫描定时器
+   * @description 每 5 分钟重新扫描一次手动配置的跨网段，消灭因 IP 变化产生的永久标红设备
+   */
   private startSubnetScanner(): void {
-    // 不再自动启动定时扫描，由用户通过界面"刷新"按钮手动触发
-    // 保留此方法防止 init() 中调用报错
+    this.subnetScanTimer = setInterval(() => {
+      this.scanAllSubnets().catch((err) => {
+        log.warn('[FileTransfer] 定时子网扫描失败:', err.message)
+      })
+    }, SUBNET_RESCAN_INTERVAL_MS)
+    log.info(`[FileTransfer] 子网扫描定时器已启动，间隔: ${SUBNET_RESCAN_INTERVAL_MS / 1000}s`)
   }
 
   /** 停止子网 TCP 扫描 */
@@ -1498,22 +1517,9 @@ class FileTransferService {
       log.info('[FileTransfer] 开始探针已有设备...')
       await this.probeAllExistingDevices()
 
-      // 2. 收集要扫描的网段：手动配置的 + 本机所在子网
-      const manualSubnets = this.getScanSubnets()
-      const allSubnets = [...manualSubnets]
-
-      // 自动添加本机所在子网（/24）
-      const localIPs = getLocalIPs()
-      for (const ip of localIPs) {
-        const parts = ip.split('.')
-        if (parts.length === 4) {
-          const localCidr = `${parts[0]}.${parts[1]}.${parts[2]}.0/24`
-          if (!allSubnets.includes(localCidr)) {
-            allSubnets.push(localCidr)
-            log.info('[FileTransfer] 自动添加本机子网:', localCidr)
-          }
-        }
-      }
+      // 2. 收集手动配置的网段（跨机器/跨子网场景）
+      //    本机所在子网由 mDNS 负责发现，不做 TCP 重复扫描
+      const allSubnets = this.getScanSubnets()
 
       if (allSubnets.length > 0) {
         log.info('[FileTransfer] 开始 TCP 子网扫描，网段数:', allSubnets.length)
@@ -1556,12 +1562,33 @@ class FileTransferService {
 
     if (ips.length === 0) return
 
-    log.info(`[FileTransfer] 扫描范围 ${cidr}: ${ips.length} 个 IP`)
+    // 过滤本机 IP，避免探针扫到自身
+    const localIPs = getLocalIPs()
+    const filteredIPs = ips.filter((ip) => !localIPs.includes(ip))
+    const skipCount = ips.length - filteredIPs.length
+    if (skipCount > 0) {
+      log.info(`[FileTransfer] 跳过 ${skipCount} 个本机 IP`)
+    }
+
+    if (filteredIPs.length === 0) return
+
+    // 清理该网段内已离线的旧记录
+    // 解决设备 IP 变化后旧 IP 永久标红的问题：扫描前清空本段离线设备，扫描会重新发现活着的
+    const ipSet = new Set(filteredIPs)
+    for (const [key, dev] of this.scannedDevices) {
+      if (dev.offline && ipSet.has(dev.address)) {
+        if (!this.isManualDevice(dev.address, dev.port)) {
+          this.scannedDevices.delete(key)
+        }
+      }
+    }
+
+    log.info(`[FileTransfer] 扫描范围 ${cidr}: ${filteredIPs.length} 个 IP`)
     let foundCount = 0
 
     // 按并发数分批扫描
-    for (let i = 0; i < ips.length; i += SCAN_CONCURRENCY) {
-      const batch = ips.slice(i, i + SCAN_CONCURRENCY)
+    for (let i = 0; i < filteredIPs.length; i += SCAN_CONCURRENCY) {
+      const batch = filteredIPs.slice(i, i + SCAN_CONCURRENCY)
 
       // 对批次内每个 IP 探测发现端口 17862
       const batchInfos = await Promise.all(
@@ -1785,13 +1812,13 @@ class FileTransferService {
   /**
    * 手动刷新时探针所有已有设备，无响应的立即处理
    * - 手动添加设备 → 标红（offline=true）
-   * - 扫描发现的设备 → 直接删除
+   * - 扫描发现的设备 → 也标红保留，不删除
    */
   private async probeAllExistingDevices(): Promise<void> {
     const probes: Promise<void>[] = []
 
     // 探针 scannedDevices 中的所有设备
-    for (const [key, dev] of this.scannedDevices) {
+    for (const [, dev] of this.scannedDevices) {
       const probe = this.probeDevice(dev.address, DISCOVERY_PORT).then((info) => {
         if (info) {
           // 在线：更新状态
@@ -1800,15 +1827,10 @@ class FileTransferService {
           dev.missCount = 0
           dev.offline = false
         } else {
-          // 无响应：立即处理
-          if (this.isManualDevice(dev.address, dev.port)) {
-            dev.offline = true
-            dev.missCount = 0
-            log.info('[FileTransfer] 刷新探针: 手动设备离线（标红）:', dev.name, dev.address)
-          } else {
-            this.scannedDevices.delete(key)
-            log.info('[FileTransfer] 刷新探针: 扫描设备离线（已删除）:', dev.name, dev.address)
-          }
+          // 无响应：标红保留，设备重新上线后健康检查会恢复
+          dev.offline = true
+          dev.missCount = 0
+          log.info('[FileTransfer] 刷新探针: 设备离线（标红）:', dev.name, dev.address)
         }
       })
       probes.push(probe)
@@ -1864,7 +1886,7 @@ class FileTransferService {
   private probeAllDevices(): void {
     const probes: Promise<boolean>[] = []
 
-    for (const [key, dev] of this.scannedDevices) {
+    for (const [, dev] of this.scannedDevices) {
       // 始终探针固定发现端口（17862），发现端口不变，文件传输端口随重启变化
       const probe = this.probeDevice(dev.address, DISCOVERY_PORT).then((info) => {
         if (info) {
@@ -1892,8 +1914,11 @@ class FileTransferService {
               log.info('[FileTransfer] 手动设备离线（标红保留）:', dev.name, dev.address)
               return true
             } else {
-              this.scannedDevices.delete(key)
-              log.info('[FileTransfer] 扫描设备离线（已移除）:', dev.name, dev.address)
+              // 扫描发现的设备也标红保留，不删除
+              // 否则设备重新上线后无法被健康检查重新发现
+              dev.offline = true
+              dev.missCount = 0
+              log.info('[FileTransfer] 扫描设备离线（标红保留）:', dev.name, dev.address)
               return true
             }
           }

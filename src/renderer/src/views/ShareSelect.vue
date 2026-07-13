@@ -114,7 +114,22 @@ async function send(): Promise<void> {
   sending.value = true
   statusMsg.value = ''
 
-  window.electron.ipcRenderer.send('to-main-ShareSelectFrame:sendText', { ...selectedDevice.value })
+  try {
+    const result = await window.electron.ipcRenderer.invoke('to-main-ShareSelectFrame:sendText', { ...selectedDevice.value })
+    if (result.success) {
+      statusMsg.value = '✅ 已发送'
+      statusType.value = 'success'
+      setTimeout(() => close(), 1500)
+    } else {
+      statusMsg.value = `❌ ${result.error || '发送失败'}`
+      statusType.value = 'error'
+    }
+  } catch (err: any) {
+    statusMsg.value = `❌ ${err.message || '发送失败'}`
+    statusType.value = 'error'
+  } finally {
+    sending.value = false
+  }
 }
 
 /**
@@ -152,23 +167,6 @@ onMounted(() => {
     }
   )
 
-  // 接收发送结果
-  window.electron.ipcRenderer.on(
-    'to-renderer-ShareSelectFrame:sendResult',
-    (_e, data: { success: boolean; error?: string }) => {
-      sending.value = false
-      if (data.success) {
-        statusMsg.value = '✅ 已发送'
-        statusType.value = 'success'
-        // 1.5 秒后自动关闭
-        setTimeout(() => close(), 1500)
-      } else {
-        statusMsg.value = `❌ ${data.error || '发送失败'}`
-        statusType.value = 'error'
-      }
-    }
-  )
-
   // 接收动画指令
   window.electron.ipcRenderer.on(
     'to-renderer-ShareSelectFrame:animate',
@@ -183,7 +181,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.electron.ipcRenderer.removeAllListeners('to-renderer-ShareSelectFrame:show')
-  window.electron.ipcRenderer.removeAllListeners('to-renderer-ShareSelectFrame:sendResult')
   window.electron.ipcRenderer.removeAllListeners('to-renderer-ShareSelectFrame:animate')
 })
 </script>
