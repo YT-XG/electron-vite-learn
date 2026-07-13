@@ -16,16 +16,8 @@ import { networkInterfaces, hostname } from 'os'
 import log from 'electron-log'
 import { popupManager } from '../frame'
 import { settingsService } from './settingsService'
+import { textShareService } from './textShareService'
 import TransferConfirmFrame from '../frame/TransferConfirmFrame'
-
-// 延迟导入 textShareService，避免循环依赖
-let _textShareService: any = null
-function getTextShareService(): any {
-  if (!_textShareService) {
-    _textShareService = require('./textShareService').textShareService
-  }
-  return _textShareService
-}
 
 // ── 类型（内部使用，外部从 preload/index.d.ts 引用） ──
 
@@ -797,7 +789,7 @@ class FileTransferService {
 
         // 转发给 textShareService 处理（单独 try/catch，不影响响应）
         try {
-          getTextShareService().onReceiveText(data.text, data.senderName, clientIP)
+          textShareService.onReceiveText(data.text, data.senderName, clientIP)
         } catch (err: any) {
           log.error('[FileTransfer] 文本分享处理失败:', err.message)
           // 继续返回 200，文本已在发出方显示"已发送"，不应让对方看到失败

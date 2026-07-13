@@ -241,6 +241,39 @@ npm run build        # 完整构建检查（包含类型检查）
 - 超过 50 行的内联模板字符串必须提取为独立文件（如 `.cjs` / `.html`）
 - 打包时通过构建配置（`electron-builder.extraResources`）复制到应用目录
 
+### 11. ⚠️ 禁止动态 require 项目源文件（强制）
+
+**electron-vite 把主进程打包成单文件 `out/main/index.js`，动态 `require()` 项目内部源文件会在运行时找不到模块！**
+
+```typescript
+// ❌ 错误：运行时找不到文件
+function getXXX() {
+  return require('./xxxService').xxxService
+}
+
+// ✅ 正确：使用静态 import，编译时打包进 bundle
+import { xxxService } from './xxxService'
+```
+
+| 可用的 require | 原因 |
+|---------------|------|
+| `require('fs')` / `require('http')` / `require('path')` 等 | Node.js 内置模块，运行时总有 |
+| `require('electron')` | Electron 全局 API，运行时总有 |
+| `require('some-npm-package')` | npm 包会被动态处理或打包 |
+
+| 禁止的 require | 原因 |
+|---------------|------|
+| `require('./xxxService')` / `require('../frame/XXX')` | 项目源文件，打包后不存在独立文件 |
+
+**例外**：如果确有循环依赖，改用延迟加载模式：
+
+```typescript
+// 在文件顶部用静态 import（ESM 循环引用 Vite 能正确处理）
+import { someService } from './someService'
+```
+
+> 犯错记录：`fileTransferService.ts` 曾用 `require('./textShareService')` 绕过循环依赖，导致运行时 `Cannot find module`。改为静态 import 后修复。
+
 ## IPC 通信模式
 
 ```typescript
