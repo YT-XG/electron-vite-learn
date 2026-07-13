@@ -1517,9 +1517,22 @@ class FileTransferService {
       log.info('[FileTransfer] 开始探针已有设备...')
       await this.probeAllExistingDevices()
 
-      // 2. 收集手动配置的网段（跨机器/跨子网场景）
-      //    本机所在子网由 mDNS 负责发现，不做 TCP 重复扫描
-      const allSubnets = this.getScanSubnets()
+      // 2. 收集要扫描的网段：手动配置的 + 自动检测的本机子网
+      //    mDNS 负责实时发现同网段设备，TCP 扫描作为兜底（部分网络封锁组播）
+      const manualSubnets = this.getScanSubnets()
+      const allSubnets = [...manualSubnets]
+
+      // 自动添加本机所在子网（/24），作为 mDNS 失效时的兜底
+      const localIPs = getLocalIPs()
+      for (const ip of localIPs) {
+        const parts = ip.split('.')
+        if (parts.length === 4) {
+          const localCidr = `${parts[0]}.${parts[1]}.${parts[2]}.0/24`
+          if (!allSubnets.includes(localCidr)) {
+            allSubnets.push(localCidr)
+          }
+        }
+      }
 
       if (allSubnets.length > 0) {
         log.info('[FileTransfer] 开始 TCP 子网扫描，网段数:', allSubnets.length)

@@ -173,10 +173,6 @@ export default class NoticeNewFrame extends BaseFrame {
       // 如果窗口已被 PopupManager 销毁，不再操作（避免孤儿窗口）
       if (!this.isAlive()) return
 
-      // 持久通知的消息由 claudeCodeService 通过 did-finish-load 直接发送到 webContents，
-      // ready 处理器不重复发送，避免覆盖已有内容
-      if (this.#isPersistent) return
-
       // 防止重复发送（setMsg 和 create 之间的时序保护）
       if (this.#msgSent) return
 
