@@ -2,7 +2,14 @@ import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, shell } from 'e
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { existsSync, statSync, readFileSync, unlinkSync } from 'fs'
 import { basename, join } from 'path'
+import { arch, hostname, platform, release, totalmem, freemem } from 'os'
 import { windowFactory } from './frame'
+
+// macOS GPU 崩溃修复：提前禁用 GPU 加速，必须在 app ready 前设置
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+}
 import QuickShareFrame from './frame/QuickShareFrame'
 import { TrayService } from './service/trayService'
 import { clipboardService } from './service/clipboardService'
@@ -16,19 +23,58 @@ import { shellIntegrationService } from './service/shellIntegrationService'
 import './service/inputService'
 import log from 'electron-log'
 
-// 抑制 Electron 默认错误弹窗（网络错误等已知异常由各模块自行处理）
+// ── 全局错误捕获（记录完整堆栈） ──
 process.on('uncaughtException', (error) => {
   log.error('[App] 未捕获异常:', error.message)
+  log.error('[App] 异常堆栈:', error.stack)
 })
 
 process.on('unhandledRejection', (reason) => {
-  log.error('[App] 未处理的 Promise 拒绝:', reason)
+  const message = reason instanceof Error ? reason.message : String(reason)
+  const stack = reason instanceof Error ? reason.stack : ''
+  log.error('[App] 未处理的 Promise 拒绝:', message)
+  if (stack) log.error('[App] 拒绝堆栈:', stack)
 })
 
-// 配置 electron-log：日志写入文件
+// ── 配置 electron-log ──
 log.transports.file.level = 'info'
 log.transports.console.level = 'info'
-log.info('[App] 应用启动，日志路径:', log.transports.file.getFile().path)
+
+// 记录系统信息，方便定位闪退原因
+const sysInfo = {
+  os: `${platform()} ${release()}`,
+  arch: arch(),
+  hostname: hostname(),
+  electron: process.versions.electron,
+  node: process.versions.node,
+  chrome: process.versions.chrome,
+  v8: process.versions.v8,
+  totalMem: `${Math.round(totalmem() / 1024 / 1024 / 1024)}GB`,
+  freeMem: `${Math.round(freemem() / 1024 / 1024 / 1024)}GB`,
+  appVersion: app.getVersion(),
+  appPath: app.getAppPath()
+}
+log.info('[App] 应用启动，系统信息:', JSON.stringify(sysInfo, null, 2))
+log.info('[App] 日志路径:', log.transports.file.getFile().path)
+
+// ── 进程崩溃监控（捕获 GPU 进程 / 子进程崩溃） ──
+app.on('child-process-gone', (_event, details) => {
+  log.error('[App] 子进程崩溃:', JSON.stringify({
+    type: details.type,       // GPU / Utility / etc.
+    reason: details.reason,   // crashed / killed / oom / etc.
+    exitCode: details.exitCode
+  }))
+})
+
+// 监听每个渲染进程的崩溃事件
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('render-process-gone', (_event, details) => {
+    log.error('[App] 渲染进程崩溃:', JSON.stringify({
+      reason: details.reason,
+      exitCode: details.exitCode
+    }))
+  })
+})
 
 /** 托盘服务实例 */
 let trayService: TrayService | null = null
@@ -304,6 +350,7 @@ app.on('window-all-closed', () => {
 // 应用退出前的清理
 app.on('before-quit', () => {
   isQuitting = true
+  log.info('[App] 应用退出，清理资源...')
   clipboardService.stop()
   settingsService.destroy()
   translateService.destroy()

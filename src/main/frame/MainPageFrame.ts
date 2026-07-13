@@ -1,4 +1,5 @@
 import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, screen } from 'electron'
+import { join } from 'path'
 import log from 'electron-log'
 import BaseFrame from './BaseFrame'
 import { windowFactory } from './WindowFactory'
@@ -34,7 +35,12 @@ export default class MainPageFrame extends BaseFrame {
     frame: false,
     resizable: true,
     alwaysOnTop: true,
-    skipTaskbar: true
+    skipTaskbar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      backgroundThrottling: false
+    }
   }
 
   /** 路由路径 */

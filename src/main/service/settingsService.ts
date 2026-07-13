@@ -76,7 +76,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   snippetShortcut: 'CommandOrControl+Shift+V',
   searchBoxShortcut: 'CommandOrControl+K',
   serverUrl: getDefaultServerUrl(),
-  autoStart: false,
+  autoStart: true,
   updateSource: 'github',
   githubRepo: 'YT-XG/electron-vite-learn',
   downloadThreads: 8,
