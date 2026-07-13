@@ -179,9 +179,7 @@ const onCardLeave = () => {
 }
 
 onMounted(() => {
-  // 通知主进程渲染已就绪
-  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:ready')
-
+  // 先注册监听器，再通知主进程已就绪（避免竞态）
   // 监听主进程发送的消息内容
   window.electron.ipcRenderer.on(
     'to-renderer-NoticeNewFrame:sendMsg',
@@ -199,6 +197,9 @@ onMounted(() => {
       animState.value = data.action
     }
   )
+
+  // 通知主进程渲染已就绪
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:ready')
 })
 
 onUnmounted(() => {

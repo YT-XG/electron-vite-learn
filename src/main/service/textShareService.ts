@@ -87,11 +87,15 @@ class TextShareService {
    * @returns 是否发送成功
    */
   async sendText(target: DeviceInfo, text: string): Promise<boolean> {
+    log.info('[TextShare] 开始发送文本到', target.address, '端口:', target.port)
+
     // 先 ping 验证在线
     const online = await this.#pingDevice(target)
     if (!online) {
+      log.warn('[TextShare] 设备不在线或不可达:', target.address, target.port)
       throw new Error('设备不在线或不可达')
     }
+    log.info('[TextShare] 设备在线，准备 POST /share-text')
 
     // POST /share-text
     try {
@@ -100,7 +104,13 @@ class TextShareService {
         senderName: fileTransferService.getDeviceName(),
         timestamp: Date.now()
       })
-      return result.ok === true
+      if (result.ok !== true) {
+        const errMsg = result.error || '对方返回异常'
+        log.error('[TextShare] 发送文本失败:', errMsg, JSON.stringify(result))
+        throw new Error(errMsg)
+      }
+      log.info('[TextShare] 发送文本成功:', target.address)
+      return true
     } catch (err: any) {
       log.error('[TextShare] 发送文本失败:', err.message)
       throw new Error(`发送失败: ${err.message}`)
@@ -120,6 +130,7 @@ class TextShareService {
       senderAddress,
       timestamp: Date.now()
     }
+    log.info(`[TextShare] 收到文本: 来自 ${senderName}(${senderAddress}), 长度: ${text.length}`)
 
     // 存入列表
     this.#receivedTexts.unshift(info)
@@ -129,6 +140,7 @@ class TextShareService {
 
     // 广播到所有可见窗口
     broadcast('broadcast:text-received', info)
+    log.info('[TextShare] 已广播 text-received 事件')
 
     // 通过 PopupManager 显示持久通知
     this.#showReceivedTextNotification(info)
@@ -140,18 +152,24 @@ class TextShareService {
    */
   #showReceivedTextNotification(info: ReceivedTextInfo): void {
     const displayText = `来自 ${info.senderName}:\n${info.text}`
-    const popup = popupManager.showNotice(
-      () => {
-        const frame = new NoticeNewFrame()
-        frame.setMsg({ data: displayText, isPersistent: true, showCopy: true, showCloseText: true })
-        return frame.create()
-      },
-      { type: 'notice', width: 520, height: 80 },
-      { text: displayText, duration: 0 }
-    )
-
-    // 记录槽位索引以便关闭
-    this.#activeNoticeSlotIndex = popup.slotIndex
+    log.info('[TextShare] 准备创建接收通知弹窗')
+    try {
+      const popup = popupManager.showNotice(
+        () => {
+          log.info('[TextShare] 创建 NoticeNewFrame 窗口')
+          const frame = new NoticeNewFrame()
+          frame.setMsg({ data: displayText, isPersistent: true, showCopy: true, showCloseText: true })
+          return frame.create()
+        },
+        { type: 'notice', width: 520, height: 80 },
+        { text: displayText, duration: 0 }
+      )
+      log.info('[TextShare] 接收通知弹窗创建成功, slotIndex:', popup.slotIndex)
+      // 记录槽位索引以便关闭
+      this.#activeNoticeSlotIndex = popup.slotIndex
+    } catch (err: any) {
+      log.error('[TextShare] 创建接收通知弹窗失败:', err.message)
+    }
   }
 
   /**

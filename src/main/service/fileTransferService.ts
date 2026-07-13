@@ -787,17 +787,26 @@ class FileTransferService {
       try {
         const data = JSON.parse(body)
         if (!data.text || !data.senderName) {
+          log.warn('[FileTransfer] 文本分享: 请求格式无效')
           res.writeHead(400)
           res.end(JSON.stringify({ error: 'Invalid request format' }))
           return
         }
 
-        // 转发给 textShareService 处理
-        getTextShareService().onReceiveText(data.text, data.senderName, clientIP)
+        log.info(`[FileTransfer] 收到文本分享: 来自 ${data.senderName}(${clientIP}), 文本长度: ${data.text.length}`)
+
+        // 转发给 textShareService 处理（单独 try/catch，不影响响应）
+        try {
+          getTextShareService().onReceiveText(data.text, data.senderName, clientIP)
+        } catch (err: any) {
+          log.error('[FileTransfer] 文本分享处理失败:', err.message)
+          // 继续返回 200，文本已在发出方显示"已发送"，不应让对方看到失败
+        }
 
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ ok: true, receivedAt: Date.now() }))
-      } catch {
+      } catch (err: any) {
+        log.error('[FileTransfer] 文本分享 JSON 解析失败:', err.message)
         res.writeHead(400)
         res.end(JSON.stringify({ error: 'Invalid JSON' }))
       }

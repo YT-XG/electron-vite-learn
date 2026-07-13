@@ -5,6 +5,7 @@ import { popupManager } from './PopupManager'
 import type { NoticeType } from './PopupManager'
 import ShareSelectFrame from './ShareSelectFrame'
 import { textShareService } from '../service/textShareService'
+import log from 'electron-log'
 
 /** 设置消息选项 */
 export interface SetMsgOptions {
@@ -171,12 +172,16 @@ export default class NoticeNewFrame extends BaseFrame {
     // 渲染进程已就绪，发送缓存的消息
     this.recvOne('to-main-NoticeNewFrame:ready', async () => {
       // 如果窗口已被 PopupManager 销毁，不再操作（避免孤儿窗口）
-      if (!this.isAlive()) return
+      if (!this.isAlive()) {
+        log.warn('[NoticeNew] ready 但窗口已销毁')
+        return
+      }
 
       // 防止重复发送（setMsg 和 create 之间的时序保护）
       if (this.#msgSent) return
 
       this.#msgSent = true
+      log.info('[NoticeNew] 渲染就绪，发送消息, isPersistent:', this.#isPersistent, 'showCopy:', this.#showCopy)
       this.sendOne(
         'to-renderer-NoticeNewFrame:sendMsg',
         this.#msg,
