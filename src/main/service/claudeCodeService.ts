@@ -605,7 +605,7 @@ class ClaudeCodeService {
       // 创建窗口的回调函数
       () => {
         const frame = new NoticeNewFrame()
-        frame.setMsg({ data: text, isPersistent: true })
+        frame.setMsg({ data: text, isPersistent: true, badgeText: 'Claude' })
         frame.create()
         return frame.getWindow()!
       },
@@ -619,7 +619,12 @@ class ClaudeCodeService {
             false,  // showOpenLink
             false,  // showJsonTool
             'default' as NoticeType,
-            true    // isPersistent
+            true,   // isPersistent
+            false,  // showShare
+            false,  // showCopy
+            false,  // showCloseText
+            'Claude', // badgeText
+            ''        // rawData
           )
         }
       }
@@ -637,7 +642,7 @@ class ClaudeCodeService {
     /** 创建 NoticeNewFrame 窗口的回调函数 */
     const createWindowFn = (): BrowserWindow => {
       const frame = new NoticeNewFrame()
-      frame.setMsg({ data: '', isPersistent: true })
+      frame.setMsg({ data: '', isPersistent: true, badgeText: 'Claude' })
       frame.create()
       frame.getWindow()!.setIgnoreMouseEvents(true, { forward: true })
       return frame.getWindow()!
@@ -648,7 +653,7 @@ class ClaudeCodeService {
       // 检查窗口是否存活且渲染进程已就绪
       if (window && !window.isDestroyed() && window.webContents) {
         // 直接通过 IPC 发送消息到渲染进程
-        window.webContents.send('to-renderer-NoticeNewFrame:sendMsg', text, false, false, false, 'default' as NoticeType, true)
+        window.webContents.send('to-renderer-NoticeNewFrame:sendMsg', text, false, false, false, 'default' as NoticeType, true, false, false, false, 'Claude', '')
       }
     }
 

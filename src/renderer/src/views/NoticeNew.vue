@@ -7,9 +7,9 @@
       @mouseleave="onCardLeave"
     >
       <div class="notice-card">
-        <!-- Claude 标识（仅持久通知显示） -->
-        <div v-if="isPersistent" class="claude-badge">
-          <span class="claude-icon">Claude</span>
+        <!-- 持久通知徽标（Claude 状态 / 文本分享等） -->
+        <div v-if="badgeText" class="notice-badge" :class="{ 'badge-claude': badgeText === 'Claude', 'badge-msg': badgeText !== 'Claude' }">
+          <span class="badge-inner">{{ badgeText }}</span>
         </div>
         <span class="notice-text">{{ msg }}</span>
         <!-- 按钮组（普通通知显示操作按钮） -->
@@ -87,6 +87,12 @@ const noticeType = ref<'default' | 'success' | 'error' | 'warning'>('default')
 /** 是否为持久通知（Claude Code 状态通知） */
 const isPersistent = ref(false)
 
+/** 徽标文本（为空则不显示徽标） */
+const badgeText = ref('')
+
+/** 原始文本内容（用于复制，不含"来自 xxx:"前缀） */
+const rawData = ref('')
+
 /** 动画状态：idle-初始, enter-滑入, exit-滑出 */
 const animState = ref<'idle' | 'enter' | 'exit'>('idle')
 
@@ -101,8 +107,10 @@ const animState = ref<'idle' | 'enter' | 'exit'>('idle')
  * @param share - 是否显示分享按钮
  * @param copy - 是否显示复制按钮
  * @param closeText - 是否显示关闭按钮
+ * @param badge - 徽标文本（为空不显示）
+ * @param raw - 原始文本（用于复制，不含"来自 xxx:"前缀）
  */
-const setMsg = (data: string, translate = false, openLink = false, jsonTool = false, type: 'default' | 'success' | 'error' | 'warning' = 'default', persistent = false, share = false, copy = false, closeText = false) => {
+const setMsg = (data: string, translate = false, openLink = false, jsonTool = false, type: 'default' | 'success' | 'error' | 'warning' = 'default', persistent = false, share = false, copy = false, closeText = false, badge = '', raw = '') => {
   msg.value = data
   showTranslate.value = translate
   showOpenLink.value = openLink
@@ -112,6 +120,8 @@ const setMsg = (data: string, translate = false, openLink = false, jsonTool = fa
   showCloseText.value = closeText
   noticeType.value = type
   isPersistent.value = persistent
+  badgeText.value = badge
+  rawData.value = raw
 }
 
 /**
@@ -149,9 +159,10 @@ const onShare = () => {
 /**
  * 复制按钮点击（接收端文本通知）
  * 向主进程发送复制请求，主进程会将文本写入系统剪贴板
+ * 使用 rawData（原始文本）而非 msg（含"来自 xxx:"前缀）
  */
 const onCopy = () => {
-  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:copyReceivedText', msg.value)
+  window.electron.ipcRenderer.send('to-main-NoticeNewFrame:copyReceivedText', rawData.value || msg.value)
 }
 
 /**
@@ -183,8 +194,8 @@ onMounted(() => {
   // 监听主进程发送的消息内容
   window.electron.ipcRenderer.on(
     'to-renderer-NoticeNewFrame:sendMsg',
-    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean, type: 'default' | 'success' | 'error' | 'warning', persistent: boolean, share = false, copy = false, closeText = false) => {
-      setMsg(data, translate, openLink, jsonTool, type, persistent, share, copy, closeText)
+    (_e, data: string, translate: boolean, openLink: boolean, jsonTool: boolean, type: 'default' | 'success' | 'error' | 'warning', persistent: boolean, share = false, copy = false, closeText = false, badge = '', raw = '') => {
+      setMsg(data, translate, openLink, jsonTool, type, persistent, share, copy, closeText, badge, raw)
       // 收到消息后触发入场滑入动画（此时渲染进程已就绪，保证动画不会丢失）
       animState.value = 'enter'
     }
@@ -317,20 +328,29 @@ onUnmounted(() => {
   gap: 0;
 }
 
-/* Claude 标识容器 */
-.claude-badge {
+/* 通知徽标容器 */
+.notice-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
   border-radius: 12px;
   padding: 2px 10px;
   margin-right: 10px;
   flex-shrink: 0;
 }
 
-/* Claude 标识文本 */
-.claude-icon {
+/* Claude 徽标（橙色） */
+.badge-claude {
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+}
+
+/* 文本分享徽标（蓝紫色） */
+.badge-msg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 徽标文本 */
+.badge-inner {
   font-size: 11px;
   font-weight: 700;
   color: white;

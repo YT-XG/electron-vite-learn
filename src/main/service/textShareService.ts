@@ -158,7 +158,14 @@ class TextShareService {
         () => {
           log.info('[TextShare] 创建 NoticeNewFrame 窗口')
           const frame = new NoticeNewFrame()
-          frame.setMsg({ data: displayText, isPersistent: true, showCopy: true, showCloseText: true })
+          frame.setMsg({
+            data: displayText,
+            isPersistent: true,
+            showCopy: true,
+            showCloseText: true,
+            badgeText: '收到',
+            rawData: info.text
+          })
           return frame.create()
         },
         { type: 'notice', width: 520, height: 80 },

@@ -23,6 +23,10 @@ export interface SetMsgOptions {
   showCopy?: boolean
   /** 是否显示关闭按钮（接收端文本通知），默认 false */
   showCloseText?: boolean
+  /** 徽标文本（为空则不显示徽标，如 'Claude'、'收到'） */
+  badgeText?: string
+  /** 原始文本（用于复制，不含"来自 xxx:"前缀） */
+  rawData?: string
 }
 
 /**
@@ -67,6 +71,12 @@ export default class NoticeNewFrame extends BaseFrame {
 
   /** 是否显示关闭按钮（接收端文本通知） */
   #showCloseText = false
+
+  /** 徽标文本（为空则不显示） */
+  #badgeText = ''
+
+  /** 原始文本（用于复制） */
+  #rawData = ''
 
   /** 消息是否已发送给渲染进程（避免重复发送） */
   #msgSent = false
@@ -142,6 +152,8 @@ export default class NoticeNewFrame extends BaseFrame {
     this.#showShare = options.showShare ?? false
     this.#showCopy = options.showCopy ?? false
     this.#showCloseText = options.showCloseText ?? false
+    this.#badgeText = options.badgeText ?? ''
+    this.#rawData = options.rawData ?? ''
     // 自动检测链接并设置显示打开链接按钮
     this.#showOpenLink = NoticeNewFrame.#containsUrl(options.data)
     // 自动检测 JSON 格式并设置显示 JSON 工具按钮
@@ -192,7 +204,9 @@ export default class NoticeNewFrame extends BaseFrame {
         this.#isPersistent,
         this.#showShare,
         this.#showCopy,
-        this.#showCloseText
+        this.#showCloseText,
+        this.#badgeText,
+        this.#rawData
       )
     })
 
