@@ -80,7 +80,8 @@ electron-vite-learn/
 │           │   ├── Settings.vue # 设置页面
 │           │   ├── Test.vue   # 测试页面
 │           │   └── tools/      # 工具页面
-│           │       └── Toolbox.vue  # 工具箱页面
+│           │       ├── Toolbox.vue  # 工具箱页面
+│           │       └── JsonTreeView.vue # JSON 树形视图组件（可折叠/展开、搜索高亮）
 │           ├── components/     # 可复用组件
 │           │   └── EmptyState.vue    # 统一空状态组件
 │           ├── composables/    # 组合式函数
