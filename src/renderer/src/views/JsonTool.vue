@@ -98,16 +98,41 @@
         </svg>
         复制
       </button>
+      <div class="toolbar-separator"></div>
+      <button class="tool-btn" @click="copyResult" title="复制结果 (Ctrl+Shift+C)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        复制
+      </button>
     </div>
 
-    <!-- 编辑区 -->
+    <!-- 编辑区：左半边文本 + 右半边树形 -->
     <div class="editor-area">
-      <textarea
-        v-model="inputText"
-        class="editor-input"
-        placeholder="在此粘贴或输入 JSON 内容...（支持拖拽文件导入）"
-        spellcheck="false"
-      ></textarea>
+      <div class="editor-half">
+        <div class="panel-header">文本编辑</div>
+        <textarea
+          ref="editorTextareaRef"
+          v-model="inputText"
+          class="editor-input"
+          placeholder="在此粘贴或输入 JSON 内容...（支持拖拽文件导入）"
+          spellcheck="false"
+        ></textarea>
+      </div>
+      <div class="editor-divider"></div>
+      <div class="tree-half">
+        <div class="panel-header">结构视图</div>
+        <JsonTreeView
+          v-if="parsedJson !== null"
+          :json-data="parsedJson"
+          @node-click="onTreeNodeClick"
+          @value-change="onTreeValueChange"
+        />
+        <div v-else class="tree-error">
+          <EmptyState icon="tool" text="JSON 格式错误" hint="请在左侧输入有效的 JSON" />
+        </div>
+      </div>
     </div>
 
     <!-- 拖拽遮罩层 -->
@@ -125,10 +150,166 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import JsonTreeView from './tools/JsonTreeView.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const inputText = ref('')
 const isDragOver = ref(false)
+
+/** 解析后的 JSON 对象（用于树形视图，防抖更新） */
+const parsedJson = ref<unknown | null>(null)
+
+/** 防抖定时器 */
+let parseTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * 尝试解析 JSON 并更新树形视图（防抖 500ms）
+ */
+const tryParseJson = (): void => {
+  if (parseTimer) clearTimeout(parseTimer)
+  parseTimer = setTimeout(() => {
+    try {
+      parsedJson.value = JSON.parse(inputText.value)
+    } catch {
+      parsedJson.value = null
+    }
+  }, 500)
+}
+
+// 监听文本变化，自动解析 JSON 更新树形视图
+watch(inputText, () => {
+  tryParseJson()
+})
+
+/** textarea 元素引用 */
+const editorTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+/**
+ * 树形视图节点点击事件处理
+ * 找到节点在文本编辑器中的对应位置并跳转
+ */
+const onTreeNodeClick = (path: string, displayKey: string, depth: number): void => {
+  const ta = editorTextareaRef.value
+  if (!ta || !displayKey || displayKey === 'root') return
+
+  const indent = depth * 2
+  const prefix = ' '.repeat(indent)
+  const text = ta.value
+
+  // 查找所有该键名在该缩进级别的出现位置
+  const keyRegex = new RegExp(`^${prefix}"${escapeRegex(displayKey)}":`, 'gm')
+  const rawMatches = [...text.matchAll(keyRegex)]
+
+  if (rawMatches.length === 0) return
+
+  let targetMatch = rawMatches[0]
+
+  if (rawMatches.length > 1) {
+    // 多个匹配（如数组元素的同名字段），使用 path 中的数组索引定位
+    const pathParts = path.split('.')
+    // 提取 path 中第一个数字作为数组索引
+    let arrayIndex = -1
+    for (const part of pathParts) {
+      if (/^\d+$/.test(part)) {
+        arrayIndex = parseInt(part, 10)
+        break
+      }
+    }
+
+    if (arrayIndex >= 0) {
+      // 通过统计父级缩进处的 { 数量来确定每个匹配所属的元素序号
+      const parentIndent = ' '.repeat((depth - 1) * 2)
+      const braceRegex = new RegExp(`^${parentIndent}\\{`, 'gm')
+
+      let found = false
+      for (const m of rawMatches) {
+        const beforeText = text.substring(0, m.index!)
+        const bracesBefore = [...beforeText.matchAll(braceRegex)].length
+        // 第一个 { 对应索引 0，第二个对应索引 1 ...
+        if (bracesBefore - 1 === arrayIndex) {
+          targetMatch = m
+          found = true
+          break
+        }
+      }
+      if (!found) {
+        targetMatch = rawMatches[0]
+      }
+    } else {
+      targetMatch = rawMatches[0]
+    }
+  }
+
+  const match = targetMatch
+  // 计算选中区域的起始位置（行首）
+  const lineStart = text.lastIndexOf('\n', match.index!) + 1
+  const lineNum = text.substring(0, match.index!).split('\n').length
+
+  // 跳转并选中
+  ta.focus()
+  ta.selectionStart = lineStart
+  ta.selectionEnd = match.index! + match[0].length
+  // 滚动到该行附近
+  const totalLines = text.split('\n').length
+  ta.scrollTop = Math.max(0, ((lineNum - 3) / totalLines) * ta.scrollHeight)
+}
+
+/**
+ * 树形视图值变更事件处理
+ * 根据 path 修改 parsedJson 中对应位置的值，然后序列化回文本编辑器
+ */
+const onTreeValueChange = (path: string, newValue: string, valueType: 'string' | 'number' | 'boolean' | 'null'): void => {
+  if (!parsedJson.value) return
+
+  // 复制一份原始数据
+  const data = JSON.parse(JSON.stringify(parsedJson.value))
+
+  // 解析路径，如 $.users.0.name → ['users', '0', 'name']
+  const parts = path.split('.').slice(1) // 去掉开头的 $
+
+  // 遍历到目标节点的父节点
+  let current: unknown = data
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i]
+    if (Array.isArray(current)) {
+      current = current[parseInt(key, 10)]
+    } else if (current && typeof current === 'object') {
+      current = (current as Record<string, unknown>)[key]
+    }
+  }
+
+  // 最后一个 key 是目标键名
+  const lastKey = parts[parts.length - 1]
+
+  // 按类型转换新值
+  let typedValue: unknown = newValue
+  if (valueType === 'number') {
+    typedValue = Number(newValue)
+  } else if (valueType === 'boolean') {
+    typedValue = newValue === 'true'
+  } else if (valueType === 'null') {
+    typedValue = null
+  }
+
+  // 修改值
+  if (Array.isArray(current)) {
+    current[parseInt(lastKey, 10)] = typedValue
+  } else if (current && typeof current === 'object') {
+    ;(current as Record<string, unknown>)[lastKey] = typedValue
+  }
+
+  // 更新 parsedJson 和文本编辑器
+  parsedJson.value = data
+  inputText.value = JSON.stringify(data, null, 2)
+}
+
+/**
+ * 转义正则特殊字符
+ */
+const escapeRegex = (str: string): string => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 /**
  * 最小化窗口
@@ -195,6 +376,8 @@ const formatJson = (): void => {
   try {
     const parsed = JSON.parse(inputText.value)
     inputText.value = JSON.stringify(parsed, null, 2)
+    // 格式化后立即更新树形视图
+    parsedJson.value = parsed
   } catch (e) {
     showNotice(`格式化失败: ${(e as Error).message}`, 3000, 'error')
   }
@@ -207,6 +390,8 @@ const compressJson = (): void => {
   try {
     const parsed = JSON.parse(inputText.value)
     inputText.value = JSON.stringify(parsed)
+    // 压缩后立即更新树形视图
+    parsedJson.value = parsed
   } catch (e) {
     showNotice(`压缩失败: ${(e as Error).message}`, 3000, 'error')
   }
@@ -330,7 +515,7 @@ const handleKeydown = (e: KeyboardEvent): void => {
     e.preventDefault()
     unescapeJson()
   }
-  // Ctrl+V (with Shift): 复制结果（注意：Ctrl+V 是粘贴，需要 Shift 区分）
+  // Ctrl+Shift+C: 复制结果
   else if (isCtrl && e.shiftKey && e.key === 'C') {
     e.preventDefault()
     copyResult()
@@ -495,14 +680,41 @@ onUnmounted(() => {
   margin: 0 4px;
 }
 
-/* 编辑区 */
+/* 编辑区 - 水平分栏布局 */
 .editor-area {
   flex: 1;
   display: flex;
+  flex-direction: row;
   overflow: hidden;
 }
 
-.editor-input {
+/* 左半：文本编辑器 */
+.editor-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 面板标题 */
+.panel-header {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.editor-half .editor-input {
   flex: 1;
   background: transparent;
   border: none;
@@ -518,6 +730,31 @@ onUnmounted(() => {
 
 .editor-input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* 分隔线 */
+.editor-divider {
+  width: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* 右半：树形视图 */
+.tree-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tree-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 0;
 }
 
 /* 拖拽状态 */
