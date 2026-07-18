@@ -766,6 +766,17 @@ class FileTransferService {
    */
   private handleTextShare(req: http.IncomingMessage, res: http.ServerResponse, clientIP: string): void {
     let body = ''
+
+    // 添加 req 错误处理，防止 unhandled error
+    const onError = (err: Error) => {
+      log.error('[FileTransfer] 文本分享请求流错误:', err.message)
+      if (!res.headersSent) {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'Request error' }))
+      }
+    }
+    req.on('error', onError)
+
     req.on('data', (chunk: Buffer) => {
       body += chunk.toString()
       // 防止恶意大文本
@@ -776,10 +787,13 @@ class FileTransferService {
       }
     })
     req.on('end', () => {
+      // 移除 error 监听避免重复
+      req.off('error', onError)
+
       try {
         const data = JSON.parse(body)
         if (!data.text || !data.senderName) {
-          log.warn('[FileTransfer] 文本分享: 请求格式无效')
+          log.warn('[FileTransfer] 文本分享: 请求格式无效, body前100字节:', body.slice(0, 100))
           res.writeHead(400)
           res.end(JSON.stringify({ error: 'Invalid request format' }))
           return
@@ -798,7 +812,7 @@ class FileTransferService {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ ok: true, receivedAt: Date.now() }))
       } catch (err: any) {
-        log.error('[FileTransfer] 文本分享 JSON 解析失败:', err.message)
+        log.error('[FileTransfer] 文本分享 JSON 解析失败, body前200字节:', body.slice(0, 200), 'body长度:', body.length, '解析错误:', err.message)
         res.writeHead(400)
         res.end(JSON.stringify({ error: 'Invalid JSON' }))
       }

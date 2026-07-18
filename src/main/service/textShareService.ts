@@ -244,8 +244,10 @@ class TextShareService {
   #doPost(target: DeviceInfo, path: string, body: unknown): Promise<any> {
     return new Promise((resolve, reject) => {
       const bodyStr = JSON.stringify(body)
+      // 统一处理 IPv6 地址加方括号（与 fileTransferService.doPost 一致）
+      const host = target.address.includes(':') ? `[${target.address}]` : target.address
       const req = http.request({
-        hostname: target.address,
+        hostname: host,
         port: target.port,
         path,
         method: 'POST',

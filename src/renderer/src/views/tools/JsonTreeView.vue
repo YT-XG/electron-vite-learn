@@ -560,24 +560,17 @@ onUnmounted(() => {
 /*
  * 树形视图颜色变量
  * 默认值适配浅色主题，:root.dark 下覆盖为深色值
+ * 键名/括号/分隔符/数字/布尔/null 统一使用 --text-primary（与文本编辑器一致）
+ * 字符串值保持绿色以便阅读
  */
 .json-tree-view {
-  /* 基础 */
-  --tv-key: #1e293b;
   --tv-string: #16a34a;
-  --tv-number: #2563eb;
-  --tv-boolean: #7c3aed;
   --tv-null: #64748b;
-  --tv-bracket: #475569;
-  --tv-sep: #64748b;
   --tv-arrow: #94a3b8;
-  --tv-summary: #64748b;
-  /* 高亮 */
   --tv-match-bg: rgba(234, 179, 8, 0.08);
   --tv-match-border: #ca8a04;
   --tv-current-bg: rgba(234, 179, 8, 0.15);
   --tv-current-border: #a16207;
-  /* 悬停 */
   --tv-hover-bg: rgba(0, 0, 0, 0.04);
   --tv-hover-bg-clickable: rgba(0, 0, 0, 0.06);
   /* 搜索高亮 */
@@ -587,17 +580,11 @@ onUnmounted(() => {
   --tv-current-highlight-color: #09090b;
 }
 
-/* 深色模式覆盖 */
+/* 深色模式覆盖（仅覆盖需变化的颜色） */
 :global(:root.dark) .json-tree-view {
-  --tv-key: #f8fafc;
   --tv-string: #4ade80;
-  --tv-number: #93c5fd;
-  --tv-boolean: #c084fc;
   --tv-null: #a1a1aa;
-  --tv-bracket: #d4d4d8;
-  --tv-sep: #a1a1aa;
   --tv-arrow: #64748b;
-  --tv-summary: #a1a1aa;
   --tv-match-bg: rgba(250, 204, 21, 0.07);
   --tv-match-border: #eab308;
   --tv-current-bg: rgba(250, 204, 21, 0.14);
@@ -913,27 +900,27 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* ── 键名 ── */
+/* ── 键名（与文本编辑器颜色一致） ── */
 .node-key {
-  color: var(--tv-key);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: 500;
   flex-shrink: 0;
 }
 
-/* ── 分隔符 ── */
+/* ── 分隔符（与文本编辑器颜色一致） ── */
 .node-sep {
-  color: var(--tv-sep);
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
-/* ── 括号 ── */
+/* ── 括号（与文本编辑器颜色一致） ── */
 .node-bracket {
-  color: var(--tv-bracket);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .node-summary {
-  color: var(--tv-summary);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-style: italic;
   margin-left: 4px;
@@ -950,11 +937,11 @@ onUnmounted(() => {
 }
 
 .node-number {
-  color: var(--tv-number);
+  color: var(--text-primary);
 }
 
 .node-boolean {
-  color: var(--tv-boolean);
+  color: var(--text-primary);
 }
 
 .node-null {
