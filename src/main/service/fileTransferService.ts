@@ -1852,6 +1852,9 @@ class FileTransferService {
           // 在线：更新状态
           dev.lastSeen = Date.now()
           if (info.port !== dev.port) dev.port = info.port
+          // 更新设备名和版本号
+          if (info.name && info.name !== dev.name) dev.name = info.name
+          if (info.version && info.version !== dev.version) dev.version = info.version
           dev.missCount = 0
           dev.offline = false
         } else {
@@ -1870,6 +1873,9 @@ class FileTransferService {
         if (info) {
           dev.lastSeen = Date.now()
           dev.missCount = 0
+          // 更新版本号
+          if (info.version && info.version !== dev.version) dev.version = info.version
+          if (info.name && info.name !== dev.name) dev.name = info.name
         } else {
           dev.missCount++
           if (dev.missCount >= OFFLINE_THRESHOLD) {
@@ -1923,6 +1929,13 @@ class FileTransferService {
           // 对方重启后文件传输端口可能变了，从探针响应中更新
           if (info.port !== dev.port) {
             dev.port = info.port
+          }
+          // 更新设备名和版本号（设备重启/更新后可能变化）
+          if (info.name && info.name !== dev.name) {
+            dev.name = info.name
+          }
+          if (info.version && info.version !== dev.version) {
+            dev.version = info.version
           }
           if (dev.missCount > 0 || dev.offline) {
             dev.missCount = 0
