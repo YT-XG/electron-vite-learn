@@ -4,12 +4,7 @@ import { existsSync, statSync, readFileSync, unlinkSync } from 'fs'
 import { basename, join } from 'path'
 import { arch, hostname, platform, release, totalmem, freemem } from 'os'
 import { windowFactory } from './frame'
-
-// macOS GPU 崩溃修复：提前禁用 GPU 加速，必须在 app ready 前设置
-if (process.platform === 'darwin') {
-  app.commandLine.appendSwitch('disable-gpu')
-  app.commandLine.appendSwitch('disable-gpu-compositing')
-}
+import { inputService } from './service/inputService'
 import QuickShareFrame from './frame/QuickShareFrame'
 import UpdateNewFrame from './frame/UpdateNewFrame'
 import { TrayService } from './service/trayService'
@@ -239,6 +234,8 @@ app.whenReady().then(async () => {
   trayService = new TrayService()
   // 初始化剪贴板历史服务（SQLite + IPC 注册 + 剪贴板监控）
   await clipboardService.init()
+  // 初始化模拟输入服务（@nut-tree/nut-js，需要 Accessibility 权限，放在错误处理器之后）
+  await inputService.init()
   // 初始化设置服务（加载配置文件 + 注册全局快捷键）
   settingsService.init()
   // 初始化翻译服务（SQLite + IPC 注册）

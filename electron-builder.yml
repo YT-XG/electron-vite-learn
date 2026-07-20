@@ -12,6 +12,7 @@ files:
 asarUnpack:
   - resources/**
   - node_modules/@nut-tree/**
+  - node_modules/sql.js/**
 win:
   executableName: prism
 nsis:
@@ -20,7 +21,9 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  hardenedRuntime: true
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.

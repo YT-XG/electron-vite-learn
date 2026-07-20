@@ -21,13 +21,36 @@ import { execSync } from 'child_process'
 import log from 'electron-log'
 
 class InputService {
+  /** 是否已初始化 */
+  #initialized = false
+
   /** 跨平台修饰键：macOS 用 Command，其他平台用 Ctrl */
-  private MODIFIER_KEY: Key
+  private MODIFIER_KEY: Key = Key.LeftControl
 
   constructor() {
-    this.MODIFIER_KEY = platform() === 'darwin' ? Key.LeftSuper : Key.LeftControl
-    keyboard.config.autoDelayMs = 100
-    this.#registerIPC()
+    // 构造函数不做任何可能崩溃的操作（如加载 @nut-tree/nut-js 原生模块）
+    // 实际初始化放到 init() 方法中，由 app.whenReady 统一调度
+  }
+
+  /**
+   * 初始化服务
+   * @description 延迟初始化 @nut-tree/nut-js 原生模块，确保在 app.whenReady 内执行
+   *              这样如果在 macOS 上因为 Accessibility 权限或架构不匹配导致崩溃，
+   *              也能被 uncaughtException 处理器捕获
+   */
+  async init(): Promise<void> {
+    if (this.#initialized) return
+    this.#initialized = true
+
+    try {
+      this.MODIFIER_KEY = platform() === 'darwin' ? Key.LeftSuper : Key.LeftControl
+      keyboard.config.autoDelayMs = 100
+      this.#registerIPC()
+      log.info('[InputService] 初始化完成')
+    } catch (err) {
+      log.error('[InputService] 初始化失败（nut-js 原生模块可能不兼容）:', err)
+      // 不抛出异常，让应用在其他功能正常的情况下继续运行
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
